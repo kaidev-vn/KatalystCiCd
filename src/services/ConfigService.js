@@ -24,6 +24,13 @@ class ConfigService {
       branch: 'main',
       deployScriptPath: '',
       buildMethod: 'dockerfile',
+      // Lựa chọn cho deploy.sh (hỗ trợ nhiều lựa chọn)
+      deployChoice: 0, // giữ để tương thích ngược
+      deployChoices: [],
+      // Chọn nguồn context khi chạy deploy.sh tự động
+      // repo: dùng repoPath; config: dùng docker.contextPath; custom: dùng deployContextCustomPath
+      deployContextSource: 'repo',
+      deployContextCustomPath: '',
       lastBuiltCommit: '',
       autoCheck: false,
       docker: {
@@ -59,6 +66,14 @@ class ConfigService {
     cfg.deployScriptPath = String(cfg.deployScriptPath || '');
     const bm = String(cfg.buildMethod || 'dockerfile').toLowerCase();
     cfg.buildMethod = ['dockerfile', 'deploy_sh'].includes(bm) ? bm : 'dockerfile';
+    cfg.deployChoice = Number(cfg.deployChoice || 0);
+    // Chuẩn hóa deployChoices (mảng số nguyên duy nhất > 0)
+    const arr = Array.isArray(cfg.deployChoices) ? cfg.deployChoices : [];
+    const set = new Set((arr || []).map(n => Number(n)).filter(n => Number.isInteger(n) && n > 0));
+    cfg.deployChoices = Array.from(set);
+    const dcs = String(cfg.deployContextSource || 'repo').toLowerCase();
+    cfg.deployContextSource = ['repo', 'config', 'custom'].includes(dcs) ? dcs : 'repo';
+    cfg.deployContextCustomPath = String(cfg.deployContextCustomPath || '');
     cfg.lastBuiltCommit = String(cfg.lastBuiltCommit || '');
     cfg.autoCheck = Boolean(cfg.autoCheck);
     cfg.docker = {

@@ -14,6 +14,36 @@ function toPosix(p) {
 }
 
 function registerDeployController(app, { logger, configService }) {
+  // Liệt kê các lựa chọn (CHOICE) dựa theo nội dung deploy.sh
+  app.get('/api/deploy/choices', (req, res) => {
+    try {
+      const pathLib = require('path');
+      const fs = require('fs');
+      const projectRoot = pathLib.join(__dirname, '../../');
+      const cfg = (typeof configService?.getConfig === 'function') ? configService.getConfig() : {};
+      let deployPathCandidate = (req.query?.deployScriptPath) || cfg.deployScriptPath || pathLib.join(projectRoot, 'deploy.sh');
+      if (!pathLib.isAbsolute(deployPathCandidate)) deployPathCandidate = pathLib.join(projectRoot, deployPathCandidate);
+      if (!fs.existsSync(deployPathCandidate)) {
+        return res.status(404).json({ ok: false, error: 'deploy.sh not found', path: deployPathCandidate });
+      }
+      const content = fs.readFileSync(deployPathCandidate, 'utf8');
+      const lines = String(content).split(/\r?\n/);
+      const choices = [];
+      const regex = /^\s*echo\s+["']\s*(\d+)\.\s*(.+?)["']\s*$/;
+      for (const ln of lines) {
+        const m = ln.match(regex);
+        if (m) {
+          const value = Number(m[1]);
+          const label = m[2].trim();
+          choices.push({ value, label });
+        }
+      }
+      return res.json({ ok: true, choices });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
   // Chạy deploy.sh với tham số truyền vào từ frontend
   app.post('/api/deploy/run', async (req, res) => {
     const {
@@ -65,7 +95,9 @@ function registerDeployController(app, { logger, configService }) {
 
     // Lưu ý: cần bash/sh có sẵn trên hệ thống (Git Bash/WSL). Nếu không có, lệnh sẽ fail.
     const posixDeployPath = toPosix(deployPath);
-    const { error, stdout, stderr } = await run(`bash "${posixDeployPath}"`, logger, { cwd: projectRoot, env });
+    // CWD: chạy tại thư mục chứa script để tương thích với các script sử dụng đường dẫn tương đối
+    const scriptDir = path.dirname(deployPath);
+    const { error, stdout, stderr } = await run(`bash "${posixDeployPath}"`, logger, { cwd: scriptDir, env });
 
     if (error) {
       logger?.send(`[DEPLOY][ERROR] ${error.message}`);

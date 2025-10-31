@@ -1,4 +1,5 @@
 function $(id) { return document.getElementById(id); }
+let CURRENT_CFG = null;
 
 // Theme toggle
 function applyTheme(theme) {
@@ -21,6 +22,7 @@ function initTheme() {
 async function loadConfig() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
+  CURRENT_CFG = cfg;
   $('provider').value = cfg.provider || 'gitlab';
   $('polling').value = cfg.polling || 30;
   $('account').value = cfg.account || '';
@@ -30,6 +32,23 @@ async function loadConfig() {
   $('branch').value = cfg.branch || 'main';
   $('deployScriptPath').value = cfg.deployScriptPath || '';
   $('buildMethod').value = (cfg.buildMethod || 'dockerfile');
+  // Thiết lập các choice (multi-select) cho deploy.sh tự động
+  (function(){
+    const sel = $('deployChoicesMulti');
+    if (sel) {
+      const selected = Array.isArray(cfg.deployChoices) ? cfg.deployChoices.map(n => String(n)) : [];
+      // chọn các option tương ứng nếu đã có list
+      for (const opt of Array.from(sel.options)) {
+        opt.selected = selected.includes(String(opt.value));
+      }
+      sel.dataset.pendingValues = JSON.stringify(selected);
+    }
+  })();
+  // Nguồn Context cho deploy.sh
+  const srcSel = $('deployContextSource');
+  if (srcSel) srcSel.value = String(cfg.deployContextSource || 'repo');
+  const customCtxInput = $('deployContextCustomPath');
+  if (customCtxInput) customCtxInput.value = String(cfg.deployContextCustomPath || '');
   $('autoCheck').checked = !!cfg.autoCheck;
   // docker
   const d = cfg.docker || {};
@@ -50,6 +69,53 @@ async function loadConfig() {
   const short = lb ? lb.slice(0, 10) : '(chưa có)';
   const el = $('lastBuiltCommit');
   if (el) el.textContent = short;
+  // Cập nhật hiển thị Context hiệu lực cho deploy.sh
+  updateEffectiveContextInfo();
+}
+
+// Tải danh sách CHOICE từ deploy.sh và populate vào các select
+function populateDeployChoices(choices) {
+  const multiSel = $('deployChoicesMulti');
+  const opts = Array.isArray(choices) ? choices : [];
+  const buildOptions = (sel) => {
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (!opts.length) {
+      const op = document.createElement('option'); op.value = ''; op.textContent = '(Không tìm thấy lựa chọn trong deploy.sh)'; op.disabled = true; op.selected = true; sel.appendChild(op);
+      return;
+    }
+    for (const c of opts) {
+      const op = document.createElement('option');
+      op.value = String(c.value);
+      op.textContent = `${c.value}) ${c.label}`;
+      sel.appendChild(op);
+    }
+  };
+  buildOptions(multiSel);
+  // Áp dụng các giá trị đã lưu (nếu đã có pendingValues)
+  if (multiSel && multiSel.dataset && multiSel.dataset.pendingValues) {
+    try {
+      const arr = JSON.parse(multiSel.dataset.pendingValues || '[]');
+      for (const opt of Array.from(multiSel.options)) {
+        opt.selected = arr.includes(String(opt.value));
+      }
+    } catch(_) {}
+    delete multiSel.dataset.pendingValues;
+  }
+}
+
+async function loadDeployChoices(pathOverride) {
+  try {
+    const dsp = typeof pathOverride === 'string' && pathOverride.trim() ? pathOverride.trim() : (($('deployScriptPath').value || '').trim());
+    let url = '/api/deploy/choices';
+    if (dsp) url += `?deployScriptPath=${encodeURIComponent(dsp)}`;
+    const res = await fetch(url);
+    if (!res.ok) { populateDeployChoices([]); return; }
+    const data = await res.json();
+    populateDeployChoices(data.choices || []);
+  } catch (_) {
+    populateDeployChoices([]);
+  }
 }
 
 async function saveConfig() {
@@ -63,6 +129,12 @@ async function saveConfig() {
     branch: $('branch').value || 'main',
     deployScriptPath: $('deployScriptPath').value,
     buildMethod: $('buildMethod').value || 'dockerfile',
+    // Lấy danh sách choice đã chọn từ multi-select
+    deployChoices: Array.from(($('deployChoicesMulti')?.selectedOptions || [])).map(op => Number(op.value)).filter(n => Number.isInteger(n) && n > 0),
+    // giữ deployChoice cho tương thích ngược (lấy phần tử đầu tiên nếu có)
+    deployChoice: (function(){ const arr = Array.from(($('deployChoicesMulti')?.selectedOptions || [])).map(op => Number(op.value)).filter(n => Number.isInteger(n) && n > 0); return arr[0] || 0; })(),
+    deployContextSource: ($('deployContextSource').value || 'repo'),
+    deployContextCustomPath: ($('deployContextCustomPath').value || ''),
     autoCheck: $('autoCheck').checked,
     docker: {
       dockerfilePath: $('dockerfilePath').value,
@@ -86,6 +158,19 @@ async function saveConfig() {
   const data = await res.json();
   $('cfgStatus').textContent = data.ok ? 'Đã lưu cấu hình!' : 'Lưu thất bại';
   setTimeout(() => $('cfgStatus').textContent = '', 2000);
+}
+
+function updateEffectiveContextInfo() {
+  try {
+    const cfg = CURRENT_CFG || {};
+    const d = cfg.docker || {};
+    const src = ($('deployContextSource')?.value || String(cfg.deployContextSource || 'repo'));
+    let effectiveContext = cfg.repoPath || '';
+    if (src === 'config') effectiveContext = d.contextPath || cfg.repoPath || '';
+    else if (src === 'custom') effectiveContext = ($('deployContextCustomPath')?.value || cfg.deployContextCustomPath || '') || d.contextPath || cfg.repoPath || '';
+    const ecEl = $('effectiveContextInfo');
+    if (ecEl) ecEl.textContent = effectiveContext || '(chưa có)';
+  } catch (_) {}
 }
 
 async function saveDockerConfig() {
@@ -287,7 +372,7 @@ async function addBuild() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  loadConfig();
+  loadDeployChoices().then(() => loadConfig()).catch(() => loadConfig());
   loadBuilds();
   loadVersions();
   $('saveCfg').onclick = saveConfig;
@@ -299,13 +384,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const lines = Array.from($('logs').children).map(n => n.textContent).join('\n');
     try { await navigator.clipboard.writeText(lines); appendLog('[UI] Đã sao chép log vào clipboard'); } catch {}
   };
+  const dspi = $('deployScriptPath');
+  if (dspi) dspi.addEventListener('change', () => { loadDeployChoices(); });
+  const loadDefaultBtn = $('loadChoicesDefaultBtn');
+  if (loadDefaultBtn) loadDefaultBtn.onclick = () => {
+    const p = ($('deployScriptPath').value || '').trim();
+    appendLog('[UI] Tải danh sách lựa chọn từ deploy.sh (cấu hình mặc định)...');
+    loadDeployChoices(p);
+  };
   $('saveDockerCfg').onclick = saveDockerConfig;
   $('runDockerBuild').onclick = runDockerBuild;
   $('runSwarmDeploy').onclick = runSwarmDeploy;
   $('checkPullBuild').onclick = runCheckPullBuild;
-  // Deploy (deploy.sh)
-  const runBtn = $('runDeployScript');
-  if (runBtn) runBtn.onclick = runDeploy;
+  // Cập nhật Context hiệu lực khi người dùng thay đổi nguồn/context tùy chọn
+  updateEffectiveContextInfo();
+  const srcSel = $('deployContextSource');
+  const customCtxInput = $('deployContextCustomPath');
+  if (srcSel) srcSel.addEventListener('change', updateEffectiveContextInfo);
+  if (customCtxInput) customCtxInput.addEventListener('input', updateEffectiveContextInfo);
   // Modal events
   $('editCancel').onclick = hideModal;
   $('editCancelTop').onclick = hideModal;
@@ -368,29 +464,4 @@ async function saveEditedBuild() {
   await loadBuilds();
 }
 
-// Deploy (deploy.sh)
-async function runDeploy() {
-  const payload = {
-    choice: Number(($('deployChoice').value || '').trim() || 0) || undefined,
-    imageTag: ($('deployImageTag').value || '').trim() || undefined,
-    push: $('deployPush').checked,
-    continueBuild: $('deployContinue').checked,
-    dockerfilePath: ($('deployDockerfilePath').value || '').trim() || undefined,
-    contextPath: ($('deployContextPath').value || '').trim() || undefined,
-    repoPath: ($('deployRepoPath').value || '').trim() || undefined,
-    configJsonPath: ($('deployConfigJsonPath').value || '').trim() || undefined,
-  };
-  const dsp = ($('deployScriptPathOverride').value || '').trim();
-  if (dsp) payload.deployScriptPath = dsp;
-  appendLog(`[UI] Chạy deploy.sh (choice=${payload.choice ?? 'N/A'}, tag=${payload.imageTag ?? 'N/A'})...`);
-  const res = await fetch('/api/deploy/run', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    appendLog('[UI][ERROR] Không thể chạy deploy.sh');
-    try { const err = await res.json(); appendLog(`[UI][ERROR] ${err.error || ''}`); } catch {}
-  } else {
-    appendLog('[UI] Deploy đã được gửi. Theo dõi log ở panel bên trên.');
-  }
-}
+// Phần chạy deploy.sh thủ công đã được loại bỏ theo yêu cầu. Giữ lại API tải choice.

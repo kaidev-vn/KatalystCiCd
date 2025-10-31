@@ -24,7 +24,6 @@
       <a href="#logs">Logs</a>
       <a href="#builds">Builds</a>
       <a href="#docker">Docker & Swarm</a>
-      <a href="#deploy">Deploy (deploy.sh)</a>
       <a href="#versions">Lịch sử</a>
     </nav>
 
@@ -71,7 +70,10 @@
           </div>
           <div>
             <label for="deployScriptPath">Deploy Script Path (mặc định)</label>
-            <input id="deployScriptPath" type="text" placeholder="vd: D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
+            <div class="input-with-button">
+              <input id="deployScriptPath" type="text" placeholder="vd: D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
+              <button id="loadChoicesDefaultBtn" class="btn small outline" type="button" title="Tải lựa chọn từ deploy.sh">Tải lựa chọn</button>
+            </div>
           </div>
           <div>
             <label for="buildMethod">Phương thức build</label>
@@ -81,11 +83,36 @@
             </select>
           </div>
           <div>
+            <label for="deployChoicesMulti">Choice để build (.sh) - chọn nhiều</label>
+            <select id="deployChoicesMulti" multiple size="6"></select>
+            <p class="muted" style="margin-top:6px">Tải danh sách choice từ file .sh, sau đó chọn một hoặc nhiều choice để hệ thống build tự động bằng script.</p>
+          </div>
+          <div>
             <label for="autoCheck">Tự động Check + Pull + Build</label>
             <div class="check-inline">
               <input id="autoCheck" class="switch" type="checkbox" aria-label="Bật tự động check" />
               <span class="muted">Chạy nền theo chu kỳ polling</span>
             </div>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="deployContextSource">Nguồn Context (build .sh)</label>
+            <select id="deployContextSource">
+              <option value="repo">Repo Path</option>
+              <option value="config">Docker Config - Context Path</option>
+              <option value="custom">Tùy chọn</option>
+            </select>
+            <p class="muted" style="margin-top:6px">Chọn nơi lấy Context Path khi chạy deploy.sh tự động.</p>
+          </div>
+          <div>
+            <label for="deployContextCustomPath">Context Path (tùy chọn)</label>
+            <input id="deployContextCustomPath" type="text" placeholder="Chỉ dùng khi chọn 'Tùy chọn'" />
+            <p class="muted" style="margin-top:6px">Nếu chọn "Tùy chọn", hệ thống sẽ dùng đường dẫn này làm CONTEXT_PATH.</p>
+          </div>
+          <div>
+            <label>Context Path đang dùng</label>
+            <div class="info-box" id="effectiveContextInfo">(chưa có)</div>
           </div>
         </div>
         <div class="actions">
@@ -207,74 +234,7 @@
         </div>
       </section>
 
-      <section class="card full" id="deploy">
-        <h2>5) Deploy (deploy.sh)</h2>
-        <div class="row">
-          <div>
-            <label for="deployChoice">Chọn service</label>
-            <select id="deployChoice">
-              <option value="1">1) admin-schedule-service (8009)</option>
-              <option value="2">2) admin-service (8088)</option>
-              <option value="3">3) aloline-service (8082)</option>
-              <option value="4">4) oauth-service (8888)</option>
-              <option value="5">5) order-service-process-one (8197)</option>
-              <option value="6">6) order-service-process-three (8097)</option>
-              <option value="7">7) schedule-service (8008)</option>
-              <option value="8">8) supplier-service (8087)</option>
-              <option value="9">9) seemt-service (8093)</option>
-              <option value="10">10) kafka-restaurant-schedule-service (8100)</option>
-              <option value="11">11) kafka-techres-admin-schedule-service (8101)</option>
-              <option value="12">12) restaurant-dashboard-service (8011)</option>
-              <option value="13">13) springdoc-service (8099)</option>
-            </select>
-          </div>
-          <div>
-            <label for="deployImageTag">Image Tag</label>
-            <input id="deployImageTag" type="text" placeholder="vd: 1.0.77-DAIHY-BETA" />
-            <p class="muted" style="margin-top:6px">Gợi ý: bật autoTagIncrement trong Docker Config để tự tăng phần số của tag.</p>
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="deployScriptPathOverride">Override deploy.sh Path</label>
-            <input id="deployScriptPathOverride" type="text" placeholder="(tùy chọn) ví dụ D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
-          </div>
-          <div></div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="deployDockerfilePath">Override Dockerfile Path</label>
-            <input id="deployDockerfilePath" type="text" placeholder="(tùy chọn)" />
-          </div>
-          <div>
-            <label for="deployContextPath">Override Context Path</label>
-            <input id="deployContextPath" type="text" placeholder="(tùy chọn)" />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="deployRepoPath">Override Repo Path</label>
-            <input id="deployRepoPath" type="text" placeholder="(tùy chọn)" />
-          </div>
-          <div>
-            <label for="deployConfigJsonPath">Override config.json Path</label>
-            <input id="deployConfigJsonPath" type="text" placeholder="(tùy chọn)" />
-          </div>
-        </div>
-        <div class="row">
-          <div class="check-inline">
-            <input id="deployContinue" class="switch" type="checkbox" checked aria-label="Tiếp tục build" />
-            <span>Tiếp tục build (CONTINUE_BUILD = y)</span>
-          </div>
-          <div class="check-inline">
-            <input id="deployPush" class="switch" type="checkbox" aria-label="Push image sau khi build" />
-            <span>Push image sau khi build (PUSH_IMAGE = y)</span>
-          </div>
-        </div>
-        <div class="actions">
-          <button id="runDeployScript" class="btn">Chạy deploy.sh</button>
-        </div>
-      </section>
+      
 
       <section class="card full" id="versions">
         <h2>6) Lịch sử cấu hình</h2>

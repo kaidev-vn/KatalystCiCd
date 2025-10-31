@@ -112,29 +112,54 @@ class GitService {
         if (/^[A-Za-z]:\//.test(s)) { const drive = s[0].toLowerCase(); s = `/${drive}${s.slice(2)}`; }
         return s;
       };
-      const env = {
-        CONTINUE_BUILD: 'y',
-        PUSH_IMAGE: dockerCfg.registryUrl ? 'y' : 'n',
-      };
-      if (dockerCfg.imageTag) env.DOCKER_IMAGE_TAG = dockerCfg.imageTag;
-      if (dockerCfg.dockerfilePath) env.DOCKERFILE_PATH = toPosix(dockerCfg.dockerfilePath);
-      const cpath = dockerCfg.contextPath || repoPath;
-      if (cpath) env.CONTEXT_PATH = toPosix(cpath);
-      if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
-      env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
+      // Xác định danh sách CHOICE cần build (cho phép nhiều lựa chọn)
+      const choicesArr = (() => {
+        const arr = Array.isArray(cfg.deployChoices) ? cfg.deployChoices : [];
+        const clean = (arr || []).map(n => Number(n)).filter(n => Number.isInteger(n) && n > 0);
+        if (clean.length) return clean;
+        const one = Number(cfg.deployChoice || 0);
+        return one > 0 ? [one] : [];
+      })();
+      if (!choicesArr.length) {
+        this.logger?.send('[DEPLOY][WARN] Không có CHOICE nào được cấu hình. Script có thể yêu cầu CHOICE.');
+      }
+
+      // Xác định nguồn Context để build theo yêu cầu người dùng
+      let effectiveContext = repoPath;
+      const src = String(cfg.deployContextSource || 'repo');
+      if (src === 'config') {
+        effectiveContext = dockerCfg.contextPath || repoPath;
+      } else if (src === 'custom') {
+        effectiveContext = cfg.deployContextCustomPath || dockerCfg.contextPath || repoPath;
+      }
       const posixPath = toPosix(deployPathCandidate);
-      this.logger?.send(`[DEPLOY] Chạy deploy.sh qua check-and-build: ${posixPath}`);
-      const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });
-      if (r.error) {
-        this.logger?.send(`[DEPLOY][ERROR] ${r.error.message}`);
-        if (r.stderr) this.logger?.send(`[DEPLOY][STDERR] ${String(r.stderr).trim()}`);
-        try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: true }); } catch (_) {}
-        result.hadError = true;
-      } else {
-        if (r.stdout) this.logger?.send(`[DEPLOY][STDOUT] ${String(r.stdout).trim()}`);
-        this.logger?.send('[DEPLOY] Hoàn tất deploy.sh (check-and-build)');
-        try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: false }); } catch (_) {}
-        result.hadError = false;
+
+      // Chạy tuần tự cho từng CHOICE (nếu có)
+      for (const ch of (choicesArr.length ? choicesArr : [undefined])) {
+        const env = {
+          CONTINUE_BUILD: 'y',
+          PUSH_IMAGE: dockerCfg.registryUrl ? 'y' : 'n',
+        };
+        if (ch) env.CHOICE = String(ch);
+        if (dockerCfg.imageTag) env.DOCKER_IMAGE_TAG = dockerCfg.imageTag;
+        if (dockerCfg.dockerfilePath) env.DOCKERFILE_PATH = toPosix(dockerCfg.dockerfilePath);
+        if (effectiveContext) env.CONTEXT_PATH = toPosix(effectiveContext);
+        if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
+        env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
+
+        this.logger?.send(`[DEPLOY] Chạy deploy.sh (choice=${ch ?? 'N/A'}) với context: ${effectiveContext}`);
+        const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });
+        if (r.error) {
+          this.logger?.send(`[DEPLOY][ERROR] ${r.error.message}`);
+          if (r.stderr) this.logger?.send(`[DEPLOY][STDERR] ${String(r.stderr).trim()}`);
+          try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: true }); } catch (_) {}
+          result.hadError = true;
+        } else {
+          if (r.stdout) this.logger?.send(`[DEPLOY][STDOUT] ${String(r.stdout).trim()}`);
+          this.logger?.send('[DEPLOY] Hoàn tất deploy.sh (check-and-build)');
+          try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: false }); } catch (_) {}
+          // Không đặt hadError=true khi thành công lần này
+        }
       }
     } else {
       // build docker sau khi pull

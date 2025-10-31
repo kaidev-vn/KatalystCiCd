@@ -205,3 +205,18 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
 .modal-body { padding: 12px 16px; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); }
 .hidden { display: none !important; }
+/* Inline input with button */
+.input-with-button { display: flex; gap: 8px; align-items: center; }
+.input-with-button input { flex: 1; }
+.input-with-button .btn.small { white-space: nowrap; }
+
+/* Readonly info boxes */
+.info-box {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: var(--text-muted);
+  background: var(--bg);
+  word-break: break-all;
+}
