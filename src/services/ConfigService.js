@@ -23,6 +23,7 @@ class ConfigService {
       repoPath: '',
       branch: 'main',
       deployScriptPath: '',
+      buildMethod: 'dockerfile',
       lastBuiltCommit: '',
       autoCheck: false,
       docker: {
@@ -56,6 +57,8 @@ class ConfigService {
     cfg.repoPath = String(cfg.repoPath || '');
     cfg.branch = String(cfg.branch || 'main');
     cfg.deployScriptPath = String(cfg.deployScriptPath || '');
+    const bm = String(cfg.buildMethod || 'dockerfile').toLowerCase();
+    cfg.buildMethod = ['dockerfile', 'deploy_sh'].includes(bm) ? bm : 'dockerfile';
     cfg.lastBuiltCommit = String(cfg.lastBuiltCommit || '');
     cfg.autoCheck = Boolean(cfg.autoCheck);
     cfg.docker = {

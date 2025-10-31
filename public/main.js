@@ -29,6 +29,7 @@ async function loadConfig() {
   $('repoPath').value = cfg.repoPath || '';
   $('branch').value = cfg.branch || 'main';
   $('deployScriptPath').value = cfg.deployScriptPath || '';
+  $('buildMethod').value = (cfg.buildMethod || 'dockerfile');
   $('autoCheck').checked = !!cfg.autoCheck;
   // docker
   const d = cfg.docker || {};
@@ -61,6 +62,7 @@ async function saveConfig() {
     repoPath: $('repoPath').value,
     branch: $('branch').value || 'main',
     deployScriptPath: $('deployScriptPath').value,
+    buildMethod: $('buildMethod').value || 'dockerfile',
     autoCheck: $('autoCheck').checked,
     docker: {
       dockerfilePath: $('dockerfilePath').value,

@@ -91,18 +91,65 @@ class GitService {
     this._building = true;
     await run(pullCmd, this.logger);
 
-    // build docker sau khi pull
+    // Chọn phương thức build: dockerfile hoặc deploy.sh
     const dockerCfg = (cfg.docker || {});
-    const result = await this.dockerService.buildAndPush({
-      dockerfilePath: dockerCfg.dockerfilePath,
-      contextPath: dockerCfg.contextPath || repoPath,
-      imageName: dockerCfg.imageName || 'app',
-      imageTag: dockerCfg.imageTag || 'latest',
-      registryUrl: dockerCfg.registryUrl,
-      registryUsername: dockerCfg.registryUsername,
-      registryPassword: dockerCfg.registryPassword,
-      autoTagIncrement: dockerCfg.autoTagIncrement,
-    });
+    let result = { hadError: false };
+    if ((cfg.buildMethod || 'dockerfile') === 'deploy_sh') {
+      const pathLib = require('path');
+      const fs = require('fs');
+      const projectRoot = pathLib.join(__dirname, '../../');
+      let deployPathCandidate = cfg.deployScriptPath || pathLib.join(projectRoot, 'deploy.sh');
+      if (!pathLib.isAbsolute(deployPathCandidate)) {
+        deployPathCandidate = pathLib.join(projectRoot, deployPathCandidate);
+      }
+      if (!fs.existsSync(deployPathCandidate)) {
+        this.logger?.send(`[DEPLOY][ERROR] deploy.sh không tồn tại tại: ${deployPathCandidate}`);
+        throw new Error('deploy.sh not found');
+      }
+      const toPosix = (p) => {
+        if (!p) return p;
+        let s = String(p).replace(/\\/g, '/');
+        if (/^[A-Za-z]:\//.test(s)) { const drive = s[0].toLowerCase(); s = `/${drive}${s.slice(2)}`; }
+        return s;
+      };
+      const env = {
+        CONTINUE_BUILD: 'y',
+        PUSH_IMAGE: dockerCfg.registryUrl ? 'y' : 'n',
+      };
+      if (dockerCfg.imageTag) env.DOCKER_IMAGE_TAG = dockerCfg.imageTag;
+      if (dockerCfg.dockerfilePath) env.DOCKERFILE_PATH = toPosix(dockerCfg.dockerfilePath);
+      const cpath = dockerCfg.contextPath || repoPath;
+      if (cpath) env.CONTEXT_PATH = toPosix(cpath);
+      if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
+      env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
+      const posixPath = toPosix(deployPathCandidate);
+      this.logger?.send(`[DEPLOY] Chạy deploy.sh qua check-and-build: ${posixPath}`);
+      const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });
+      if (r.error) {
+        this.logger?.send(`[DEPLOY][ERROR] ${r.error.message}`);
+        if (r.stderr) this.logger?.send(`[DEPLOY][STDERR] ${String(r.stderr).trim()}`);
+        try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: true }); } catch (_) {}
+        result.hadError = true;
+      } else {
+        if (r.stdout) this.logger?.send(`[DEPLOY][STDOUT] ${String(r.stdout).trim()}`);
+        this.logger?.send('[DEPLOY] Hoàn tất deploy.sh (check-and-build)');
+        try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: false }); } catch (_) {}
+        result.hadError = false;
+      }
+    } else {
+      // build docker sau khi pull
+      result = await this.dockerService.buildAndPush({
+        dockerfilePath: dockerCfg.dockerfilePath,
+        contextPath: dockerCfg.contextPath || repoPath,
+        imageName: dockerCfg.imageName || 'app',
+        imageTag: dockerCfg.imageTag || 'latest',
+        registryUrl: dockerCfg.registryUrl,
+        registryUsername: dockerCfg.registryUsername,
+        registryPassword: dockerCfg.registryPassword,
+        autoTagIncrement: dockerCfg.autoTagIncrement,
+        commitHash: remoteHash,
+      });
+    }
 
     // auto deploy swarm nếu bật
     if (dockerCfg.autoDeploySwarm && !result.hadError && dockerCfg.composePath && dockerCfg.stackName) {

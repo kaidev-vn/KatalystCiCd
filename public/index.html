@@ -74,6 +74,13 @@
             <input id="deployScriptPath" type="text" placeholder="vd: D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
           </div>
           <div>
+            <label for="buildMethod">Phương thức build</label>
+            <select id="buildMethod">
+              <option value="dockerfile">Dockerfile (DockerService)</option>
+              <option value="deploy_sh">deploy.sh (script)</option>
+            </select>
+          </div>
+          <div>
             <label for="autoCheck">Tự động Check + Pull + Build</label>
             <div class="check-inline">
               <input id="autoCheck" class="switch" type="checkbox" aria-label="Bật tự động check" />
