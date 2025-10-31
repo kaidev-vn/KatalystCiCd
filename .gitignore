@@ -1,0 +1,13 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment variables
+.env
+
+# Data snapshots
+config_versions/
+builds_versions/
+
+# Logs
+*.log

@@ -1,0 +1,23 @@
+{
+  "provider": "gitlab",
+  "polling": 10,
+  "account": "khanhnq",
+  "token": "glpat-RFqEnsH73z6pQ3v5CIxSsW86MQp1OjFlCA.01.0y1y5e59w",
+  "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
+  "repoPath": "/opt/run_java/docker-build-app/system/",
+  "branch": "developer_2",
+  "autoCheck": false,
+  "docker": {
+    "dockerfilePath": "/opt/Ci-Cd/DockerFile-Build",
+    "contextPath": "/opt/run_java/docker-build-app/system/",
+    "imageName": "harbor.techres.vn/daihy/java-daihy-seemt-dashboard",
+    "imageTag": "1.0.76-DAIHY-BETA",
+    "autoTagIncrement": false,
+    "autoDeploySwarm": false,
+    "registryUrl": "harbor.techres.vn",
+    "registryUsername": "",
+    "registryPassword": "",
+    "composePath": "",
+    "stackName": ""
+  }
+}

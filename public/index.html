@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CI/CD Config Panel</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo">⚙️</div>
+        <div>
+          <h1>CI/CD Control Center</h1>
+          <p class="muted">Quản lý cấu hình, build, deploy và theo dõi realtime.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="themeToggle" class="btn secondary">Chế độ tối</button>
+      </div>
+    </header>
+    <nav class="app-nav">
+      <a href="#cfg">Cấu hình</a>
+      <a href="#logs">Logs</a>
+      <a href="#builds">Builds</a>
+      <a href="#docker">Docker & Swarm</a>
+      <a href="#deploy">Deploy (deploy.sh)</a>
+      <a href="#versions">Lịch sử</a>
+    </nav>
+
+    <main class="container">
+      <section class="card" id="cfg">
+        <h2>1) Cấu hình GitLab/GitHub</h2>
+        <div class="row">
+          <div>
+            <label for="provider">Nhà cung cấp</label>
+            <select id="provider">
+              <option value="gitlab">GitLab</option>
+              <option value="github">GitHub</option>
+            </select>
+          </div>
+          <div>
+            <label for="polling">Chu kỳ polling (giây)</label>
+            <input id="polling" type="number" min="5" step="5" placeholder="30" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="account">Tài khoản / Tổ chức</label>
+            <input id="account" type="text" placeholder="vd: my-org" />
+          </div>
+          <div>
+            <label for="token">Access Token</label>
+            <input id="token" type="password" placeholder="ghp_/glpat_..." />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="repoUrl">Repo URL</label>
+            <input id="repoUrl" type="text" placeholder="https://gitlab.com/my-org/my-repo.git" />
+          </div>
+          <div>
+            <label for="repoPath">Repo Path (máy chủ chạy pull)</label>
+            <input id="repoPath" type="text" placeholder="D:/repos/my-repo" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="branch">Branch</label>
+            <input id="branch" type="text" placeholder="main" />
+          </div>
+          <div>
+            <label for="autoCheck">Tự động Check + Pull + Build</label>
+            <div class="check-inline">
+              <input id="autoCheck" class="switch" type="checkbox" aria-label="Bật tự động check" />
+              <span class="muted">Chạy nền theo chu kỳ polling</span>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="saveCfg" class="btn">Lưu cấu hình</button>
+          <button id="checkConnection" class="btn outline">Kiểm tra kết nối Git</button>
+          <button id="startPull" class="btn outline">Bắt đầu Pull</button>
+        </div>
+        <p id="cfgStatus" class="status"></p>
+        <p class="muted">Commit đã build gần nhất: <span id="lastBuiltCommit" class="tag">(chưa có)</span></p>
+      </section>
+
+      <section class="card full" id="logsSection" style="display:none;" aria-labelledby="logsTitle">
+        <div class="card-header">
+          <h2 id="logsTitle">2) Theo dõi realtime</h2>
+          <div class="log-toolbar">
+            <button id="copyLogs" class="btn small outline">Sao chép log</button>
+            <button id="clearLogs" class="btn small secondary">Xóa log</button>
+          </div>
+        </div>
+        <div id="logs" aria-live="polite" aria-atomic="false" class="logs"></div>
+      </section>
+
+      <section class="card full" id="builds">
+        <h2>3) Cấu hình bảng Build</h2>
+        <div class="row">
+          <div>
+            <label for="buildName">Tên build</label>
+            <input id="buildName" type="text" placeholder="Build Dev" />
+          </div>
+          <div>
+            <label for="buildEnv">ENV (JSON)</label>
+            <input id="buildEnv" type="text" placeholder='{"NODE_ENV":"production"}' />
+          </div>
+        </div>
+        <label for="buildSteps">Các bước (mỗi dòng 1 lệnh)</label>
+        <textarea id="buildSteps" placeholder="npm ci\nnpm run build\nnpm run test"></textarea>
+        <div class="actions">
+          <button id="addBuild" class="btn">Thêm cấu hình build</button>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Chọn</th>
+              <th>Tên</th>
+              <th>Bước</th>
+              <th>ENV</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="buildTable"></tbody>
+        </table>
+      </section>
+
+      <section class="card full" id="docker">
+        <h2>4) Docker Build & Swarm Deploy</h2>
+        <div class="row">
+          <div>
+            <label for="dockerfilePath">Dockerfile Path</label>
+            <input id="dockerfilePath" type="text" placeholder="D:/repos/my-repo/Dockerfile" />
+          </div>
+          <div>
+            <label for="contextPath">Context Path</label>
+            <input id="contextPath" type="text" placeholder="D:/repos/my-repo" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="imageName">Image Name</label>
+            <input id="imageName" type="text" placeholder="my-registry.com/myproj/myapp" />
+          </div>
+          <div>
+            <label for="imageTag">Image Tag</label>
+            <input id="imageTag" type="text" placeholder="latest" />
+            <div class="check-inline mt6">
+              <input id="autoTagIncrement" class="switch" type="checkbox" aria-label="Bật tự động tăng tag" />
+              <span class="muted">Tự động tăng tag sau mỗi lần build (ví dụ 1.0.74 ➜ 1.0.75)</span>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="registryUrl">Registry URL</label>
+            <input id="registryUrl" type="text" placeholder="my-registry.com" />
+          </div>
+          <div>
+            <label for="registryUsername">Registry Username</label>
+            <input id="registryUsername" type="text" placeholder="username" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="registryPassword">Registry Password</label>
+            <input id="registryPassword" type="password" placeholder="••••••" />
+          </div>
+          <div></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="composePath">docker-compose.yml Path</label>
+            <input id="composePath" type="text" placeholder="D:/deploy/compose.yml" />
+          </div>
+          <div>
+            <label for="stackName">Swarm Stack Name</label>
+            <input id="stackName" type="text" placeholder="my-stack" />
+            <div class="check-inline mt6">
+              <input id="autoDeploySwarm" class="switch" type="checkbox" aria-label="Bật auto deploy swarm" />
+              <span class="muted">Deploy Swarm tự động sau khi build thành công</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="saveDockerCfg" class="btn">Lưu Docker Config</button>
+          <button id="runDockerBuild" class="btn outline">Build & Push</button>
+          <button id="runSwarmDeploy" class="btn secondary">Deploy Swarm</button>
+          <button id="checkPullBuild" class="btn">Check commit + Pull + Build</button>
+        </div>
+      </section>
+
+      <section class="card full" id="deploy">
+        <h2>5) Deploy (deploy.sh)</h2>
+        <div class="row">
+          <div>
+            <label for="deployChoice">Chọn service</label>
+            <select id="deployChoice">
+              <option value="1">1) admin-schedule-service (8009)</option>
+              <option value="2">2) admin-service (8088)</option>
+              <option value="3">3) aloline-service (8082)</option>
+              <option value="4">4) oauth-service (8888)</option>
+              <option value="5">5) order-service-process-one (8197)</option>
+              <option value="6">6) order-service-process-three (8097)</option>
+              <option value="7">7) schedule-service (8008)</option>
+              <option value="8">8) supplier-service (8087)</option>
+              <option value="9">9) seemt-service (8093)</option>
+              <option value="10">10) kafka-restaurant-schedule-service (8100)</option>
+              <option value="11">11) kafka-techres-admin-schedule-service (8101)</option>
+              <option value="12">12) restaurant-dashboard-service (8011)</option>
+              <option value="13">13) springdoc-service (8099)</option>
+            </select>
+          </div>
+          <div>
+            <label for="deployImageTag">Image Tag</label>
+            <input id="deployImageTag" type="text" placeholder="vd: 1.0.77-DAIHY-BETA" />
+            <p class="muted" style="margin-top:6px">Gợi ý: bật autoTagIncrement trong Docker Config để tự tăng phần số của tag.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="deployDockerfilePath">Override Dockerfile Path</label>
+            <input id="deployDockerfilePath" type="text" placeholder="(tùy chọn)" />
+          </div>
+          <div>
+            <label for="deployContextPath">Override Context Path</label>
+            <input id="deployContextPath" type="text" placeholder="(tùy chọn)" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="deployRepoPath">Override Repo Path</label>
+            <input id="deployRepoPath" type="text" placeholder="(tùy chọn)" />
+          </div>
+          <div>
+            <label for="deployConfigJsonPath">Override config.json Path</label>
+            <input id="deployConfigJsonPath" type="text" placeholder="(tùy chọn)" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="check-inline">
+            <input id="deployContinue" class="switch" type="checkbox" checked aria-label="Tiếp tục build" />
+            <span>Tiếp tục build (CONTINUE_BUILD = y)</span>
+          </div>
+          <div class="check-inline">
+            <input id="deployPush" class="switch" type="checkbox" aria-label="Push image sau khi build" />
+            <span>Push image sau khi build (PUSH_IMAGE = y)</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="runDeployScript" class="btn">Chạy deploy.sh</button>
+        </div>
+      </section>
+
+      <section class="card full" id="versions">
+        <h2>6) Lịch sử cấu hình</h2>
+        <div class="row">
+          <div>
+            <label>Phiên bản Config</label>
+            <div id="configVersions" class="table" style="border:1px solid var(--border); border-radius:12px; overflow:hidden"></div>
+          </div>
+          <div>
+            <label>Phiên bản Builds</label>
+            <div id="buildVersions" class="table" style="border:1px solid var(--border); border-radius:12px; overflow:hidden"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+    
+    <!-- Modal chỉnh sửa Build -->
+    <div id="modalBackdrop" class="backdrop hidden"></div>
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="editTitle">Chỉnh sửa Build</h3>
+          <button id="editCancelTop" class="btn small secondary">Đóng</button>
+        </div>
+        <div class="modal-body">
+          <label for="editBuildName">Tên build</label>
+          <input id="editBuildName" type="text" />
+          <label for="editBuildEnv">ENV (JSON)</label>
+          <input id="editBuildEnv" type="text" placeholder='{"NODE_ENV":"production"}' />
+          <label for="editBuildSteps">Các bước (mỗi dòng 1 lệnh)</label>
+          <textarea id="editBuildSteps" placeholder="npm ci\nnpm run build\nnpm run test"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button id="editSave" class="btn">Lưu</button>
+          <button id="editCancel" class="btn outline">Hủy</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/main.js"></script>
+  </body>
+  </html>
