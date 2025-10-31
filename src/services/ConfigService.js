@@ -7,6 +7,7 @@ class ConfigService {
     this.paths = {
       CONFIG_PATH: path.join(dataDir, 'config.json'),
       BUILDS_PATH: path.join(dataDir, 'builds.json'),
+      HISTORY_PATH: path.join(dataDir, 'builds_history.json'),
       CONFIG_VERSIONS_DIR: path.join(dataDir, 'config_versions'),
       BUILDS_VERSIONS_DIR: path.join(dataDir, 'builds_versions'),
     };
@@ -21,6 +22,7 @@ class ConfigService {
       repoUrl: '',
       repoPath: '',
       branch: 'main',
+      deployScriptPath: '',
       lastBuiltCommit: '',
       autoCheck: false,
       docker: {
@@ -53,6 +55,7 @@ class ConfigService {
     cfg.repoUrl = String(cfg.repoUrl || '');
     cfg.repoPath = String(cfg.repoPath || '');
     cfg.branch = String(cfg.branch || 'main');
+    cfg.deployScriptPath = String(cfg.deployScriptPath || '');
     cfg.lastBuiltCommit = String(cfg.lastBuiltCommit || '');
     cfg.autoCheck = Boolean(cfg.autoCheck);
     cfg.docker = {
@@ -99,6 +102,28 @@ class ConfigService {
   saveBuilds(list) {
     writeJson(this.paths.BUILDS_PATH, list);
     this.saveVersion('builds', list);
+  }
+  // Build run history
+  listBuildHistory() {
+    return readJson(this.paths.HISTORY_PATH, []);
+  }
+  appendBuildRun(item) {
+    try {
+      const fs = require('fs');
+      const { timestamp } = require('../utils/file');
+      const runItem = { ts: timestamp(), ...(item || {}) };
+      let list = [];
+      try { list = JSON.parse(fs.readFileSync(this.paths.HISTORY_PATH, 'utf8')); } catch (_) { list = []; }
+      list.push(runItem);
+      // Cắt bớt nếu quá dài (giữ 500 bản ghi gần nhất)
+      if (list.length > 500) list = list.slice(list.length - 500);
+      fs.writeFileSync(this.paths.HISTORY_PATH, JSON.stringify(list, null, 2), 'utf8');
+      if (this.logger) this.logger.send(`[HISTORY] Lưu bản ghi build (${runItem.method || 'unknown'}) lúc ${runItem.ts}`);
+      return runItem;
+    } catch (e) {
+      // ignore
+      return null;
+    }
   }
   listBuildVersions() {
     const fs = require('fs');

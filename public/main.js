@@ -28,6 +28,7 @@ async function loadConfig() {
   $('repoUrl').value = cfg.repoUrl || '';
   $('repoPath').value = cfg.repoPath || '';
   $('branch').value = cfg.branch || 'main';
+  $('deployScriptPath').value = cfg.deployScriptPath || '';
   $('autoCheck').checked = !!cfg.autoCheck;
   // docker
   const d = cfg.docker || {};
@@ -59,6 +60,7 @@ async function saveConfig() {
     repoUrl: $('repoUrl').value,
     repoPath: $('repoPath').value,
     branch: $('branch').value || 'main',
+    deployScriptPath: $('deployScriptPath').value,
     autoCheck: $('autoCheck').checked,
     docker: {
       dockerfilePath: $('dockerfilePath').value,
@@ -376,6 +378,8 @@ async function runDeploy() {
     repoPath: ($('deployRepoPath').value || '').trim() || undefined,
     configJsonPath: ($('deployConfigJsonPath').value || '').trim() || undefined,
   };
+  const dsp = ($('deployScriptPathOverride').value || '').trim();
+  if (dsp) payload.deployScriptPath = dsp;
   appendLog(`[UI] Chạy deploy.sh (choice=${payload.choice ?? 'N/A'}, tag=${payload.imageTag ?? 'N/A'})...`);
   const res = await fetch('/api/deploy/run', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

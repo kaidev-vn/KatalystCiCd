@@ -59,7 +59,7 @@ registerDockerController(app, { dockerService, configService, swarmService, logg
 registerSwarmController(app, { swarmService, configService });
 registerPullController(app, { configService, logger });
 registerWebhookController(app, { logger, secret: WEBHOOK_SECRET });
-registerDeployController(app, { logger });
+registerDeployController(app, { logger, configService });
 
 
 app.listen(PORT, () => {

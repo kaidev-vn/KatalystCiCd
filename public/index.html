@@ -70,6 +70,10 @@
             <input id="branch" type="text" placeholder="main" />
           </div>
           <div>
+            <label for="deployScriptPath">Deploy Script Path (mặc định)</label>
+            <input id="deployScriptPath" type="text" placeholder="vd: D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
+          </div>
+          <div>
             <label for="autoCheck">Tự động Check + Pull + Build</label>
             <div class="check-inline">
               <input id="autoCheck" class="switch" type="checkbox" aria-label="Bật tự động check" />
@@ -222,6 +226,13 @@
             <input id="deployImageTag" type="text" placeholder="vd: 1.0.77-DAIHY-BETA" />
             <p class="muted" style="margin-top:6px">Gợi ý: bật autoTagIncrement trong Docker Config để tự tăng phần số của tag.</p>
           </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="deployScriptPathOverride">Override deploy.sh Path</label>
+            <input id="deployScriptPathOverride" type="text" placeholder="(tùy chọn) ví dụ D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
+          </div>
+          <div></div>
         </div>
         <div class="row">
           <div>

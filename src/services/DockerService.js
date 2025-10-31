@@ -34,6 +34,19 @@ class DockerService {
       this.logger?.send(`[DOCKER] Đã cập nhật imageTag trong config thành ${tagToUse}`);
     }
 
+    // Lưu lịch sử build
+    try {
+      this.configService.appendBuildRun({
+        method: 'dockerfile',
+        image,
+        tag: tagToUse,
+        contextPath: p.contextPath || '.',
+        dockerfilePath: p.dockerfilePath || '',
+        hadError,
+        commitHash: p.commitHash || '',
+      });
+    } catch (_) {}
+
     return { image, tagToUse, hadError };
   }
 }
