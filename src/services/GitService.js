@@ -6,6 +6,7 @@ class GitService {
     this.dockerService = dockerService;
     this.configService = configService;
     this._buildPromise = null; // Promise của build hiện tại
+    this._currentBranch = null; // Branch đang được build
   }
 
   async checkConnection() {
@@ -36,25 +37,26 @@ class GitService {
   async checkAndBuild({ repoPath, branch }) {
     if (!repoPath) throw new Error('Chưa cấu hình repoPath');
     
-    // Nếu đang có build chạy, chờ build đó hoàn thành trước
+    // Nếu đang có build chạy, bỏ qua build request này
     if (this._buildPromise) {
-      this.logger?.send('[BUILD] Build đang chạy, chờ hoàn thành...');
-      try {
-        await this._buildPromise;
-      } catch (error) {
-        // Ignore error từ build trước, tiếp tục build hiện tại
-        this.logger?.send(`[BUILD] Build trước đó có lỗi: ${error.message}`);
-      }
+      this.logger?.send(`[BUILD] Build đang chạy cho branch ${this._currentBranch || 'unknown'}, bỏ qua request mới cho branch ${branch}.`);
+      return { ok: true, updated: false, reason: 'build_in_progress' };
     }
 
+    // Lưu thông tin build hiện tại
+    this._currentBranch = branch;
+    this.logger?.send(`[BUILD] Bắt đầu build cho branch ${branch}, repo: ${repoPath}`);
+    
     // Tạo promise mới cho build hiện tại
     this._buildPromise = this._executeBuild({ repoPath, branch });
     
     try {
       const result = await this._buildPromise;
+      this.logger?.send(`[BUILD] Hoàn thành build cho branch ${branch}. Kết quả: ${result.updated ? 'thành công' : 'không có thay đổi'}`);
       return result;
     } finally {
       this._buildPromise = null;
+      this._currentBranch = null;
     }
   }
 

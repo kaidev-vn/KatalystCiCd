@@ -383,19 +383,43 @@ fi
 rm -rf ${DOCKER_IMAGE_NAME}
 mkdir -p ${DOCKER_IMAGE_NAME}
 
-# Copy các file cần thiết (bỏ qua JAR file vì sẽ build trong Dockerfile)
+# Copy các file cần thiết từ context path (bỏ qua JAR file vì sẽ build trong Dockerfile)
 # cp ${SERVICE_FILE_NAME} ${DOCKER_IMAGE_NAME}/service-file.jar
-cp techres.config.properties ${DOCKER_IMAGE_NAME}/
-cp docker-compose.yml ${DOCKER_IMAGE_NAME}/
-cp Dockerfile ${DOCKER_IMAGE_NAME}/
-cp build.sh ${DOCKER_IMAGE_NAME}/
+if [ -f "${CONTEXT_PATH}/techres.config.properties" ]; then
+  cp "${CONTEXT_PATH}/techres.config.properties" ${DOCKER_IMAGE_NAME}/
+else
+  echo "WARNING: techres.config.properties not found in context path"
+fi
+
+if [ -f "${CONTEXT_PATH}/docker-compose.yml" ]; then
+  cp "${CONTEXT_PATH}/docker-compose.yml" ${DOCKER_IMAGE_NAME}/
+else
+  echo "WARNING: docker-compose.yml not found in context path"
+fi
+
+if [ -f "${CONTEXT_PATH}/Dockerfile" ]; then
+  cp "${CONTEXT_PATH}/Dockerfile" ${DOCKER_IMAGE_NAME}/
+else
+  echo "WARNING: Dockerfile not found in context path"
+fi
+
+if [ -f "${CONTEXT_PATH}/build.sh" ]; then
+  cp "${CONTEXT_PATH}/build.sh" ${DOCKER_IMAGE_NAME}/
+else
+  echo "WARNING: build.sh not found in context path"
+fi
 
 cd ${DOCKER_IMAGE_NAME}
 
-sed -i "s|PARAM_DOCKER_IMAGE_NAME|${DOCKER_IMAGE_NAME}|g" docker-compose.yml
-sed -i "s|PARAM_DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g" docker-compose.yml
-sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" docker-compose.yml
-sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" docker-compose.yml
+# Thay thế parameters trong docker-compose.yml nếu file tồn tại
+if [ -f "docker-compose.yml" ]; then
+  sed -i "s|PARAM_DOCKER_IMAGE_NAME|${DOCKER_IMAGE_NAME}|g" docker-compose.yml
+  sed -i "s|PARAM_DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g" docker-compose.yml
+  sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" docker-compose.yml
+  sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" docker-compose.yml
+else
+  echo "WARNING: docker-compose.yml not available for parameter replacement"
+fi
 # No need to replace SERVICE_FILE in Dockerfile as we're using a fixed filename
 echo "[DOCKER BUILD] Using Dockerfile: ${DOCKERFILE_PATH}"
 echo "[DOCKER BUILD] Using Context: ${CONTEXT_PATH}"
@@ -459,22 +483,22 @@ if [ "${DEPLOY_SWARM}" = "y" ]; then
     cp "${TEMPLATE_PATH}" "${DEPLOY_DIR}/docker-compose.yml"
     cd "${DEPLOY_DIR}"
     
-    # Thay thế các tham số trong file
-    sed -i "s|PARAM_DOCKER_SERVICE_NAME|${DOCKER_IMAGE_NAME}|g" ${CONTEXT_PATH}/docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_NAME|${DOCKER_IMAGE_NAME}|g" ${CONTEXT_PATH}/docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g" ${CONTEXT_PATH}/docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" ${CONTEXT_PATH}/docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" ${CONTEXT_PATH}/docker-compose.yml
-    sed -i "s|PARAM_HEALTH_CHECK_PORT|${HEALTH_CHECK_PORT}|g" ${CONTEXT_PATH}/docker-compose.yml
-    sed -i "s|PARAM_DOCKER_SWARM_NODE_CONSTRAINTS|${DOCKER_SWARM_NODE_CONSTRAINTS}|g" ${CONTEXT_PATH}/docker-compose.yml
+    # Thay thế các tham số trong file đã copy
+    sed -i "s|PARAM_DOCKER_SERVICE_NAME|${DOCKER_IMAGE_NAME}|g" docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_NAME|${DOCKER_IMAGE_NAME}|g" docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g" docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" docker-compose.yml
+    sed -i "s|PARAM_HEALTH_CHECK_PORT|${HEALTH_CHECK_PORT}|g" docker-compose.yml
+    sed -i "s|PARAM_DOCKER_SWARM_NODE_CONSTRAINTS|${DOCKER_SWARM_NODE_CONSTRAINTS}|g" docker-compose.yml
     
     echo "Deploying stack: ${STACK_NAME}"
     echo "Using compose file:"
-    cat ${CONTEXT_PATH}/docker-compose.yml
+    cat docker-compose.yml
     echo "====================="
     
     # Triển khai Stack
-    docker stack deploy --compose-file ${CONTEXT_PATH}/docker-compose.yml "${STACK_NAME}" --with-registry-auth
+    docker stack deploy --compose-file docker-compose.yml "${STACK_NAME}" --with-registry-auth
     
     if [ $? -eq 0 ]; then
       echo "Stack deployed successfully: ${STACK_NAME}"
