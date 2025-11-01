@@ -436,15 +436,18 @@ if [ "${DEPLOY_SWARM}" = "y" ]; then
   DOCKER_SWARM_NODE_CONSTRAINTS="${DOCKER_SWARM_NODE_CONSTRAINTS:-node.labels.purpose == api}"
   TEMPLATE_FILE="${TEMPLATE_FILE:-docker-compose.yml}"
   
-  # Kiểm tra template file tồn tại
-  if [ ! -f "${TEMPLATE_FILE}" ]; then
-    echo "Template file not found: ${TEMPLATE_FILE}"
+  # Xác định đường dẫn template file từ context path
+  TEMPLATE_PATH="${CONTEXT_PATH}/${TEMPLATE_FILE}"
+  
+  # Kiểm tra template file tồn tại trong context path
+  if [ ! -f "${TEMPLATE_PATH}" ]; then
+    echo "Template file not found: ${TEMPLATE_PATH}"
     echo "Skipping Swarm deployment"
   else
     echo "Stack Name: ${STACK_NAME}"
     echo "Health Check Port: ${HEALTH_CHECK_PORT}"
     echo "Node Constraints: ${DOCKER_SWARM_NODE_CONSTRAINTS}"
-    echo "Template: ${TEMPLATE_FILE}"
+    echo "Template: ${TEMPLATE_PATH}"
     
     # Pull image để đảm bảo nó có trên các node
     echo "Pulling image for Swarm nodes..."
@@ -453,25 +456,25 @@ if [ "${DEPLOY_SWARM}" = "y" ]; then
     # Chuẩn bị file deploy
     DEPLOY_DIR="${DOCKER_IMAGE_NAME}-deploy"
     mkdir -p "${DEPLOY_DIR}"
-    cp "${TEMPLATE_FILE}" "${DEPLOY_DIR}/docker-compose.yml"
+    cp "${TEMPLATE_PATH}" "${DEPLOY_DIR}/docker-compose.yml"
     cd "${DEPLOY_DIR}"
     
     # Thay thế các tham số trong file
-    sed -i "s|PARAM_DOCKER_SERVICE_NAME|${DOCKER_IMAGE_NAME}|g" docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_NAME|${DOCKER_IMAGE_NAME}|g" docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g" docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" docker-compose.yml
-    sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" docker-compose.yml
-    sed -i "s|PARAM_HEALTH_CHECK_PORT|${HEALTH_CHECK_PORT}|g" docker-compose.yml
-    sed -i "s|PARAM_DOCKER_SWARM_NODE_CONSTRAINTS|${DOCKER_SWARM_NODE_CONSTRAINTS}|g" docker-compose.yml
+    sed -i "s|PARAM_DOCKER_SERVICE_NAME|${DOCKER_IMAGE_NAME}|g" ${CONTEXT_PATH}/docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_NAME|${DOCKER_IMAGE_NAME}|g" ${CONTEXT_PATH}/docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_TAG|${DOCKER_IMAGE_TAG}|g" ${CONTEXT_PATH}/docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" ${CONTEXT_PATH}/docker-compose.yml
+    sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" ${CONTEXT_PATH}/docker-compose.yml
+    sed -i "s|PARAM_HEALTH_CHECK_PORT|${HEALTH_CHECK_PORT}|g" ${CONTEXT_PATH}/docker-compose.yml
+    sed -i "s|PARAM_DOCKER_SWARM_NODE_CONSTRAINTS|${DOCKER_SWARM_NODE_CONSTRAINTS}|g" ${CONTEXT_PATH}/docker-compose.yml
     
     echo "Deploying stack: ${STACK_NAME}"
     echo "Using compose file:"
-    cat docker-compose.yml
+    cat ${CONTEXT_PATH}/docker-compose.yml
     echo "====================="
     
     # Triển khai Stack
-    docker stack deploy --compose-file docker-compose.yml "${STACK_NAME}" --with-registry-auth
+    docker stack deploy --compose-file ${CONTEXT_PATH}/docker-compose.yml "${STACK_NAME}" --with-registry-auth
     
     if [ $? -eq 0 ]; then
       echo "Stack deployed successfully: ${STACK_NAME}"

@@ -6,6 +6,8 @@ class GitService {
     this.dockerService = dockerService;
     this.configService = configService;
     this._building = false; // tránh chạy build trùng lặp
+    this._buildQueue = []; // hàng đợi build
+    this._processingQueue = false; // đang xử lý queue
   }
 
   async checkConnection() {
@@ -35,6 +37,20 @@ class GitService {
 
   async checkAndBuild({ repoPath, branch }) {
     if (!repoPath) throw new Error('Chưa cấu hình repoPath');
+    
+    // Nếu đang build, thêm vào queue thay vì skip
+    if (this._building) {
+      return new Promise((resolve) => {
+        this.logger?.send(`[QUEUE] Build đang chạy, thêm vào hàng đợi. Queue size: ${this._buildQueue.length + 1}`);
+        this._buildQueue.push({ repoPath, branch, resolve });
+        this._processQueue();
+      });
+    }
+
+    return this._executeBuild({ repoPath, branch });
+  }
+
+  async _executeBuild({ repoPath, branch }) {
     const cfg = this.configService.getConfig();
     const token = cfg?.token;
     const repoUrl = cfg?.repoUrl || '';
@@ -48,12 +64,6 @@ class GitService {
       } catch (e) {
         this.logger?.send(`[GIT][WARN] Không tạo được header Authorization: ${e.message}`);
       }
-    }
-
-    // Guard: nếu đang build thì bỏ qua lượt này
-    if (this._building) {
-      this.logger?.send('[CHECK] Bỏ qua vì một phiên build đang chạy.');
-      return { ok: true, updated: false, reason: 'building_in_progress' };
     }
 
     const cmds = [
@@ -215,9 +225,37 @@ class GitService {
       }
     } finally {
       this._building = false;
+      // Xử lý build tiếp theo trong queue
+      this._processQueue();
     }
 
     return { ok: true, updated: !result.hadError };
+  }
+
+  async _processQueue() {
+    if (this._processingQueue || this._building || this._buildQueue.length === 0) {
+      return;
+    }
+
+    this._processingQueue = true;
+    
+    while (this._buildQueue.length > 0 && !this._building) {
+      const nextBuild = this._buildQueue.shift();
+      this.logger?.send(`[QUEUE] Xử lý build tiếp theo. Còn lại trong queue: ${this._buildQueue.length}`);
+      
+      try {
+        const result = await this._executeBuild({
+          repoPath: nextBuild.repoPath,
+          branch: nextBuild.branch
+        });
+        nextBuild.resolve(result);
+      } catch (error) {
+        this.logger?.send(`[QUEUE][ERROR] Build từ queue thất bại: ${error.message}`);
+        nextBuild.resolve({ ok: false, error: error.message });
+      }
+    }
+    
+    this._processingQueue = false;
   }
 }
 
