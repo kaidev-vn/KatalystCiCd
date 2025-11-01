@@ -21,6 +21,17 @@ function registerDeployController(app, { logger, configService }) {
       const fs = require('fs');
       const projectRoot = pathLib.join(__dirname, '../../');
       const cfg = (typeof configService?.getConfig === 'function') ? configService.getConfig() : {};
+      
+      // Ưu tiên đọc từ config.deployServices trước
+      if (Array.isArray(cfg.deployServices) && cfg.deployServices.length > 0) {
+        const choices = cfg.deployServices.map((service, index) => ({
+          value: index + 1,
+          label: service.name || `Service ${index + 1}`
+        }));
+        return res.json({ ok: true, choices });
+      }
+      
+      // Fallback: parse từ deploy.sh file
       let deployPathCandidate = (req.query?.deployScriptPath) || cfg.deployScriptPath || pathLib.join(projectRoot, 'deploy.sh');
       if (!pathLib.isAbsolute(deployPathCandidate)) deployPathCandidate = pathLib.join(projectRoot, deployPathCandidate);
       if (!fs.existsSync(deployPathCandidate)) {

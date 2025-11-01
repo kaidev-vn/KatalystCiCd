@@ -160,6 +160,10 @@ class GitService {
         if (effectiveContext) env.CONTEXT_PATH = toPosix(effectiveContext);
         if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
         env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
+        // Swarm deployment config
+        if (cfg.deploySwarmEnabled) env.DEPLOY_SWARM = 'y';
+        if (cfg.deploySwarmNodeConstraints) env.DOCKER_SWARM_NODE_CONSTRAINTS = cfg.deploySwarmNodeConstraints;
+        if (cfg.deploySwarmTemplate) env.TEMPLATE_FILE = cfg.deploySwarmTemplate;
 
         this.logger?.send(`[DEPLOY] Chạy deploy.sh (choice=${ch ?? 'N/A'}) với context: ${effectiveContext}`);
         const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });

@@ -31,6 +31,102 @@ class ConfigService {
       // repo: dùng repoPath; config: dùng docker.contextPath; custom: dùng deployContextCustomPath
       deployContextSource: 'repo',
       deployContextCustomPath: '',
+      deploySwarmEnabled: false,
+      deploySwarmNodeConstraints: 'node.labels.purpose == api',
+      deploySwarmTemplate: 'docker-compose.yml',
+      deployServices: [
+        {
+          name: "harbor.techres.vn/overatevntech/admin-schedule-service",
+          imageName: "java-daihy-admin-schedule",
+          port: "8009",
+          grpcPort: "9097",
+          serviceFile: "net.techres.admin.schedule.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/admin-service",
+          imageName: "java-daihy-admin",
+          port: "8088",
+          grpcPort: "9093",
+          serviceFile: "net.techres.admin.api.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/aloline-service",
+          imageName: "java-daihy-aloline",
+          port: "8082",
+          grpcPort: "9098",
+          serviceFile: "net.techres.aloline.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/oauth-service",
+          imageName: "java-daihy-oauth",
+          port: "8888",
+          grpcPort: "1050",
+          serviceFile: "net.techres.oauth.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/order-service-process-one",
+          imageName: "java-daihy-order-process-one",
+          port: "8197",
+          grpcPort: "9091",
+          serviceFile: "net.techres.order.api.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/order-service-process-three",
+          imageName: "java-daihy-order",
+          port: "8097",
+          grpcPort: "8105",
+          serviceFile: "net.techres.order.api.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/schedule-service",
+          imageName: "java-daihy-shedule",
+          port: "8008",
+          grpcPort: "8106",
+          serviceFile: "net.techres.schedule.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/supplier-service",
+          imageName: "java-daihy-supplier",
+          port: "8087",
+          grpcPort: "9094",
+          serviceFile: "net.techres.supplier.api.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/seemt-service",
+          imageName: "java-daihy-seemt",
+          port: "8093",
+          grpcPort: "1053",
+          serviceFile: "net.techres.tms.api.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/kafka-restaurant-schedule-service",
+          imageName: "java-daihy-kafka-schedule",
+          port: "8100",
+          grpcPort: "8109",
+          serviceFile: "net.techres.kafka_restaurant_schedule.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/kafka-techres-admin-schedule-service",
+          imageName: "java-daihy-kafka-techres-admin-schedule",
+          port: "8101",
+          grpcPort: "9101",
+          serviceFile: "net.techres.kafka_techres_admin_schedule.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/restaurant-dashboard-service",
+          imageName: "java-daihy-seemt-dashboard",
+          port: "8095",
+          grpcPort: "1055",
+          serviceFile: "net.techres.restaurant_dashboard.api.jar"
+        },
+        {
+          name: "harbor.techres.vn/overatevntech/springdoc-service",
+          imageName: "java-daihy-springdoc-service",
+          port: "8099",
+          grpcPort: "8112",
+          serviceFile: "net.techres.springdoc.jar"
+        }
+      ],
       lastBuiltCommit: '',
       autoCheck: false,
       docker: {
@@ -74,6 +170,10 @@ class ConfigService {
     const dcs = String(cfg.deployContextSource || 'repo').toLowerCase();
     cfg.deployContextSource = ['repo', 'config', 'custom'].includes(dcs) ? dcs : 'repo';
     cfg.deployContextCustomPath = String(cfg.deployContextCustomPath || '');
+    cfg.deployServices = Array.isArray(cfg.deployServices) ? cfg.deployServices : this.getDefaultConfig().deployServices;
+    cfg.deploySwarmEnabled = Boolean(cfg.deploySwarmEnabled);
+    cfg.deploySwarmNodeConstraints = String(cfg.deploySwarmNodeConstraints || 'node.labels.purpose == api');
+    cfg.deploySwarmTemplate = String(cfg.deploySwarmTemplate || 'docker-compose.yml');
     cfg.lastBuiltCommit = String(cfg.lastBuiltCommit || '');
     cfg.autoCheck = Boolean(cfg.autoCheck);
     cfg.docker = {
