@@ -144,6 +144,29 @@ class GitService {
       } else if (src === 'custom') {
         effectiveContext = cfg.deployContextCustomPath || dockerCfg.contextPath || repoPath;
       }
+      // Xác định Dockerfile hiệu lực, tự động fallback nếu cấu hình sai đường dẫn hoặc sai chữ hoa/chữ thường
+      let effectiveDockerfile = dockerCfg.dockerfilePath || '';
+      try {
+        if (effectiveDockerfile && !pathLib.isAbsolute(effectiveDockerfile)) {
+          effectiveDockerfile = pathLib.join(projectRoot, effectiveDockerfile);
+        }
+        const exists = effectiveDockerfile && fs.existsSync(effectiveDockerfile);
+        if (!exists) {
+          const cand1 = pathLib.join(projectRoot, 'DockerFile-Build');
+          const cand2 = pathLib.join(projectRoot, 'Dockerfile');
+          if (fs.existsSync(cand1)) {
+            this.logger?.send(`[DEPLOY][WARN] Dockerfile không tồn tại tại cấu hình: ${effectiveDockerfile || '(rỗng)'} ➜ dùng fallback ${cand1}`);
+            effectiveDockerfile = cand1;
+          } else if (fs.existsSync(cand2)) {
+            this.logger?.send(`[DEPLOY][WARN] Dockerfile không tồn tại tại cấu hình: ${effectiveDockerfile || '(rỗng)'} ➜ dùng fallback ${cand2}`);
+            effectiveDockerfile = cand2;
+          } else {
+            this.logger?.send(`[DEPLOY][ERROR] Không tìm thấy Dockerfile ở các vị trí: ${effectiveDockerfile || '(rỗng)'} | ${cand1} | ${cand2}`);
+          }
+        }
+      } catch (e) {
+        this.logger?.send(`[DEPLOY][WARN] Lỗi khi xác định Dockerfile hiệu lực: ${e.message}`);
+      }
       const posixPath = toPosix(deployPathCandidate);
 
       // Chạy tuần tự cho từng CHOICE (nếu có)
@@ -154,12 +177,12 @@ class GitService {
         };
         if (ch) env.CHOICE = String(ch);
         if (dockerCfg.imageTag) env.DOCKER_IMAGE_TAG = dockerCfg.imageTag;
-        if (dockerCfg.dockerfilePath) env.DOCKERFILE_PATH = toPosix(dockerCfg.dockerfilePath);
+        if (effectiveDockerfile) env.DOCKERFILE_PATH = toPosix(effectiveDockerfile);
         if (effectiveContext) env.CONTEXT_PATH = toPosix(effectiveContext);
         if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
         env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
 
-        this.logger?.send(`[DEPLOY] Chạy deploy.sh (choice=${ch ?? 'N/A'}) với context: ${effectiveContext}`);
+        this.logger?.send(`[DEPLOY] Chạy deploy.sh (choice=${ch ?? 'N/A'}) với context: ${effectiveContext} và Dockerfile: ${effectiveDockerfile || '(N/A)'}`);
         const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });
         if (r.error) {
           this.logger?.send(`[DEPLOY][ERROR] ${r.error.message}`);
