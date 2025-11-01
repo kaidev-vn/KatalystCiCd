@@ -89,7 +89,19 @@ class GitService {
     const pullCmd = `git -C "${repoPath}" ${authConfig} pull origin ${branch}`;
     this.logger?.send(`[PULL] > ${pullCmd}`);
     this._building = true;
-    await run(pullCmd, this.logger);
+    const pullRes = await run(pullCmd, this.logger);
+    if (pullRes.error) {
+      this.logger?.send('[PULL][WARN] Pull thất bại hoặc phân kỳ branch. Thử reset --hard về origin để đồng bộ build server.');
+      const resetCmd = `git -C "${repoPath}" reset --hard origin/${branch}`;
+      this.logger?.send(`[RESET] > ${resetCmd}`);
+      const resetRes = await run(resetCmd, this.logger);
+      if (resetRes.error) {
+        this.logger?.send(`[RESET][ERROR] ${resetRes.error.message}`);
+        throw new Error('reset failed');
+      } else {
+        this.logger?.send('[RESET] Đã reset về origin thành công. Tiếp tục quy trình build.');
+      }
+    }
 
     // Chọn phương thức build: dockerfile hoặc deploy.sh
     const dockerCfg = (cfg.docker || {});
