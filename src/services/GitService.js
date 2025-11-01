@@ -5,9 +5,7 @@ class GitService {
     this.logger = logger;
     this.dockerService = dockerService;
     this.configService = configService;
-    this._building = false; // tránh chạy build trùng lặp
-    this._buildQueue = []; // hàng đợi build
-    this._processingQueue = false; // đang xử lý queue
+    this._buildPromise = null; // Promise của build hiện tại
   }
 
   async checkConnection() {
@@ -38,16 +36,26 @@ class GitService {
   async checkAndBuild({ repoPath, branch }) {
     if (!repoPath) throw new Error('Chưa cấu hình repoPath');
     
-    // Nếu đang build, thêm vào queue thay vì skip
-    if (this._building) {
-      return new Promise((resolve) => {
-        this.logger?.send(`[QUEUE] Build đang chạy, thêm vào hàng đợi. Queue size: ${this._buildQueue.length + 1}`);
-        this._buildQueue.push({ repoPath, branch, resolve });
-        this._processQueue();
-      });
+    // Nếu đang có build chạy, chờ build đó hoàn thành trước
+    if (this._buildPromise) {
+      this.logger?.send('[BUILD] Build đang chạy, chờ hoàn thành...');
+      try {
+        await this._buildPromise;
+      } catch (error) {
+        // Ignore error từ build trước, tiếp tục build hiện tại
+        this.logger?.send(`[BUILD] Build trước đó có lỗi: ${error.message}`);
+      }
     }
 
-    return this._executeBuild({ repoPath, branch });
+    // Tạo promise mới cho build hiện tại
+    this._buildPromise = this._executeBuild({ repoPath, branch });
+    
+    try {
+      const result = await this._buildPromise;
+      return result;
+    } finally {
+      this._buildPromise = null;
+    }
   }
 
   async _executeBuild({ repoPath, branch }) {
@@ -98,7 +106,6 @@ class GitService {
 
     const pullCmd = `git -C "${repoPath}" ${authConfig} pull origin ${branch}`;
     this.logger?.send(`[PULL] > ${pullCmd}`);
-    this._building = true;
     const pullRes = await run(pullCmd, this.logger);
     if (pullRes.error) {
       this.logger?.send('[PULL][WARN] Pull thất bại hoặc phân kỳ branch. Thử reset --hard về origin để đồng bộ build server.');
@@ -216,46 +223,14 @@ class GitService {
     }
 
     // Sau khi build thành công, cập nhật commit đã build để tránh trùng lặp
-    try {
-      if (!result.hadError && remoteHash) {
-        const newCfg = this.configService.getConfig();
-        newCfg.lastBuiltCommit = remoteHash;
-        this.configService.setConfig(newCfg);
-        this.logger?.send(`[CHECK] Đánh dấu commit đã build: ${remoteHash}`);
-      }
-    } finally {
-      this._building = false;
-      // Xử lý build tiếp theo trong queue
-      this._processQueue();
+    if (!result.hadError && remoteHash) {
+      const newCfg = this.configService.getConfig();
+      newCfg.lastBuiltCommit = remoteHash;
+      this.configService.setConfig(newCfg);
+      this.logger?.send(`[CHECK] Đánh dấu commit đã build: ${remoteHash}`);
     }
 
     return { ok: true, updated: !result.hadError };
-  }
-
-  async _processQueue() {
-    if (this._processingQueue || this._building || this._buildQueue.length === 0) {
-      return;
-    }
-
-    this._processingQueue = true;
-    
-    while (this._buildQueue.length > 0 && !this._building) {
-      const nextBuild = this._buildQueue.shift();
-      this.logger?.send(`[QUEUE] Xử lý build tiếp theo. Còn lại trong queue: ${this._buildQueue.length}`);
-      
-      try {
-        const result = await this._executeBuild({
-          repoPath: nextBuild.repoPath,
-          branch: nextBuild.branch
-        });
-        nextBuild.resolve(result);
-      } catch (error) {
-        this.logger?.send(`[QUEUE][ERROR] Build từ queue thất bại: ${error.message}`);
-        nextBuild.resolve({ ok: false, error: error.message });
-      }
-    }
-    
-    this._processingQueue = false;
   }
 }
 
