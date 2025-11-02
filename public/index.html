@@ -19,236 +19,308 @@
         <button id="themeToggle" class="btn secondary">Chế độ tối</button>
       </div>
     </header>
-    <nav class="app-nav">
-      <a href="#cfg">Cấu hình</a>
-      <a href="#logs">Logs</a>
-      <a href="#builds">Builds</a>
-      <a href="#docker">Docker & Swarm</a>
-      <a href="#versions">Lịch sử</a>
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="config-tab">Cấu hình chung</button>
+      <button class="tab-btn" data-tab="builds-tab">Quản lý Builds</button>
     </nav>
 
-    <main class="container">
-      <section class="card" id="cfg">
-        <h2>1) Cấu hình GitLab/GitHub</h2>
-        <div class="row">
-          <div>
-            <label for="provider">Nhà cung cấp</label>
-            <select id="provider">
-              <option value="gitlab">GitLab</option>
-              <option value="github">GitHub</option>
+    <main class="container tab-container">
+      <!-- Tab 1: Cấu hình chung -->
+      <div id="config-tab" class="tab-content active">
+        <!-- Git Configuration Section -->
+        <section class="card">
+          <h2>🔗 Cấu hình Git Repository</h2>
+          <div class="row">
+            <div>
+              <label for="provider">Nhà cung cấp</label>
+              <select id="provider">
+                <option value="gitlab">GitLab</option>
+                <option value="github">GitHub</option>
+              </select>
+            </div>
+            <div>
+              <label for="polling">Chu kỳ polling (giây)</label>
+              <input id="polling" type="number" min="5" step="5" placeholder="30" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="account">Tài khoản / Tổ chức</label>
+              <input id="account" type="text" placeholder="vd: my-org" />
+            </div>
+            <div>
+              <label for="token">Access Token</label>
+              <input id="token" type="password" placeholder="ghp_/glpat_..." />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="repoUrl">Repo URL</label>
+              <input id="repoUrl" type="text" placeholder="https://gitlab.com/my-org/my-repo.git" />
+            </div>
+            <div>
+              <label for="repoPath">Repo Path (máy chủ chạy pull)</label>
+              <input id="repoPath" type="text" placeholder="D:/repos/my-repo" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="branch">Branch</label>
+              <input id="branch" type="text" placeholder="main" />
+            </div>
+          </div>
+          <div class="actions">
+            <button id="saveCfg" class="btn">Lưu cấu hình Git</button>
+            <button id="checkConnection" class="btn outline">Kiểm tra kết nối</button>
+          </div>
+          <p id="cfgStatus" class="status"></p>
+        </section>
+
+        <!-- Scheduler Status Section -->
+        <section class="card">
+          <h2>⏰ Trạng thái Scheduler (Tự động Check + Pull + Build)</h2>
+          <div class="scheduler-status">
+            <div class="status-info">
+              <div class="status-item">
+                <span class="label">Trạng thái:</span>
+                <span id="schedulerStatus" class="status-badge">-</span>
+              </div>
+              <div class="status-item">
+                <span class="label">Phương thức Build:</span>
+                <span id="schedulerBuildMethod">-</span>
+              </div>
+              <div class="status-item">
+                <span class="label">Chu kỳ Polling:</span>
+                <span id="schedulerPolling">-</span>
+              </div>
+            </div>
+            <div class="scheduler-controls">
+              <button id="toggleScheduler" class="btn">Bật/Tắt Scheduler</button>
+              <button id="restartScheduler" class="btn outline">Khởi động lại</button>
+            </div>
+            <div class="scheduler-info">
+              <p class="muted">💡 Khi bật, scheduler sẽ tự động kiểm tra commit mới và thực hiện build theo chu kỳ đã cấu hình.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Build Method Configuration Section -->
+        <section class="card">
+          <h2>🔨 Cấu hình phương thức Build</h2>
+          <div class="build-method-selector">
+            <div class="method-option">
+              <input type="radio" id="method-script" name="buildMethod" value="script" />
+              <label for="method-script" class="method-card">
+                <div class="method-icon">📜</div>
+                <div class="method-info">
+                  <h3>Build theo Script</h3>
+                  <p>Sử dụng file .sh tùy chỉnh để build</p>
+                </div>
+              </label>
+            </div>
+            <div class="method-option">
+              <input type="radio" id="method-dockerfile" name="buildMethod" value="dockerfile" checked />
+              <label for="method-dockerfile" class="method-card">
+                <div class="method-icon">🐳</div>
+                <div class="method-info">
+                  <h3>Build theo Dockerfile</h3>
+                  <p>Sử dụng Docker để build image</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Script Build Configuration -->
+          <div id="script-config" class="method-config" style="display: none;">
+            <h3>Cấu hình Script Build</h3>
+            <div class="row">
+              <div>
+                <label for="deployScriptPath">Đường dẫn Script (.sh)</label>
+                <input id="deployScriptPath" type="text" placeholder="vd: D:/Ci-Cd/deploy.sh" />
+                <p class="muted">Nhập đường dẫn đến file script để thực hiện build.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dockerfile Build Configuration -->
+          <div id="dockerfile-config" class="method-config">
+            <h3>Cấu hình Docker Build</h3>
+            <div class="row">
+              <div>
+                <label for="dockerfilePath">Dockerfile Path</label>
+                <input id="dockerfilePath" type="text" placeholder="D:/repos/my-repo/Dockerfile" />
+              </div>
+              <div>
+                <label for="contextPath">Context Path</label>
+                <input id="contextPath" type="text" placeholder="D:/repos/my-repo" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="imageName">Image Name</label>
+                <input id="imageName" type="text" placeholder="my-registry.com/myproj/myapp" />
+              </div>
+              <div>
+                <label for="imageTag">Image Tag</label>
+                <input id="imageTag" type="text" placeholder="latest" />
+                <div class="check-inline mt6">
+                  <input id="autoTagIncrement" class="switch" type="checkbox" />
+                  <span class="muted">Tự động tăng tag sau mỗi lần build</span>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="registryUrl">Registry URL</label>
+                <input id="registryUrl" type="text" placeholder="my-registry.com" />
+              </div>
+              <div>
+                <label for="registryUsername">Registry Username</label>
+                <input id="registryUsername" type="text" placeholder="username" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="registryPassword">Registry Password</label>
+                <input id="registryPassword" type="password" placeholder="••••••" />
+              </div>
+              <div></div>
+            </div>
+          </div>
+
+          <!-- Docker Swarm Configuration -->
+          <div class="swarm-config">
+            <h3>🐋 Cấu hình Docker Swarm Deploy</h3>
+            <div class="row">
+              <div>
+                <label for="composePath">docker-compose.yml Path</label>
+                <input id="composePath" type="text" placeholder="D:/deploy/compose.yml" />
+              </div>
+              <div>
+                <label for="stackName">Swarm Stack Name</label>
+                <input id="stackName" type="text" placeholder="my-stack" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="autoDeploySwarm">Auto Deploy Swarm</label>
+                <div class="check-inline">
+                  <input id="autoDeploySwarm" class="switch" type="checkbox" />
+                  <span class="muted">Deploy Swarm tự động sau khi build thành công</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="saveAllConfig" class="btn primary">💾 Lưu tất cả cấu hình</button>
+            <button id="testBuild" class="btn outline">🧪 Test Build</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab 2: Quản lý Builds -->
+      <div id="builds-tab" class="tab-content">
+        <!-- Build Actions Section -->
+        <section class="card">
+          <h2>🚀 Thao tác Build</h2>
+          <div class="build-actions-grid">
+            <button id="startPull" class="action-card">
+              <div class="action-icon">📥</div>
+              <div class="action-info">
+                <h3>Pull Code</h3>
+                <p>Kéo code mới nhất từ repository</p>
+              </div>
+            </button>
+            <button id="runScriptBuild" class="action-card" style="display: none;">
+              <div class="action-icon">📜</div>
+              <div class="action-info">
+                <h3>Run Script</h3>
+                <p>Chạy script build tùy chỉnh</p>
+              </div>
+            </button>
+            <button id="runDockerBuild" class="action-card">
+              <div class="action-icon">🔨</div>
+              <div class="action-info">
+                <h3>Build & Push</h3>
+                <p>Build image và push lên registry</p>
+              </div>
+            </button>
+            <button id="runSwarmDeploy" class="action-card">
+              <div class="action-icon">🐋</div>
+              <div class="action-info">
+                <h3>Deploy Swarm</h3>
+                <p>Deploy lên Docker Swarm</p>
+              </div>
+            </button>
+            <button id="checkPullBuild" class="action-card primary">
+              <div class="action-icon">⚡</div>
+              <div class="action-info">
+                <h3>Manual Pipeline</h3>
+                <p>Thực hiện ngay: Check + Pull + Build</p>
+              </div>
+            </button>
+          </div>
+          <div class="build-status">
+            <p class="muted">Commit đã build gần nhất: <span id="lastBuiltCommit" class="tag">(chưa có)</span></p>
+          </div>
+        </section>
+
+        <!-- Build History Section -->
+        <section class="card full">
+          <div class="card-header">
+            <h2>📊 Lịch sử Builds</h2>
+            <div class="header-actions">
+              <button id="refreshBuilds" class="btn small outline">🔄 Refresh</button>
+              <button id="clearBuildHistory" class="btn small secondary">🗑️ Xóa lịch sử</button>
+            </div>
+          </div>
+          
+          <div class="build-filters">
+            <input type="text" id="buildSearch" placeholder="🔍 Tìm kiếm builds..." />
+            <select id="buildStatusFilter">
+              <option value="">Tất cả trạng thái</option>
+              <option value="success">Thành công</option>
+              <option value="failed">Thất bại</option>
+              <option value="running">Đang chạy</option>
             </select>
           </div>
-          <div>
-            <label for="polling">Chu kỳ polling (giây)</label>
-            <input id="polling" type="number" min="5" step="5" placeholder="30" />
+
+          <div class="builds-table-container">
+            <table class="builds-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Thời gian</th>
+                  <th>Commit</th>
+                  <th>Branch</th>
+                  <th>Phương thức</th>
+                  <th>Trạng thái</th>
+                  <th>Thời lượng</th>
+                  <th>Hành động</th>
+                </tr>
+              </thead>
+              <tbody id="buildsTableBody">
+                <!-- Build rows will be populated here -->
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="account">Tài khoản / Tổ chức</label>
-            <input id="account" type="text" placeholder="vd: my-org" />
-          </div>
-          <div>
-            <label for="token">Access Token</label>
-            <input id="token" type="password" placeholder="ghp_/glpat_..." />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="repoUrl">Repo URL</label>
-            <input id="repoUrl" type="text" placeholder="https://gitlab.com/my-org/my-repo.git" />
-          </div>
-          <div>
-            <label for="repoPath">Repo Path (máy chủ chạy pull)</label>
-            <input id="repoPath" type="text" placeholder="D:/repos/my-repo" />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="branch">Branch</label>
-            <input id="branch" type="text" placeholder="main" />
-          </div>
-          <div>
-            <label for="deployScriptPath">Deploy Script Path (mặc định)</label>
-            <div class="input-with-button">
-              <input id="deployScriptPath" type="text" placeholder="vd: D:/Ci-Cd/deploy.sh hoặc /opt/Ci-Cd/deploy.sh" />
-              <button id="loadChoicesDefaultBtn" class="btn small outline" type="button" title="Tải lựa chọn từ deploy.sh">Tải lựa chọn</button>
+        </section>
+
+        <!-- Real-time Logs Section -->
+        <section class="card full" id="logsSection">
+          <div class="card-header">
+            <h2 id="logsTitle">📋 Logs Realtime</h2>
+            <div class="log-toolbar">
+              <button id="copyLogs" class="btn small outline">📋 Copy</button>
+              <button id="clearLogs" class="btn small secondary">🗑️ Clear</button>
+              <button id="toggleAutoScroll" class="btn small outline active">📜 Auto Scroll</button>
             </div>
           </div>
-          <div>
-            <label for="buildMethod">Phương thức build</label>
-            <select id="buildMethod">
-              <option value="dockerfile">Dockerfile (DockerService)</option>
-              <option value="deploy_sh">deploy.sh (script)</option>
-            </select>
-          </div>
-          <div>
-            <label for="deployChoicesMulti">Choice để build (.sh) - chọn nhiều</label>
-            <select id="deployChoicesMulti" multiple size="6"></select>
-            <p class="muted" style="margin-top:6px">Tải danh sách choice từ file .sh, sau đó chọn một hoặc nhiều choice để hệ thống build tự động bằng script.</p>
-          </div>
-          <div>
-            <label for="autoCheck">Tự động Check + Pull + Build</label>
-            <div class="check-inline">
-              <input id="autoCheck" class="switch" type="checkbox" aria-label="Bật tự động check" />
-              <span class="muted">Chạy nền theo chu kỳ polling</span>
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="deployContextSource">Nguồn Context (build .sh)</label>
-            <select id="deployContextSource">
-              <option value="repo">Repo Path</option>
-              <option value="config">Docker Config - Context Path</option>
-              <option value="custom">Tùy chọn</option>
-            </select>
-            <p class="muted" style="margin-top:6px">Chọn nơi lấy Context Path khi chạy deploy.sh tự động.</p>
-          </div>
-          <div>
-            <label for="deployContextCustomPath">Context Path (tùy chọn)</label>
-            <input id="deployContextCustomPath" type="text" placeholder="Chỉ dùng khi chọn 'Tùy chọn'" />
-            <p class="muted" style="margin-top:6px">Nếu chọn "Tùy chọn", hệ thống sẽ dùng đường dẫn này làm CONTEXT_PATH.</p>
-          </div>
-          <div>
-            <label>Context Path đang dùng</label>
-            <div class="info-box" id="effectiveContextInfo">(chưa có)</div>
-          </div>
-        </div>
-        <div class="actions">
-          <button id="saveCfg" class="btn">Lưu cấu hình</button>
-          <button id="checkConnection" class="btn outline">Kiểm tra kết nối Git</button>
-          <button id="startPull" class="btn outline">Bắt đầu Pull</button>
-        </div>
-        <p id="cfgStatus" class="status"></p>
-        <p class="muted">Commit đã build gần nhất: <span id="lastBuiltCommit" class="tag">(chưa có)</span></p>
-      </section>
-
-      <section class="card full" id="logsSection" style="display:none;" aria-labelledby="logsTitle">
-        <div class="card-header">
-          <h2 id="logsTitle">2) Theo dõi realtime</h2>
-          <div class="log-toolbar">
-            <button id="copyLogs" class="btn small outline">Sao chép log</button>
-            <button id="clearLogs" class="btn small secondary">Xóa log</button>
-          </div>
-        </div>
-        <div id="logs" aria-live="polite" aria-atomic="false" class="logs"></div>
-      </section>
-
-      <section class="card full" id="builds">
-        <h2>3) Cấu hình bảng Build</h2>
-        <div class="row">
-          <div>
-            <label for="buildName">Tên build</label>
-            <input id="buildName" type="text" placeholder="Build Dev" />
-          </div>
-          <div>
-            <label for="buildEnv">ENV (JSON)</label>
-            <input id="buildEnv" type="text" placeholder='{"NODE_ENV":"production"}' />
-          </div>
-        </div>
-        <label for="buildSteps">Các bước (mỗi dòng 1 lệnh)</label>
-        <textarea id="buildSteps" placeholder="npm ci\nnpm run build\nnpm run test"></textarea>
-        <div class="actions">
-          <button id="addBuild" class="btn">Thêm cấu hình build</button>
-        </div>
-
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Chọn</th>
-              <th>Tên</th>
-              <th>Bước</th>
-              <th>ENV</th>
-              <th>Hành động</th>
-            </tr>
-          </thead>
-          <tbody id="buildTable"></tbody>
-        </table>
-      </section>
-
-      <section class="card full" id="docker">
-        <h2>4) Docker Build & Swarm Deploy</h2>
-        <div class="row">
-          <div>
-            <label for="dockerfilePath">Dockerfile Path</label>
-            <input id="dockerfilePath" type="text" placeholder="D:/repos/my-repo/Dockerfile" />
-          </div>
-          <div>
-            <label for="contextPath">Context Path</label>
-            <input id="contextPath" type="text" placeholder="D:/repos/my-repo" />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="imageName">Image Name</label>
-            <input id="imageName" type="text" placeholder="my-registry.com/myproj/myapp" />
-          </div>
-          <div>
-            <label for="imageTag">Image Tag</label>
-            <input id="imageTag" type="text" placeholder="latest" />
-            <div class="check-inline mt6">
-              <input id="autoTagIncrement" class="switch" type="checkbox" aria-label="Bật tự động tăng tag" />
-              <span class="muted">Tự động tăng tag sau mỗi lần build (ví dụ 1.0.74 ➜ 1.0.75)</span>
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="registryUrl">Registry URL</label>
-            <input id="registryUrl" type="text" placeholder="my-registry.com" />
-          </div>
-          <div>
-            <label for="registryUsername">Registry Username</label>
-            <input id="registryUsername" type="text" placeholder="username" />
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="registryPassword">Registry Password</label>
-            <input id="registryPassword" type="password" placeholder="••••••" />
-          </div>
-          <div></div>
-        </div>
-
-        <div class="row">
-          <div>
-            <label for="composePath">docker-compose.yml Path</label>
-            <input id="composePath" type="text" placeholder="D:/deploy/compose.yml" />
-          </div>
-          <div>
-            <label for="stackName">Swarm Stack Name</label>
-            <input id="stackName" type="text" placeholder="my-stack" />
-            <div class="check-inline mt6">
-              <input id="autoDeploySwarm" class="switch" type="checkbox" aria-label="Bật auto deploy swarm" />
-              <span class="muted">Deploy Swarm tự động sau khi build thành công</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="actions">
-          <button id="saveDockerCfg" class="btn">Lưu Docker Config</button>
-          <button id="runDockerBuild" class="btn outline">Build & Push</button>
-          <button id="runSwarmDeploy" class="btn secondary">Deploy Swarm</button>
-          <button id="checkPullBuild" class="btn">Check commit + Pull + Build</button>
-        </div>
-      </section>
-
-      
-
-      <section class="card full" id="versions">
-        <h2>6) Lịch sử cấu hình</h2>
-        <div class="row">
-          <div>
-            <label>Phiên bản Config</label>
-            <div id="configVersions" class="table" style="border:1px solid var(--border); border-radius:12px; overflow:hidden"></div>
-          </div>
-          <div>
-            <label>Phiên bản Builds</label>
-            <div id="buildVersions" class="table" style="border:1px solid var(--border); border-radius:12px; overflow:hidden"></div>
-          </div>
-        </div>
-      </section>
+          <div id="logs" aria-live="polite" aria-atomic="false" class="logs"></div>
+        </section>
+      </div>
     </main>
     
     <!-- Modal chỉnh sửa Build -->

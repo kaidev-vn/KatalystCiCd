@@ -122,10 +122,10 @@ class GitService {
       }
     }
 
-    // Chọn phương thức build: dockerfile hoặc deploy.sh
+    // Chọn phương thức build: dockerfile hoặc script
     const dockerCfg = (cfg.docker || {});
     let result = { hadError: false };
-    if ((cfg.buildMethod || 'dockerfile') === 'deploy_sh') {
+    if ((cfg.buildMethod || 'dockerfile') === 'script') {
       const pathLib = require('path');
       const fs = require('fs');
       const projectRoot = pathLib.join(__dirname, '../../');

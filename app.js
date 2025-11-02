@@ -29,6 +29,7 @@ const { registerSwarmController } = require('./src/controllers/SwarmController')
 const { registerPullController } = require('./src/controllers/PullController');
 const { registerWebhookController } = require('./src/controllers/WebhookController');
 const { registerDeployController } = require('./src/controllers/DeployController');
+const { SchedulerController } = require('./src/controllers/SchedulerController');
 
 app.use(bodyParser.json());
 // Phục vụ file tĩnh cho giao diện cấu hình CI/CD
@@ -50,7 +51,7 @@ const swarmService = new SwarmService({ logger });
 const gitService = new GitService({ logger, dockerService, configService });
 const scheduler = new Scheduler({ logger, configService, gitService });
 const buildService = new BuildService({ logger, configService });
-
+const schedulerController = new SchedulerController({ scheduler, configService });
 
 registerConfigController(app, { configService, scheduler, logger });
 registerBuildsController(app, { configService, buildService });
@@ -60,6 +61,11 @@ registerSwarmController(app, { swarmService, configService });
 registerPullController(app, { configService, logger });
 registerWebhookController(app, { logger, secret: WEBHOOK_SECRET });
 registerDeployController(app, { logger, configService });
+
+// Scheduler API routes
+app.get('/api/scheduler/status', (req, res) => schedulerController.getStatus(req, res));
+app.post('/api/scheduler/toggle', (req, res) => schedulerController.toggle(req, res));
+app.post('/api/scheduler/restart', (req, res) => schedulerController.restart(req, res));
 
 
 app.listen(PORT, () => {

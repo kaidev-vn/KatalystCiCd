@@ -1,6 +1,214 @@
 function $(id) { return document.getElementById(id); }
 let CURRENT_CFG = null;
 
+// Tab Management
+function switchTab(tabId) {
+  // Hide all tab contents
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  // Remove active class from all tab buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Show selected tab content
+  const targetContent = document.getElementById(tabId);
+  if (targetContent) {
+    targetContent.classList.add('active');
+  }
+  
+  // Add active class to clicked tab button
+  const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
+  if (targetBtn) {
+    targetBtn.classList.add('active');
+  }
+  
+  // Store active tab in localStorage
+  localStorage.setItem('activeTab', tabId);
+  
+  // Load data for specific tabs
+  if (tabId === 'builds-tab') {
+    loadBuilds();
+    loadBuildHistory();
+  }
+}
+
+// Build Method Selection
+function selectBuildMethod(method) {
+  // Update radio button
+  document.querySelectorAll('input[name="buildMethod"]').forEach(radio => {
+    radio.checked = radio.value === method;
+  });
+  
+  // Show/hide configuration sections
+  const scriptConfig = document.getElementById('script-config');
+  const dockerConfig = document.getElementById('dockerfile-config');
+  const scriptBuildBtn = document.getElementById('runScriptBuild');
+  const dockerBuildBtn = document.getElementById('runDockerBuild');
+  const swarmDeployBtn = document.getElementById('runSwarmDeploy');
+  
+  if (method === 'script') {
+    if (scriptConfig) scriptConfig.style.display = 'block';
+    if (dockerConfig) dockerConfig.style.display = 'none';
+    if (scriptBuildBtn) scriptBuildBtn.style.display = 'block';
+    if (dockerBuildBtn) dockerBuildBtn.style.display = 'none';
+    if (swarmDeployBtn) swarmDeployBtn.style.display = 'none';
+  } else {
+    if (scriptConfig) scriptConfig.style.display = 'none';
+    if (dockerConfig) dockerConfig.style.display = 'block';
+    if (scriptBuildBtn) scriptBuildBtn.style.display = 'none';
+    if (dockerBuildBtn) dockerBuildBtn.style.display = 'block';
+    if (swarmDeployBtn) swarmDeployBtn.style.display = 'block';
+  }
+}
+
+// Build History Management
+let buildHistory = [];
+let selectedBuildId = null;
+
+async function loadBuildHistory() {
+  try {
+    const response = await fetch('/api/build-history');
+    buildHistory = await response.json();
+    renderBuildHistory();
+  } catch (error) {
+    console.error('Error loading build history:', error);
+    buildHistory = [];
+    renderBuildHistory();
+  }
+}
+
+function renderBuildHistory() {
+  const tbody = document.querySelector('#buildHistoryTable tbody');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';
+  
+  if (buildHistory.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; color: var(--muted); padding: 20px;">
+          Chưa có lịch sử build nào
+        </td>
+      </tr>
+    `;
+    return;
+  }
+  
+  buildHistory.forEach(build => {
+    const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    row.onclick = () => selectBuildForLogs(build.id);
+    
+    const statusClass = build.status === 'success' ? 'success' : 
+                       build.status === 'failed' ? 'failed' : 'running';
+    
+    row.innerHTML = `
+      <td>${build.id}</td>
+      <td>${build.name || 'Unnamed Build'}</td>
+      <td>${build.method || 'dockerfile'}</td>
+      <td><span class="status-badge ${statusClass}">${build.status}</span></td>
+      <td>${new Date(build.startTime).toLocaleString('vi-VN')}</td>
+      <td>${build.duration || '-'}</td>
+    `;
+    
+    tbody.appendChild(row);
+  });
+}
+
+function selectBuildForLogs(buildId) {
+  selectedBuildId = buildId;
+  
+  // Highlight selected row
+  document.querySelectorAll('#buildHistoryTable tbody tr').forEach(row => {
+    row.classList.remove('selected');
+  });
+  
+  const selectedRow = document.querySelector(`#buildHistoryTable tbody tr[onclick*="${buildId}"]`);
+  if (selectedRow) {
+    selectedRow.classList.add('selected');
+  }
+  
+  // Load logs for selected build
+  loadBuildLogs(buildId);
+}
+
+async function loadBuildLogs(buildId) {
+  const logContainer = document.getElementById('buildLogOutput');
+  if (!logContainer) return;
+  
+  try {
+    const response = await fetch(`/api/build-logs/${buildId}`);
+    const logs = await response.text();
+    
+    logContainer.innerHTML = `
+      <div class="log-header">
+        <h4>Build Logs - ID: ${buildId}</h4>
+        <div class="log-toolbar">
+          <button class="btn" onclick="clearBuildLogs()">Xóa logs</button>
+          <button class="btn" onclick="downloadBuildLogs('${buildId}')">Tải xuống</button>
+        </div>
+      </div>
+      <pre class="log-content">${logs || 'Không có logs cho build này'}</pre>
+    `;
+    
+    // Auto scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+  } catch (error) {
+    console.error('Error loading build logs:', error);
+    logContainer.innerHTML = `
+      <div class="log-header">
+        <h4>Build Logs - ID: ${buildId}</h4>
+      </div>
+      <pre class="log-content">Lỗi khi tải logs: ${error.message}</pre>
+    `;
+  }
+}
+
+function clearBuildLogs() {
+  const logContainer = document.getElementById('buildLogOutput');
+  if (logContainer) {
+    logContainer.innerHTML = '<pre class="log-content">Logs đã được xóa</pre>';
+  }
+}
+
+function downloadBuildLogs(buildId) {
+  const logContent = document.querySelector('#buildLogOutput .log-content');
+  if (!logContent) return;
+  
+  const blob = new Blob([logContent.textContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `build-logs-${buildId}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Filter builds
+function filterBuilds() {
+  const searchTerm = document.getElementById('buildSearch').value.toLowerCase();
+  const statusFilter = document.getElementById('statusFilter').value;
+  
+  const rows = document.querySelectorAll('#buildHistoryTable tbody tr');
+  
+  rows.forEach(row => {
+    if (row.children.length === 1) return; // Skip "no data" row
+    
+    const buildName = row.children[1].textContent.toLowerCase();
+    const buildStatus = row.children[3].textContent.toLowerCase();
+    
+    const matchesSearch = buildName.includes(searchTerm);
+    const matchesStatus = statusFilter === 'all' || buildStatus.includes(statusFilter);
+    
+    row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+  });
+}
+
 // Theme toggle
 function applyTheme(theme) {
   const root = document.documentElement;
@@ -23,46 +231,75 @@ async function loadConfig() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
   CURRENT_CFG = cfg;
-  $('provider').value = cfg.provider || 'gitlab';
-  $('polling').value = cfg.polling || 30;
-  $('account').value = cfg.account || '';
-  $('token').value = cfg.token || '';
-  $('repoUrl').value = cfg.repoUrl || '';
-  $('repoPath').value = cfg.repoPath || '';
-  $('branch').value = cfg.branch || 'main';
-  $('deployScriptPath').value = cfg.deployScriptPath || '';
-  $('buildMethod').value = (cfg.buildMethod || 'dockerfile');
-  // Thiết lập các choice (multi-select) cho deploy.sh tự động
-  (function(){
-    const sel = $('deployChoicesMulti');
-    if (sel) {
-      const selected = Array.isArray(cfg.deployChoices) ? cfg.deployChoices.map(n => String(n)) : [];
-      // chọn các option tương ứng nếu đã có list
-      for (const opt of Array.from(sel.options)) {
-        opt.selected = selected.includes(String(opt.value));
-      }
-      sel.dataset.pendingValues = JSON.stringify(selected);
-    }
-  })();
-  // Nguồn Context cho deploy.sh
-  const srcSel = $('deployContextSource');
-  if (srcSel) srcSel.value = String(cfg.deployContextSource || 'repo');
-  const customCtxInput = $('deployContextCustomPath');
-  if (customCtxInput) customCtxInput.value = String(cfg.deployContextCustomPath || '');
-  $('autoCheck').checked = !!cfg.autoCheck;
+  
+  // Add null checks for all DOM elements
+  const providerEl = $('provider');
+  if (providerEl) providerEl.value = cfg.provider || 'gitlab';
+  
+  const pollingEl = $('polling');
+  if (pollingEl) pollingEl.value = cfg.polling || 30;
+  
+  const accountEl = $('account');
+  if (accountEl) accountEl.value = cfg.account || '';
+  
+  const tokenEl = $('token');
+  if (tokenEl) tokenEl.value = cfg.token || '';
+  
+  const repoUrlEl = $('repoUrl');
+  if (repoUrlEl) repoUrlEl.value = cfg.repoUrl || '';
+  
+  const repoPathEl = $('repoPath');
+  if (repoPathEl) repoPathEl.value = cfg.repoPath || '';
+  
+  const branchEl = $('branch');
+  if (branchEl) branchEl.value = cfg.branch || 'main';
+  
+  const deployScriptPathEl = $('deployScriptPath');
+  if (deployScriptPathEl) deployScriptPathEl.value = cfg.deployScriptPath || '';
+  
+  // Set radio button for build method
+  const buildMethod = cfg.buildMethod || 'dockerfile';
+  const buildMethodRadio = document.querySelector(`input[name="buildMethod"][value="${buildMethod}"]`);
+  if (buildMethodRadio) {
+    buildMethodRadio.checked = true;
+    // Trigger the selectBuildMethod function to show correct config section
+    selectBuildMethod(buildMethod);
+  }
+  
   // docker
   const d = cfg.docker || {};
-  $('dockerfilePath').value = d.dockerfilePath || '';
-  $('contextPath').value = d.contextPath || '';
-  $('imageName').value = d.imageName || '';
-  $('imageTag').value = d.imageTag || 'latest';
-  $('autoTagIncrement').checked = !!d.autoTagIncrement;
-  $('registryUrl').value = d.registryUrl || '';
-  $('registryUsername').value = d.registryUsername || '';
-  $('registryPassword').value = d.registryPassword || '';
-  $('composePath').value = d.composePath || '';
-  $('stackName').value = d.stackName || '';
-  $('autoDeploySwarm').checked = !!d.autoDeploySwarm;
+  const dockerfilePathEl = $('dockerfilePath');
+  if (dockerfilePathEl) dockerfilePathEl.value = d.dockerfilePath || '';
+  
+  const contextPathEl = $('contextPath');
+  if (contextPathEl) contextPathEl.value = d.contextPath || '';
+  
+  const imageNameEl = $('imageName');
+  if (imageNameEl) imageNameEl.value = d.imageName || '';
+  
+  const imageTagEl = $('imageTag');
+  if (imageTagEl) imageTagEl.value = d.imageTag || 'latest';
+  
+  const autoTagIncrementEl = $('autoTagIncrement');
+  if (autoTagIncrementEl) autoTagIncrementEl.checked = !!d.autoTagIncrement;
+  
+  const registryUrlEl = $('registryUrl');
+  if (registryUrlEl) registryUrlEl.value = d.registryUrl || '';
+  
+  const registryUsernameEl = $('registryUsername');
+  if (registryUsernameEl) registryUsernameEl.value = d.registryUsername || '';
+  
+  const registryPasswordEl = $('registryPassword');
+  if (registryPasswordEl) registryPasswordEl.value = d.registryPassword || '';
+  
+  const composePathEl = $('composePath');
+  if (composePathEl) composePathEl.value = d.composePath || '';
+  
+  const stackNameEl = $('stackName');
+  if (stackNameEl) stackNameEl.value = d.stackName || '';
+  
+  const autoDeploySwarmEl = $('autoDeploySwarm');
+  if (autoDeploySwarmEl) autoDeploySwarmEl.checked = !!d.autoDeploySwarm;
 
   // Hiển thị commit đã build gần nhất (rút gọn 10 ký tự)
   const lb = (cfg.lastBuiltCommit || '').trim();
@@ -120,34 +357,32 @@ async function loadDeployChoices(pathOverride) {
 
 async function saveConfig() {
   const payload = {
-    provider: $('provider').value,
-    polling: Number($('polling').value || 30),
-    account: $('account').value,
-    token: $('token').value,
-    repoUrl: $('repoUrl').value,
-    repoPath: $('repoPath').value,
-    branch: $('branch').value || 'main',
-    deployScriptPath: $('deployScriptPath').value,
-    buildMethod: $('buildMethod').value || 'dockerfile',
-    // Lấy danh sách choice đã chọn từ multi-select
-    deployChoices: Array.from(($('deployChoicesMulti')?.selectedOptions || [])).map(op => Number(op.value)).filter(n => Number.isInteger(n) && n > 0),
-    // giữ deployChoice cho tương thích ngược (lấy phần tử đầu tiên nếu có)
-    deployChoice: (function(){ const arr = Array.from(($('deployChoicesMulti')?.selectedOptions || [])).map(op => Number(op.value)).filter(n => Number.isInteger(n) && n > 0); return arr[0] || 0; })(),
-    deployContextSource: ($('deployContextSource').value || 'repo'),
-    deployContextCustomPath: ($('deployContextCustomPath').value || ''),
-    autoCheck: $('autoCheck').checked,
+    provider: $('provider')?.value || '',
+    polling: Number($('polling')?.value || 30),
+    account: $('account')?.value || '',
+    token: $('token')?.value || '',
+    repoUrl: $('repoUrl')?.value || '',
+    repoPath: $('repoPath')?.value || '',
+    branch: $('branch')?.value || 'main',
+    deployScriptPath: $('deployScriptPath')?.value || '',
+    buildMethod: document.querySelector('input[name="buildMethod"]:checked')?.value || 'dockerfile',
+    // Simplified - no more complex deploy choices
+    deployChoices: [],
+    deployChoice: 0,
+    deployContextSource: 'repo',
+    deployContextCustomPath: '',
     docker: {
-      dockerfilePath: $('dockerfilePath').value,
-      contextPath: $('contextPath').value,
-      imageName: $('imageName').value,
-      imageTag: $('imageTag').value || 'latest',
-      autoTagIncrement: $('autoTagIncrement').checked,
-      registryUrl: $('registryUrl').value,
-      registryUsername: $('registryUsername').value,
-      registryPassword: $('registryPassword').value,
-      composePath: $('composePath').value,
-      stackName: $('stackName').value,
-      autoDeploySwarm: $('autoDeploySwarm').checked,
+      dockerfilePath: $('dockerfilePath')?.value || '',
+      contextPath: $('contextPath')?.value || '',
+      imageName: $('imageName')?.value || '',
+      imageTag: $('imageTag')?.value || 'latest',
+      autoTagIncrement: $('autoTagIncrement')?.checked || false,
+      registryUrl: $('registryUrl')?.value || '',
+      registryUsername: $('registryUsername')?.value || '',
+      registryPassword: $('registryPassword')?.value || '',
+      composePath: $('composePath')?.value || '',
+      stackName: $('stackName')?.value || '',
+      autoDeploySwarm: $('autoDeploySwarm')?.checked || false,
     }
   };
   const res = await fetch('/api/config', {
@@ -156,8 +391,11 @@ async function saveConfig() {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  $('cfgStatus').textContent = data.ok ? 'Đã lưu cấu hình!' : 'Lưu thất bại';
-  setTimeout(() => $('cfgStatus').textContent = '', 2000);
+  const cfgStatusEl = $('cfgStatus');
+  if (cfgStatusEl) {
+    cfgStatusEl.textContent = data.ok ? 'Đã lưu cấu hình!' : 'Lưu thất bại';
+    setTimeout(() => cfgStatusEl.textContent = '', 2000);
+  }
 }
 
 function updateEffectiveContextInfo() {
@@ -227,6 +465,51 @@ async function runCheckPullBuild() {
   try { await loadConfig(); } catch (_) {}
 }
 
+async function runScriptBuild() {
+  const config = CURRENT_CFG;
+  if (!config) {
+    appendLog('[UI] Lỗi: Chưa có cấu hình');
+    return;
+  }
+
+  if (config.buildMethod !== 'script') {
+    appendLog('[UI] Lỗi: Build method phải là "script"');
+    return;
+  }
+
+  if (!config.deployScriptPath) {
+    appendLog('[UI] Lỗi: Chưa cấu hình đường dẫn script');
+    return;
+  }
+
+  try {
+    appendLog('[UI] Đang chạy script build...');
+    
+    const response = await fetch('/api/run-script', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        scriptPath: config.deployScriptPath,
+        workingDir: config.repoPath
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.ok) {
+      appendLog(`[UI] Script build hoàn tất thành công (Build ID: ${result.buildId})`);
+      // Reload build history to show the new build
+      await loadBuildHistory();
+    } else {
+      appendLog(`[UI] Script build thất bại: ${result.error || 'Không rõ'}`);
+    }
+  } catch (error) {
+    appendLog(`[UI] Lỗi khi chạy script build: ${error.message}`);
+  }
+}
+
 function appendLog(text) {
   const logs = $('logs');
   const div = document.createElement('div');
@@ -260,6 +543,8 @@ async function startPull() {
 // Build table
 function renderBuilds(list) {
   const tbody = $('buildTable');
+  if (!tbody) return; // Add null check
+  
   tbody.innerHTML = '';
   for (const b of list) {
     const tr = document.createElement('tr');
@@ -296,7 +581,8 @@ function renderBuilds(list) {
 }
 
 function selectBuild(b) {
-  $('logs').innerHTML = '';
+  const logsEl = $('logs');
+  if (logsEl) logsEl.innerHTML = ''; // Add null check
   const section = $('logsSection');
   if (section) section.style.display = 'block';
   openLogStream(b.id);
@@ -315,9 +601,14 @@ async function loadVersions() {
   const buildList = buildRes.ok ? await buildRes.json() : [];
   const cfgBox = $('configVersions');
   const buildBox = $('buildVersions');
-  cfgBox.innerHTML = '';
-  buildBox.innerHTML = '';
+  
+  // Add null checks
+  if (cfgBox) cfgBox.innerHTML = '';
+  if (buildBox) buildBox.innerHTML = '';
+  
   const renderItems = (box, list, rollbackFn) => {
+    if (!box) return; // Add null check for box parameter
+    
     const table = document.createElement('table');
     table.className = 'table';
     const thead = document.createElement('thead');
@@ -372,96 +663,279 @@ async function addBuild() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  
+  // Initialize tab event listeners
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.getAttribute('data-tab');
+      if (tabId) {
+        switchTab(tabId);
+      }
+    });
+  });
+  
+  // Initialize tabs
+  const savedTab = localStorage.getItem('activeTab') || 'config-tab';
+  switchTab(savedTab);
+  
+  // Initialize build method selection
+  const savedMethod = localStorage.getItem('buildMethod') || 'dockerfile';
+  selectBuildMethod(savedMethod);
+  
   loadDeployChoices().then(() => loadConfig()).catch(() => loadConfig());
   loadBuilds();
   loadVersions();
-  $('saveCfg').onclick = saveConfig;
-  $('checkConnection').onclick = runCheckConnection;
-  $('startPull').onclick = startPull;
-  $('addBuild').onclick = addBuild;
-  $('clearLogs').onclick = () => { $('logs').innerHTML = ''; };
-  $('copyLogs').onclick = async () => {
-    const lines = Array.from($('logs').children).map(n => n.textContent).join('\n');
-    try { await navigator.clipboard.writeText(lines); appendLog('[UI] Đã sao chép log vào clipboard'); } catch {}
+  
+  // Add null checks for all button event handlers
+  const saveCfgBtn = $('saveCfg');
+  const checkConnectionBtn = $('checkConnection');
+  const startPullBtn = $('startPull');
+  const addBuildBtn = $('addBuild');
+  const clearLogsBtn = $('clearLogs');
+  const copyLogsBtn = $('copyLogs');
+  
+  if (saveCfgBtn) saveCfgBtn.onclick = saveConfig;
+  
+  // Add event listener for saveAllConfig button
+  const saveAllConfigBtn = $('saveAllConfig');
+  if (saveAllConfigBtn) saveAllConfigBtn.onclick = saveConfig;
+  if (checkConnectionBtn) checkConnectionBtn.onclick = runCheckConnection;
+  if (startPullBtn) startPullBtn.onclick = startPull;
+  if (addBuildBtn) addBuildBtn.onclick = addBuild;
+  if (clearLogsBtn) clearLogsBtn.onclick = () => { 
+    const logsEl = $('logs');
+    if (logsEl) logsEl.innerHTML = ''; 
   };
-  const dspi = $('deployScriptPath');
-  if (dspi) dspi.addEventListener('change', () => { loadDeployChoices(); });
-  const loadDefaultBtn = $('loadChoicesDefaultBtn');
-  if (loadDefaultBtn) loadDefaultBtn.onclick = () => {
-    const p = ($('deployScriptPath').value || '').trim();
-    appendLog('[UI] Tải danh sách lựa chọn từ deploy.sh (cấu hình mặc định)...');
-    loadDeployChoices(p);
+  if (copyLogsBtn) copyLogsBtn.onclick = async () => {
+    const logsEl = $('logs');
+    if (logsEl) {
+      const lines = Array.from(logsEl.children).map(n => n.textContent).join('\n');
+      try { await navigator.clipboard.writeText(lines); appendLog('[UI] Đã sao chép log vào clipboard'); } catch {}
+    }
   };
-  $('saveDockerCfg').onclick = saveDockerConfig;
-  $('runDockerBuild').onclick = runDockerBuild;
-  $('runSwarmDeploy').onclick = runSwarmDeploy;
-  $('checkPullBuild').onclick = runCheckPullBuild;
-  // Cập nhật Context hiệu lực khi người dùng thay đổi nguồn/context tùy chọn
-  updateEffectiveContextInfo();
-  const srcSel = $('deployContextSource');
-  const customCtxInput = $('deployContextCustomPath');
-  if (srcSel) srcSel.addEventListener('change', updateEffectiveContextInfo);
-  if (customCtxInput) customCtxInput.addEventListener('input', updateEffectiveContextInfo);
+  
+  // Add null checks for button event handlers
+  const saveDockerCfgBtn = $('saveDockerCfg');
+  const runDockerBuildBtn = $('runDockerBuild');
+  const runSwarmDeployBtn = $('runSwarmDeploy');
+  const runScriptBuildBtn = $('runScriptBuild');
+  const checkPullBuildBtn = $('checkPullBuild');
+  
+  if (saveDockerCfgBtn) saveDockerCfgBtn.onclick = saveDockerConfig;
+  if (runDockerBuildBtn) runDockerBuildBtn.onclick = runDockerBuild;
+  if (runSwarmDeployBtn) runSwarmDeployBtn.onclick = runSwarmDeploy;
+  if (runScriptBuildBtn) runScriptBuildBtn.onclick = runScriptBuild;
+  if (checkPullBuildBtn) checkPullBuildBtn.onclick = runCheckPullBuild;
+  
   // Modal events
-  $('editCancel').onclick = hideModal;
-  $('editCancelTop').onclick = hideModal;
-  $('modalBackdrop').onclick = hideModal;
-  $('editSave').onclick = saveEditedBuild;
+  const editCancelBtn = $('editCancel');
+  const editCancelTopBtn = $('editCancelTop');
+  const modalBackdropEl = $('modalBackdrop');
+  const editSaveBtn = $('editSave');
+  
+  if (editCancelBtn) editCancelBtn.onclick = hideModal;
+  if (editCancelTopBtn) editCancelTopBtn.onclick = hideModal;
+  if (modalBackdropEl) modalBackdropEl.onclick = hideModal;
+  if (editSaveBtn) editSaveBtn.onclick = saveEditedBuild;
+  
+  // Build method change handlers
+  document.querySelectorAll('input[name="buildMethod"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      selectBuildMethod(e.target.value);
+      localStorage.setItem('buildMethod', e.target.value);
+    });
+  });
+  
+  // Build search and filter handlers
+  const buildSearch = document.getElementById('buildSearch');
+  const statusFilter = document.getElementById('statusFilter');
+  if (buildSearch) buildSearch.addEventListener('input', filterBuilds);
+  if (statusFilter) statusFilter.addEventListener('change', filterBuilds);
+  
+  // Scheduler event handlers
+  const toggleSchedulerBtn = $('toggleScheduler');
+  const restartSchedulerBtn = $('restartScheduler');
+  
+  if (toggleSchedulerBtn) toggleSchedulerBtn.onclick = toggleScheduler;
+  if (restartSchedulerBtn) restartSchedulerBtn.onclick = restartScheduler;
+  
+  // Load scheduler status on page load
+  loadSchedulerStatus();
+  
+  // Refresh scheduler status every 10 seconds
+  setInterval(loadSchedulerStatus, 10000);
+  
+  // Initialize general log stream for realtime logs
+  openLogStream();
 });
 
 // Modal state
 let editingBuildId = null;
 function showModal() {
-  $('modalBackdrop').classList.remove('hidden');
-  $('modal').classList.remove('hidden');
+  const modalBackdrop = $('modalBackdrop');
+  const modal = $('modal');
+  if (modalBackdrop) modalBackdrop.classList.remove('hidden');
+  if (modal) modal.classList.remove('hidden');
 }
 
 async function runCheckConnection() {
   appendLog('[UI] Kiểm tra kết nối tới repository...');
   try {
     const res = await fetch('/api/git/check-connection', { method: 'POST' });
+    const cfgStatusEl = $('cfgStatus');
     if (!res.ok) {
       const e = await res.json().catch(() => ({ error: 'Lỗi không xác định' }));
-      $('cfgStatus').textContent = `Kết nối thất bại: ${e.error || ''}`;
+      if (cfgStatusEl) cfgStatusEl.textContent = `Kết nối thất bại: ${e.error || ''}`;
       appendLog(`[UI][ERROR] Kết nối thất bại: ${e.error || ''}`);
       return;
     }
     const data = await res.json();
-    $('cfgStatus').textContent = 'Kết nối thành công!';
+    if (cfgStatusEl) cfgStatusEl.textContent = 'Kết nối thành công!';
     appendLog(`[UI] Kết nối thành công. HEAD hash: ${data?.result?.hash || '(N/A)'}`);
-    setTimeout(() => $('cfgStatus').textContent = '', 2500);
+    setTimeout(() => {
+      if (cfgStatusEl) cfgStatusEl.textContent = '';
+    }, 2500);
   } catch (err) {
-    $('cfgStatus').textContent = `Kết nối thất bại: ${err.message}`;
+    const cfgStatusEl = $('cfgStatus');
+    if (cfgStatusEl) cfgStatusEl.textContent = `Kết nối thất bại: ${err.message}`;
     appendLog(`[UI][ERROR] ${err.message}`);
   }
 }
 function hideModal() {
-  $('modalBackdrop').classList.add('hidden');
-  $('modal').classList.add('hidden');
+  const modalBackdrop = $('modalBackdrop');
+  const modal = $('modal');
+  if (modalBackdrop) modalBackdrop.classList.add('hidden');
+  if (modal) modal.classList.add('hidden');
   editingBuildId = null;
 }
 function openEditBuild(b) {
   editingBuildId = b.id;
-  $('editBuildName').value = b.name || '';
-  $('editBuildEnv').value = JSON.stringify(b.env || {});
-  $('editBuildSteps').value = Array.isArray(b.steps) ? b.steps.join('\n') : '';
+  const editBuildNameEl = $('editBuildName');
+  const editBuildEnvEl = $('editBuildEnv');
+  const editBuildStepsEl = $('editBuildSteps');
+  
+  if (editBuildNameEl) editBuildNameEl.value = b.name || '';
+  if (editBuildEnvEl) editBuildEnvEl.value = JSON.stringify(b.env || {});
+  if (editBuildStepsEl) editBuildStepsEl.value = Array.isArray(b.steps) ? b.steps.join('\n') : '';
   showModal();
 }
 async function saveEditedBuild() {
   if (!editingBuildId) return hideModal();
-  const name = $('editBuildName').value.trim();
-  const envText = $('editBuildEnv').value.trim();
+  
+  const editBuildNameEl = $('editBuildName');
+  const editBuildEnvEl = $('editBuildEnv');
+  const editBuildStepsEl = $('editBuildSteps');
+  
+  if (!editBuildNameEl || !editBuildEnvEl || !editBuildStepsEl) {
+    alert('Không tìm thấy các trường cần thiết');
+    return;
+  }
+  
+  const name = editBuildNameEl.value.trim();
+  const envText = editBuildEnvEl.value.trim();
   let env = {};
   if (envText) {
     try { env = JSON.parse(envText); } catch (e) { alert('ENV không hợp lệ (JSON)'); return; }
   }
-  const steps = $('editBuildSteps').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const steps = editBuildStepsEl.value.split('\n').map(s => s.trim()).filter(Boolean);
   await fetch(`/api/builds/${editingBuildId}`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, env, steps })
   });
   hideModal();
   await loadBuilds();
+}
+
+// Scheduler Management Functions
+async function loadSchedulerStatus() {
+  try {
+    const response = await fetch('/api/scheduler/status');
+    const result = await response.json();
+    
+    if (result.success) {
+      const status = result.data;
+      updateSchedulerUI(status);
+    } else {
+      console.error('Failed to load scheduler status:', result.error);
+    }
+  } catch (error) {
+    console.error('Error loading scheduler status:', error);
+  }
+}
+
+function updateSchedulerUI(status) {
+  const statusEl = $('schedulerStatus');
+  const buildMethodEl = $('schedulerBuildMethod');
+  const pollingEl = $('schedulerPolling');
+  const toggleBtn = $('toggleScheduler');
+  
+  if (statusEl) {
+    statusEl.textContent = status.isRunning ? 'Đang chạy' : 'Đã dừng';
+    statusEl.className = `status-badge ${status.isRunning ? 'running' : 'stopped'}`;
+  }
+  
+  if (buildMethodEl) {
+    buildMethodEl.textContent = status.buildMethod === 'script' ? 'Script' : 'Dockerfile';
+  }
+  
+  if (pollingEl) {
+    pollingEl.textContent = `${status.polling}s`;
+  }
+  
+  if (toggleBtn) {
+    toggleBtn.textContent = status.isRunning ? 'Tắt Scheduler' : 'Bật Scheduler';
+  }
+}
+
+async function toggleScheduler() {
+  try {
+    const statusResponse = await fetch('/api/scheduler/status');
+    const statusResult = await statusResponse.json();
+    
+    if (!statusResult.success) {
+      alert('Không thể lấy trạng thái scheduler');
+      return;
+    }
+    
+    const currentStatus = statusResult.data.isRunning;
+    const newStatus = !currentStatus;
+    
+    const response = await fetch('/api/scheduler/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autoCheck: newStatus })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      updateSchedulerUI(result.data);
+      appendLog(`[UI] ${result.message}`);
+    } else {
+      alert(`Lỗi: ${result.error}`);
+    }
+  } catch (error) {
+    alert(`Lỗi khi toggle scheduler: ${error.message}`);
+  }
+}
+
+async function restartScheduler() {
+  try {
+    const response = await fetch('/api/scheduler/restart', {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      updateSchedulerUI(result.data);
+      appendLog(`[UI] ${result.message}`);
+    } else {
+      alert(`Lỗi: ${result.error}`);
+    }
+  } catch (error) {
+    alert(`Lỗi khi restart scheduler: ${error.message}`);
+  }
 }
 
 // Phần chạy deploy.sh thủ công đã được loại bỏ theo yêu cầu. Giữ lại API tải choice.

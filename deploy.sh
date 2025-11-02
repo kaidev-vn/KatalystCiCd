@@ -429,35 +429,19 @@ docker build --no-cache \
   -t "${DOCKER_IMAGE}" \
   "${CONTEXT_PATH}"
 
-if [ -z "$PUSH_IMAGE" ]; then
-  read -p "Push image to registry? (y/n): " PUSH_IMAGE
-else
-  echo "[NON-INTERACTIVE] Push image: $PUSH_IMAGE"
-fi
-
-if [ "${PUSH_IMAGE}" = "y" ]; then
-    docker push ${DOCKER_IMAGE}
-fi
-
 cd ..
 rm -rf ${DOCKER_IMAGE_NAME}
 
 # -------------------------------------------------------------
-# Docker Swarm Deploy (tùy chọn)
+# Docker Swarm Deploy (tự động)
 # -------------------------------------------------------------
-if [ -z "$DEPLOY_SWARM" ]; then
-  read -p "Deploy to Docker Swarm? (y/n): " DEPLOY_SWARM
-else
-  echo "[NON-INTERACTIVE] Deploy to Swarm: $DEPLOY_SWARM"
-fi
-
-if [ "${DEPLOY_SWARM}" = "y" ]; then
-  echo "=====DOCKER SWARM DEPLOY====="
+echo "=====DOCKER SWARM DEPLOY====="
   
   # Xác định thông tin Swarm từ config hoặc service info
   STACK_NAME="${DOCKER_IMAGE_NAME}-stack"
   HEALTH_CHECK_PORT="${DOCKER_IMAGE_PORT}"
-  DOCKER_SWARM_NODE_CONSTRAINTS="${DOCKER_SWARM_NODE_CONSTRAINTS:-node.labels.purpose == api}"
+  # Fix constraint syntax - cần quotes đúng cách
+  DOCKER_SWARM_NODE_CONSTRAINTS="${DOCKER_SWARM_NODE_CONSTRAINTS:-node.labels.purpose==api}"
   TEMPLATE_FILE="${TEMPLATE_FILE:-docker-compose.yml}"
   
   # Xác định đường dẫn template file từ context path
@@ -490,21 +474,108 @@ if [ "${DEPLOY_SWARM}" = "y" ]; then
     sed -i "s|PARAM_DOCKER_IMAGE_PORT|${DOCKER_IMAGE_PORT}|g" docker-compose.yml
     sed -i "s|PARAM_DOCKER_IMAGE_GRPC_PORT|${DOCKER_IMAGE_GRPC_PORT}|g" docker-compose.yml
     sed -i "s|PARAM_HEALTH_CHECK_PORT|${HEALTH_CHECK_PORT}|g" docker-compose.yml
+    
+    # Fix constraint syntax - thay thế và sửa constraints
+    echo "Original constraint value: ${DOCKER_SWARM_NODE_CONSTRAINTS}"
+    # Thay thế constraint parameter với giá trị đã format đúng
     sed -i "s|PARAM_DOCKER_SWARM_NODE_CONSTRAINTS|${DOCKER_SWARM_NODE_CONSTRAINTS}|g" docker-compose.yml
+    
+    # Debug: hiển thị file trước khi fix
+    echo "Docker-compose.yml before constraint fix:"
+    grep -A5 -B5 "constraint" docker-compose.yml || echo "No constraints found"
+    
+    # Fix constraint syntax - loại bỏ tất cả spaces quanh operators
+    sed -i 's/ == /==/g' docker-compose.yml
+    sed -i 's/ != /!=/g' docker-compose.yml
+    sed -i 's/== /==/g' docker-compose.yml
+    sed -i 's/ ==/==/g' docker-compose.yml
+    sed -i 's/!= /!=/g' docker-compose.yml
+    sed -i 's/ !=/!=/g' docker-compose.yml
+    
+    # Debug: hiển thị file sau khi fix
+    echo "Docker-compose.yml after constraint fix:"
+    grep -A5 -B5 "constraint" docker-compose.yml || echo "No constraints found"
+    
+    # Loại bỏ unsupported options cho Swarm mode
+    sed -i '/build:/d' docker-compose.yml
+    sed -i '/context:/d' docker-compose.yml
+    sed -i '/dockerfile:/d' docker-compose.yml
     
     echo "Deploying stack: ${STACK_NAME}"
     echo "Using compose file:"
     cat docker-compose.yml
     echo "====================="
     
-    # Triển khai Stack
-    docker stack deploy --compose-file docker-compose.yml "${STACK_NAME}" --with-registry-auth
-    
-    if [ $? -eq 0 ]; then
-      echo "Stack deployed successfully: ${STACK_NAME}"
-      echo "Check status with: docker stack ps ${STACK_NAME}"
+    # Validate compose file trước khi deploy
+    echo "Validating compose file..."
+    # Thử docker compose trước (phiên bản mới), fallback về docker-compose
+    if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+      COMPOSE_CMD="docker compose"
+    elif command -v docker-compose >/dev/null 2>&1; then
+      COMPOSE_CMD="docker-compose"
     else
-      echo "Stack deployment failed"
+      echo "WARNING: Neither 'docker compose' nor 'docker-compose' found. Skipping validation."
+      COMPOSE_CMD=""
+    fi
+    
+    if [ -n "$COMPOSE_CMD" ]; then
+      if ! $COMPOSE_CMD -f docker-compose.yml config >/dev/null 2>&1; then
+        echo "ERROR: Invalid docker-compose.yml file"
+        $COMPOSE_CMD -f docker-compose.yml config
+        exit 1
+      fi
+      echo "Compose file validation passed"
+    fi
+    
+    # Kiểm tra và remove stack cũ nếu tồn tại để tránh port conflicts
+    echo "Checking for existing stack: ${STACK_NAME}"
+    if docker stack ls --format "table {{.Name}}" | grep -q "^${STACK_NAME}$"; then
+      echo "Found existing stack ${STACK_NAME}, removing it first..."
+      docker stack rm ${STACK_NAME}
+      echo "Waiting for stack removal to complete..."
+      sleep 10
+      # Đợi cho đến khi stack thực sự bị xóa
+      while docker stack ls --format "table {{.Name}}" | grep -q "^${STACK_NAME}$"; do
+        echo "Still waiting for stack removal..."
+        sleep 5
+      done
+      echo "Stack ${STACK_NAME} removed successfully"
+    else
+      echo "No existing stack found"
+    fi
+    
+    # Triển khai Stack
+    echo "Executing: docker stack deploy --compose-file docker-compose.yml ${STACK_NAME} --with-registry-auth"
+    DEPLOY_OUTPUT=$(docker stack deploy --compose-file docker-compose.yml "${STACK_NAME}" --with-registry-auth 2>&1)
+    DEPLOY_EXIT_CODE=$?
+    
+    echo "Deploy command output:"
+    echo "$DEPLOY_OUTPUT"
+    
+    # Kiểm tra xem có lỗi thực sự không (bỏ qua warnings)
+    if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
+      # Kiểm tra xem có service creation errors không
+      if echo "$DEPLOY_OUTPUT" | grep -q "failed to create service"; then
+        echo "Stack deployment failed: Service creation error detected"
+        echo "Error details: $DEPLOY_OUTPUT"
+        echo "Troubleshooting steps:"
+        echo "1. Check constraint syntax: docker node ls --format 'table {{.Hostname}}\t{{.Labels}}'"
+        echo "2. Check if nodes have required labels: docker node update --label-add purpose=api <node-name>"
+        echo "3. Check stack status: docker stack ps ${STACK_NAME}"
+        echo "4. Check service logs: docker service logs ${STACK_NAME}_${DOCKER_IMAGE_NAME}"
+      else
+        echo "Stack deployed successfully: ${STACK_NAME}"
+        echo "Note: Background task warnings are normal"
+        echo "Check status with: docker stack ps ${STACK_NAME}"
+        echo "Check services with: docker stack services ${STACK_NAME}"
+      fi
+    else
+      echo "Stack deployment failed with exit code: $DEPLOY_EXIT_CODE"
+      echo "Error output: $DEPLOY_OUTPUT"
+      echo "Troubleshooting steps:"
+      echo "1. Check if Docker Swarm is initialized: docker node ls"
+      echo "2. Check if image exists: docker images | grep ${DOCKER_IMAGE_NAME}"
+      echo "3. Check stack status: docker stack ps ${STACK_NAME}"
     fi
     
     cd ..
@@ -512,4 +583,18 @@ if [ "${DEPLOY_SWARM}" = "y" ]; then
   fi
   
   echo "=====SWARM DEPLOY COMPLETED====="
+
+# -------------------------------------------------------------
+# Push image to registry (sau khi deploy Swarm)
+# -------------------------------------------------------------
+if [ -z "$PUSH_IMAGE" ]; then
+  read -p "Push image to registry? (y/n): " PUSH_IMAGE
+else
+  echo "[NON-INTERACTIVE] Push image: $PUSH_IMAGE"
+fi
+
+if [ "${PUSH_IMAGE}" = "y" ]; then
+    echo "Pushing image to registry..."
+    docker push ${DOCKER_IMAGE}
+    echo "Image pushed successfully!"
 fi

@@ -161,7 +161,7 @@ class ConfigService {
     cfg.branch = String(cfg.branch || 'main');
     cfg.deployScriptPath = String(cfg.deployScriptPath || '');
     const bm = String(cfg.buildMethod || 'dockerfile').toLowerCase();
-    cfg.buildMethod = ['dockerfile', 'deploy_sh'].includes(bm) ? bm : 'dockerfile';
+    cfg.buildMethod = ['dockerfile', 'script'].includes(bm) ? bm : 'dockerfile';
     cfg.deployChoice = Number(cfg.deployChoice || 0);
     // Chuẩn hóa deployChoices (mảng số nguyên duy nhất > 0)
     const arr = Array.isArray(cfg.deployChoices) ? cfg.deployChoices : [];
