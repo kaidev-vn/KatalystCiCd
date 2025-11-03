@@ -1,5 +1,5 @@
 const { run } = require('../utils/exec');
-const { nextTag, nextTagWithConfig, nextSplitTag, splitTagIntoParts } = require('../utils/tag');
+const { nextTag, nextTagWithConfig,nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 
 class GitService {
   constructor({ logger, dockerService, configService }) {

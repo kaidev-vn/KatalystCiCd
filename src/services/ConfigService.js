@@ -143,6 +143,12 @@ class ConfigService {
     return readJson(this.paths.CONFIG_PATH, this.getDefaultConfig());
   }
 
+  updateConfig(updates) {
+    const currentConfig = this.getConfig();
+    const updatedConfig = { ...currentConfig, ...updates };
+    return this.setConfig(updatedConfig);
+  }
+
   setConfig(cfg) {
     // normalize
     const provider = String(cfg.provider || 'gitlab').toLowerCase();
