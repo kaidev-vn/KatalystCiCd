@@ -6,8 +6,6 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "YOUR_GITLAB_SECRET_TOKEN";
 
 const express = require('express');
 const bodyParser = require('body-parser');
-// const { exec } = require('child_process'); // Đã thay bằng utils/exec
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const app = express();
@@ -19,7 +17,6 @@ const { DockerService } = require('./src/services/DockerService');
 const { GitService } = require('./src/services/GitService');
 const { Scheduler } = require('./src/services/Scheduler');
 const { BuildService } = require('./src/services/BuildService');
-const { run } = require('./src/utils/exec');
 const { registerConfigController } = require('./src/controllers/ConfigController');
 const { registerBuildsController } = require('./src/controllers/BuildsController');
 const { registerGitController } = require('./src/controllers/GitController');

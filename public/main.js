@@ -78,7 +78,7 @@ async function loadBuildHistory() {
 }
 
 function renderBuildHistory() {
-  const tbody = document.querySelector('#buildHistoryTable tbody');
+  const tbody = document.querySelector('#buildsTableBody');
   if (!tbody) return;
   
   tbody.innerHTML = '';
@@ -86,7 +86,7 @@ function renderBuildHistory() {
   if (buildHistory.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align: center; color: var(--muted); padding: 20px;">
+        <td colspan="8" style="text-align: center; color: var(--muted); padding: 20px;">
           Chưa có lịch sử build nào
         </td>
       </tr>
@@ -102,13 +102,18 @@ function renderBuildHistory() {
     const statusClass = build.status === 'success' ? 'success' : 
                        build.status === 'failed' ? 'failed' : 'running';
     
+    // Format theo đúng cấu trúc table trong HTML
     row.innerHTML = `
       <td>${build.id}</td>
-      <td>${build.name || 'Unnamed Build'}</td>
+      <td>${new Date(build.startTime).toLocaleString('vi-VN')}</td>
+      <td>${build.commit || '-'}</td>
+      <td>${build.branch || '-'}</td>
       <td>${build.method || 'dockerfile'}</td>
       <td><span class="status-badge ${statusClass}">${build.status}</span></td>
-      <td>${new Date(build.startTime).toLocaleString('vi-VN')}</td>
       <td>${build.duration || '-'}</td>
+      <td>
+        <button class="btn small outline" onclick="event.stopPropagation(); viewBuildLogs('${build.id}')">📋 Xem logs</button>
+      </td>
     `;
     
     tbody.appendChild(row);
@@ -119,11 +124,11 @@ function selectBuildForLogs(buildId) {
   selectedBuildId = buildId;
   
   // Highlight selected row
-  document.querySelectorAll('#buildHistoryTable tbody tr').forEach(row => {
+  document.querySelectorAll('#buildsTableBody tr').forEach(row => {
     row.classList.remove('selected');
   });
   
-  const selectedRow = document.querySelector(`#buildHistoryTable tbody tr[onclick*="${buildId}"]`);
+  const selectedRow = document.querySelector(`#buildsTableBody tr[onclick*="${buildId}"]`);
   if (selectedRow) {
     selectedRow.classList.add('selected');
   }
@@ -133,35 +138,43 @@ function selectBuildForLogs(buildId) {
 }
 
 async function loadBuildLogs(buildId) {
-  const logContainer = document.getElementById('buildLogOutput');
+  const logContainer = document.getElementById('logs');
   if (!logContainer) return;
   
   try {
     const response = await fetch(`/api/build-logs/${buildId}`);
     const logs = await response.text();
     
-    logContainer.innerHTML = `
-      <div class="log-header">
-        <h4>Build Logs - ID: ${buildId}</h4>
-        <div class="log-toolbar">
-          <button class="btn" onclick="clearBuildLogs()">Xóa logs</button>
-          <button class="btn" onclick="downloadBuildLogs('${buildId}')">Tải xuống</button>
-        </div>
-      </div>
-      <pre class="log-content">${logs || 'Không có logs cho build này'}</pre>
-    `;
+    // Clear current logs and show build-specific logs
+    logContainer.innerHTML = '';
     
-    // Auto scroll to bottom
+    // Split logs into lines and format them
+    const logLines = logs.split('\n').filter(line => line.trim());
+    logLines.forEach(line => {
+      const logDiv = document.createElement('div');
+      logDiv.className = 'log-line';
+      logDiv.textContent = line;
+      logContainer.appendChild(logDiv);
+    });
+    
+    // Update logs title
+    const logsTitle = document.getElementById('logsTitle');
+    if (logsTitle) {
+      logsTitle.textContent = `📋 Build Logs - ID: ${buildId}`;
+    }
+    
+    // Scroll to bottom
     logContainer.scrollTop = logContainer.scrollHeight;
+    
   } catch (error) {
     console.error('Error loading build logs:', error);
-    logContainer.innerHTML = `
-      <div class="log-header">
-        <h4>Build Logs - ID: ${buildId}</h4>
-      </div>
-      <pre class="log-content">Lỗi khi tải logs: ${error.message}</pre>
-    `;
+    appendLog(`[ERROR] Không thể tải logs cho build ${buildId}: ${error.message}`);
   }
+}
+
+// Alias for button onclick
+function viewBuildLogs(buildId) {
+  loadBuildLogs(buildId);
 }
 
 function clearBuildLogs() {
@@ -189,18 +202,18 @@ function downloadBuildLogs(buildId) {
 // Filter builds
 function filterBuilds() {
   const searchTerm = document.getElementById('buildSearch').value.toLowerCase();
-  const statusFilter = document.getElementById('statusFilter').value;
+  const statusFilter = document.getElementById('buildStatusFilter').value;
   
-  const rows = document.querySelectorAll('#buildHistoryTable tbody tr');
+  const rows = document.querySelectorAll('#buildsTableBody tr');
   
   rows.forEach(row => {
     if (row.children.length === 1) return; // Skip "no data" row
     
-    const buildName = row.children[1].textContent.toLowerCase();
-    const buildStatus = row.children[3].textContent.toLowerCase();
+    const buildId = row.children[0].textContent.toLowerCase();
+    const buildStatus = row.children[5].textContent.toLowerCase();
     
-    const matchesSearch = buildName.includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || buildStatus.includes(statusFilter);
+    const matchesSearch = buildId.includes(searchTerm);
+    const matchesStatus = !statusFilter || buildStatus.includes(statusFilter);
     
     row.style.display = matchesSearch && matchesStatus ? '' : 'none';
   });
@@ -695,6 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDeployChoices().then(() => loadConfig()).catch(() => loadConfig());
   loadBuilds();
   loadVersions();
+  loadBuildHistory();
   
   // Add event listener for auto tag increment checkbox
   const autoTagIncrementEl = $('autoTagIncrement');
@@ -770,11 +784,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   
-  // Build search and filter handlers
+  // Build management buttons
   const buildSearch = document.getElementById('buildSearch');
   const statusFilter = document.getElementById('statusFilter');
+  const refreshBuildsBtn = $('refreshBuilds');
+  const clearBuildHistoryBtn = $('clearBuildHistory');
+  
   if (buildSearch) buildSearch.addEventListener('input', filterBuilds);
   if (statusFilter) statusFilter.addEventListener('change', filterBuilds);
+  if (refreshBuildsBtn) refreshBuildsBtn.onclick = refreshBuildHistory;
+  if (clearBuildHistoryBtn) clearBuildHistoryBtn.onclick = clearBuildHistory;
   
   // Scheduler event handlers
   const toggleSchedulerBtn = $('toggleScheduler');
@@ -1029,6 +1048,44 @@ function updateScriptTagPreview() {
   const preview = $('scriptFinalTagPreview');
   if (preview) {
     preview.textContent = combineTag(number, text);
+  }
+}
+
+// Build history management functions
+async function refreshBuildHistory() {
+  try {
+    appendLog('[UI] Đang làm mới lịch sử builds...');
+    await loadBuildHistory();
+    appendLog('[UI] Đã làm mới lịch sử builds thành công');
+  } catch (error) {
+    console.error('Error refreshing build history:', error);
+    appendLog(`[UI][ERROR] Lỗi khi làm mới lịch sử builds: ${error.message}`);
+  }
+}
+
+async function clearBuildHistory() {
+  if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử builds? Hành động này không thể hoàn tác.')) {
+    return;
+  }
+  
+  try {
+    appendLog('[UI] Đang xóa lịch sử builds...');
+    const response = await fetch('/api/build-history', {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      buildHistory = [];
+      renderBuildHistory();
+      appendLog('[UI] Đã xóa lịch sử builds thành công');
+    } else {
+      appendLog(`[UI][ERROR] Lỗi khi xóa lịch sử builds: ${result.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error clearing build history:', error);
+    appendLog(`[UI][ERROR] Lỗi khi xóa lịch sử builds: ${error.message}`);
   }
 }
 

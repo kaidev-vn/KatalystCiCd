@@ -65,6 +65,16 @@ function registerBuildsController(app, { configService, buildService }) {
     }
   });
 
+  app.delete('/api/build-history', (req, res) => {
+    try {
+      buildService.clearBuildHistory();
+      res.json({ success: true, message: 'Build history cleared successfully' });
+    } catch (e) {
+      console.error('Error clearing build history:', e);
+      res.status(500).json({ success: false, error: 'Failed to clear build history' });
+    }
+  });
+
   app.get('/api/build-logs/:buildId', (req, res) => {
     try {
       const buildId = String(req.params.buildId);

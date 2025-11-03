@@ -259,6 +259,29 @@ class BuildService {
     }
   }
 
+  clearBuildHistory() {
+    try {
+      // Clear the history array and save empty array to file
+      this.saveBuildHistory([]);
+      
+      // Optionally, also clear all log files
+      if (fs.existsSync(this.buildLogsDir)) {
+        const logFiles = fs.readdirSync(this.buildLogsDir);
+        logFiles.forEach(file => {
+          if (file.endsWith('.log')) {
+            const filePath = path.join(this.buildLogsDir, file);
+            fs.unlinkSync(filePath);
+          }
+        });
+      }
+      
+      console.log('Build history and logs cleared successfully');
+    } catch (error) {
+      console.error('Error clearing build history:', error);
+      throw error;
+    }
+  }
+
   // Build Logs Management
   getBuildLogs(buildId) {
     const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
