@@ -5,7 +5,6 @@ Tài liệu này hướng dẫn cách cấu hình và vận hành hệ thống C
 - Kiểm tra commit mới trên Git (GitLab/GitHub), tự động pull
 - Build Docker image và push lên registry
 - Tự động tăng tag sau mỗi lần build (ví dụ 1.0.74 ➜ 1.0.75)
-- Tùy chọn tự động deploy Docker Swarm sau khi build
 - Lưu phiên bản cấu hình và phiên bản bảng build
 - Hiển thị log realtime (SSE)
 
@@ -13,7 +12,7 @@ Tài liệu này hướng dẫn cách cấu hình và vận hành hệ thống C
 
 - Node.js 16+ (đã cài đặt)
 - Git (có sẵn trong PATH)
-- Docker (có sẵn trong PATH) và Docker Swarm (đã `docker swarm init` nếu dùng Swarm)
+- Docker (có sẵn trong PATH)
 - Quyền truy cập registry (nếu muốn push image)
 
 ## 2) Khởi chạy
@@ -39,7 +38,7 @@ Server sẽ ghi log tiến trình ra console và đồng thời đẩy log lên 
 
 Sau khi nhấn “Lưu cấu hình”, lịch auto-check sẽ khởi động/khởi động lại theo cấu hình mới.
 
-## 4) Docker Build & Swarm Deploy (mục 4 trong UI)
+## 4) Docker Build (mục 4 trong UI)
 
 - Dockerfile Path: đường dẫn tới file Dockerfile.
 - Context Path: thư mục gốc dùng làm build context cho `docker build`.
@@ -49,9 +48,6 @@ Sau khi nhấn “Lưu cấu hình”, lịch auto-check sẽ khởi động/kh�
 - Image Tag: tag ban đầu (ví dụ `1.0.74`).
 - Tự động tăng tag sau mỗi lần build: nếu bật, hệ thống sẽ tăng số ở cuối tag (ví dụ `1.0.74` ➜ `1.0.75`) sau build thành công.
 - Registry URL/Username/Password: điền nếu muốn `docker push`.
-- docker-compose.yml Path: đường dẫn compose dùng để deploy Swarm.
-- Swarm Stack Name: tên stack (ví dụ `my-stack`).
-- Deploy Swarm tự động sau khi build: nếu bật, hệ thống sẽ chạy `docker stack deploy` ngay sau khi build/push thành công.
 
 ### Giải thích Context Path
 
@@ -109,13 +105,7 @@ ENTRYPOINT ["java","-jar","/app/app.jar"]
 - Nếu tag không chứa số, hệ thống sẽ thêm `.1` vào cuối.
 - Tag mới sẽ được ghi vào `config.json` để dùng cho lần build sau.
 
-## 7) Auto deploy Swarm sau build
-
-- Nếu bật, sau khi build/push xong và không lỗi, hệ thống sẽ chạy:
-  - `docker stack deploy -c "<composePath>" <stackName>`
-- Đảm bảo bạn đã `docker swarm init` và compose tham chiếu đúng `Image Name:Tag`.
-
-## 8) Phiên bản cấu hình và builds
+## 7) Phiên bản cấu hình và builds
 
 - Hệ thống lưu snapshot vào các thư mục:
   - `config_versions/` (lịch sử cấu hình)
@@ -125,7 +115,7 @@ ENTRYPOINT ["java","-jar","/app/app.jar"]
   - POST `/api/config/rollback` – khôi phục cấu hình theo snapshot
   - GET `/api/builds/versions` – liệt kê snapshot builds
 
-## 9) API chính (tham khảo)
+## 8) API chính (tham khảo)
 
 - Cấu hình:
   - GET `/api/config`
@@ -138,16 +128,15 @@ ENTRYPOINT ["java","-jar","/app/app.jar"]
   - PUT `/api/builds/:id`
   - DELETE `/api/builds/:id`
   - GET `/api/builds/versions`
-- Docker/Swarm:
-  - POST `/api/docker/build` – build & (tuỳ chọn) push; (tuỳ chọn) auto deploy Swarm
-  - POST `/api/swarm/deploy` – deploy stack thủ công
+- Docker:
+  - POST `/api/docker/build` – build & (tuỳ chọn) push
 - Git:
   - POST `/api/git/check-and-build` – check commit mới ➜ pull ➜ build & push
   - POST `/api/pull/start` – mô phỏng hoặc thực thi pull
 - Log realtime:
   - GET `/api/logs/stream` – SSE stream
 
-## 10) Log realtime (SSE)
+## 9) Log realtime (SSE)
 
 - UI kết nối `/api/logs/stream` để hiển thị log theo thời gian thực.
 - Nếu thấy lỗi `net::ERR_ABORTED` trong preview, đó thường là reconnect SSE, hệ thống sẽ tự nối lại.
@@ -159,7 +148,7 @@ ENTRYPOINT ["java","-jar","/app/app.jar"]
   - Mã hoá hoặc không lưu mật khẩu lâu dài trong file.
 - Quyền truy cập repo/registry cần được cấp phù hợp.
 
-## 12) .dockerignore gợi ý
+## 10) .dockerignore gợi ý
 
 Tạo file `.dockerignore` trong Context Path để giảm dung lượng context và tăng tốc build:
 
@@ -172,16 +161,15 @@ build
 .DS_Store
 ```
 
-## 13) Khắc phục sự cố (Troubleshooting)
+## 11) Khắc phục sự cố (Troubleshooting)
 
 - `docker` hoặc `git` không chạy: kiểm tra PATH hệ thống.
 - Lỗi quyền: chạy terminal với quyền phù hợp (Administrator nếu cần trên Windows).
 - Registry login lỗi: kiểm tra URL/username/password, mạng và firewall.
 - Không thấy file khi COPY trong Dockerfile: kiểm tra Context Path và `.dockerignore`.
-- Swarm không deploy: đảm bảo đã `docker swarm init` và compose hợp lệ.
 - Không có commit mới: hệ thống sẽ bỏ qua pull/build để tiết kiệm thời gian.
 
-## 14) Vận hành production (gợi ý)
+## 12) Vận hành production (gợi ý)
 
 - Chạy server bằng PM2/NSSM/Windows Service để tự khởi động khi máy chủ reboot.
 - Giới hạn tần suất polling để tránh quá tải repo/registry.

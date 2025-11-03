@@ -1,5 +1,5 @@
 const { run, runSeries } = require('../utils/exec');
-const { nextTag } = require('../utils/tag');
+const { nextTag, nextTagWithConfig, nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 
 class DockerService {
   constructor({ logger, configService }) {
@@ -10,7 +10,20 @@ class DockerService {
   async buildAndPush(params) {
     const cfg = this.configService.getConfig();
     const p = { ...cfg.docker, ...(params || {}) };
-    const tagToUse = p.autoTagIncrement ? nextTag(cfg.docker?.imageTag || p.imageTag || 'latest') : (p.imageTag || cfg.docker?.imageTag || 'latest');
+    
+    let tagToUse;
+    if (p.autoTagIncrement) {
+      // Sử dụng hệ thống tag chia 2 phần mới
+      const currentTag = cfg.docker?.imageTag || p.imageTag || 'latest';
+      const { numberPart, textPart } = splitTagIntoParts(currentTag);
+      this.logger?.send(`[DOCKER] 🏷️  Tách tag thành: số="${numberPart}", chữ="${textPart}"`);
+      
+      tagToUse = nextSplitTag(numberPart, textPart, true);
+      this.logger?.send(`[DOCKER] 🔄 Auto increment tag từ "${currentTag}" thành "${tagToUse}"`);
+    } else {
+      tagToUse = p.imageTag || cfg.docker?.imageTag || 'latest';
+    }
+    
     const image = `${p.imageName}:${tagToUse}`;
     this.logger?.send(`[DOCKER] Bắt đầu build image: ${image}`);
     const cmds = [];

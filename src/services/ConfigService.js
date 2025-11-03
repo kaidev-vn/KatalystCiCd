@@ -31,9 +31,6 @@ class ConfigService {
       // repo: dùng repoPath; config: dùng docker.contextPath; custom: dùng deployContextCustomPath
       deployContextSource: 'repo',
       deployContextCustomPath: '',
-      deploySwarmEnabled: false,
-      deploySwarmNodeConstraints: 'node.labels.purpose == api',
-      deploySwarmTemplate: 'docker-compose.yml',
       deployServices: [
         {
           name: "harbor.techres.vn/overatevntech/admin-schedule-service",
@@ -135,12 +132,9 @@ class ConfigService {
         imageName: '',
         imageTag: 'latest',
         autoTagIncrement: false,
-        autoDeploySwarm: false,
         registryUrl: '',
         registryUsername: '',
         registryPassword: '',
-        composePath: '',
-        stackName: '',
       },
     };
   }
@@ -171,9 +165,6 @@ class ConfigService {
     cfg.deployContextSource = ['repo', 'config', 'custom'].includes(dcs) ? dcs : 'repo';
     cfg.deployContextCustomPath = String(cfg.deployContextCustomPath || '');
     cfg.deployServices = Array.isArray(cfg.deployServices) ? cfg.deployServices : this.getDefaultConfig().deployServices;
-    cfg.deploySwarmEnabled = Boolean(cfg.deploySwarmEnabled);
-    cfg.deploySwarmNodeConstraints = String(cfg.deploySwarmNodeConstraints || 'node.labels.purpose == api');
-    cfg.deploySwarmTemplate = String(cfg.deploySwarmTemplate || 'docker-compose.yml');
     cfg.lastBuiltCommit = String(cfg.lastBuiltCommit || '');
     cfg.autoCheck = Boolean(cfg.autoCheck);
     cfg.docker = {
@@ -182,12 +173,17 @@ class ConfigService {
       imageName: String(cfg.docker?.imageName || ''),
       imageTag: String(cfg.docker?.imageTag || 'latest'),
       autoTagIncrement: Boolean(cfg.docker?.autoTagIncrement),
-      autoDeploySwarm: Boolean(cfg.docker?.autoDeploySwarm),
       registryUrl: String(cfg.docker?.registryUrl || ''),
       registryUsername: String(cfg.docker?.registryUsername || ''),
       registryPassword: String(cfg.docker?.registryPassword || ''),
-      composePath: String(cfg.docker?.composePath || ''),
-      stackName: String(cfg.docker?.stackName || ''),
+      // Cấu hình tag mới với prefix và suffix
+      tagConfig: {
+        useAdvancedTagging: Boolean(cfg.docker?.tagConfig?.useAdvancedTagging || false),
+        prefix: String(cfg.docker?.tagConfig?.prefix || ''),
+        suffix: String(cfg.docker?.tagConfig?.suffix || ''),
+        startVersion: Number(cfg.docker?.tagConfig?.startVersion || 1),
+        versionWidth: Number(cfg.docker?.tagConfig?.versionWidth || 0),
+      },
     };
     writeJson(this.paths.CONFIG_PATH, cfg);
     this.saveVersion('config', cfg);

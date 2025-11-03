@@ -23,30 +23,6 @@ services:
       start_period: 100s # THỜI GIAN CHỜ CHO SPRING BOOT KHỞI ĐỘNG
     
     # ----------------------------------------------------
-    # DEPLOY BLOCK (Cấu hình Swarm và Zero Downtime)
-    # ----------------------------------------------------
-    deploy:
-      replicas: 2 # Bắt buộc có >= 2 cho Zero Downtime
-      placement:
-        constraints:
-          - PARAM_DOCKER_SWARM_NODE_CONSTRAINTS
-      update_config:
-        parallelism: 1       # Cập nhật từng container một
-        delay: 10s           # Đợi 10s giữa các lần cập nhật
-        order: start-first   # Khởi động container mới, đợi Healthy, rồi mới tắt container cũ
-      restart_policy:
-        condition: on-failure
-      
-      # RESOURCES BLOCK (Nằm TRONG deploy)
-      resources:
-        limits:
-          cpus: '2'          # Giới hạn tối đa 2 core CPU
-          memory: 2GB        # Giới hạn tối đa 2GB RAM
-        reservations:
-          cpus: '0.5'        # Đảm bảo tối thiểu 0.5 core CPU
-          memory: 1GB        # Đảm bảo tối thiểu 1GB RAM
-
-    # ----------------------------------------------------
     # CÁC CẤU HÌNH KHÁC
     # ----------------------------------------------------
     build:

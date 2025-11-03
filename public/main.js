@@ -47,20 +47,17 @@ function selectBuildMethod(method) {
   const dockerConfig = document.getElementById('dockerfile-config');
   const scriptBuildBtn = document.getElementById('runScriptBuild');
   const dockerBuildBtn = document.getElementById('runDockerBuild');
-  const swarmDeployBtn = document.getElementById('runSwarmDeploy');
   
   if (method === 'script') {
     if (scriptConfig) scriptConfig.style.display = 'block';
     if (dockerConfig) dockerConfig.style.display = 'none';
     if (scriptBuildBtn) scriptBuildBtn.style.display = 'block';
     if (dockerBuildBtn) dockerBuildBtn.style.display = 'none';
-    if (swarmDeployBtn) swarmDeployBtn.style.display = 'none';
   } else {
     if (scriptConfig) scriptConfig.style.display = 'none';
     if (dockerConfig) dockerConfig.style.display = 'block';
     if (scriptBuildBtn) scriptBuildBtn.style.display = 'none';
     if (dockerBuildBtn) dockerBuildBtn.style.display = 'block';
-    if (swarmDeployBtn) swarmDeployBtn.style.display = 'block';
   }
 }
 
@@ -277,11 +274,26 @@ async function loadConfig() {
   const imageNameEl = $('imageName');
   if (imageNameEl) imageNameEl.value = d.imageName || '';
   
-  const imageTagEl = $('imageTag');
-  if (imageTagEl) imageTagEl.value = d.imageTag || 'latest';
+  // Load split tag configuration for Docker
+  const imageTagNumberEl = $('imageTagNumber');
+  const imageTagTextEl = $('imageTagText');
+  if (d.imageTag) {
+    // Tách tag hiện tại thành 2 phần
+    const parts = splitTag(d.imageTag);
+    if (imageTagNumberEl) imageTagNumberEl.value = parts.number || '1.0.75';
+    if (imageTagTextEl) imageTagTextEl.value = parts.text || '';
+  } else {
+    if (imageTagNumberEl) imageTagNumberEl.value = '1.0.75';
+    if (imageTagTextEl) imageTagTextEl.value = '';
+  }
   
   const autoTagIncrementEl = $('autoTagIncrement');
-  if (autoTagIncrementEl) autoTagIncrementEl.checked = !!d.autoTagIncrement;
+  if (autoTagIncrementEl) {
+    autoTagIncrementEl.checked = !!d.autoTagIncrement;
+  }
+  
+  // Update preview
+  updateTagPreview();
   
   const registryUrlEl = $('registryUrl');
   if (registryUrlEl) registryUrlEl.value = d.registryUrl || '';
@@ -291,15 +303,28 @@ async function loadConfig() {
   
   const registryPasswordEl = $('registryPassword');
   if (registryPasswordEl) registryPasswordEl.value = d.registryPassword || '';
+
+  // Load script build tag configuration
+  // Load split tag configuration for Script
+  const scriptImageTagNumberEl = $('scriptImageTagNumber');
+  const scriptImageTagTextEl = $('scriptImageTagText');
+  if (d.scriptImageTag) {
+    // Tách tag hiện tại thành 2 phần
+    const parts = splitTag(d.scriptImageTag);
+    if (scriptImageTagNumberEl) scriptImageTagNumberEl.value = parts.number || '1.0.75';
+    if (scriptImageTagTextEl) scriptImageTagTextEl.value = parts.text || '';
+  } else {
+    if (scriptImageTagNumberEl) scriptImageTagNumberEl.value = '1.0.75';
+    if (scriptImageTagTextEl) scriptImageTagTextEl.value = '';
+  }
   
-  const composePathEl = $('composePath');
-  if (composePathEl) composePathEl.value = d.composePath || '';
+  const scriptAutoTagIncrementEl = $('scriptAutoTagIncrement');
+  if (scriptAutoTagIncrementEl) {
+    scriptAutoTagIncrementEl.checked = !!(d.scriptAutoTagIncrement);
+  }
   
-  const stackNameEl = $('stackName');
-  if (stackNameEl) stackNameEl.value = d.stackName || '';
-  
-  const autoDeploySwarmEl = $('autoDeploySwarm');
-  if (autoDeploySwarmEl) autoDeploySwarmEl.checked = !!d.autoDeploySwarm;
+  // Update script preview
+  updateScriptTagPreview();
 
   // Hiển thị commit đã build gần nhất (rút gọn 10 ký tự)
   const lb = (cfg.lastBuiltCommit || '').trim();
@@ -375,15 +400,15 @@ async function saveConfig() {
       dockerfilePath: $('dockerfilePath')?.value || '',
       contextPath: $('contextPath')?.value || '',
       imageName: $('imageName')?.value || '',
-      imageTag: $('imageTag')?.value || 'latest',
+      imageTag: combineTag($('imageTagNumber')?.value || '1.0.75', $('imageTagText')?.value || ''),
       autoTagIncrement: $('autoTagIncrement')?.checked || false,
       registryUrl: $('registryUrl')?.value || '',
       registryUsername: $('registryUsername')?.value || '',
       registryPassword: $('registryPassword')?.value || '',
-      composePath: $('composePath')?.value || '',
-      stackName: $('stackName')?.value || '',
-      autoDeploySwarm: $('autoDeploySwarm')?.checked || false,
-    }
+    },
+    // Script build tag configuration
+    scriptImageTag: combineTag($('scriptImageTagNumber')?.value || '1.0.75', $('scriptImageTagText')?.value || ''),
+    scriptAutoTagIncrement: $('scriptAutoTagIncrement')?.checked || false,
   };
   const res = await fetch('/api/config', {
     method: 'POST',
@@ -433,21 +458,6 @@ async function runDockerBuild() {
   });
   if (!res.ok) {
     appendLog('[UI][ERROR] Không thể gửi yêu cầu Docker build');
-  }
-}
-
-async function runSwarmDeploy() {
-  const payload = {
-    composePath: $('composePath').value,
-    stackName: $('stackName').value,
-  };
-  appendLog(`[UI] Yêu cầu Swarm deploy stack: ${payload.stackName}`);
-  const res = await fetch('/api/swarm/deploy', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    appendLog('[UI][ERROR] Không thể gửi yêu cầu Swarm deploy');
   }
 }
 
@@ -686,6 +696,22 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBuilds();
   loadVersions();
   
+  // Add event listener for auto tag increment checkbox
+  const autoTagIncrementEl = $('autoTagIncrement');
+  if (autoTagIncrementEl) {
+    autoTagIncrementEl.addEventListener('change', (e) => {
+      toggleAdvancedTaggingSection(e.target.checked);
+    });
+  }
+  
+  // Add event listener for script auto tag increment checkbox
+  const scriptAutoTagIncrementEl = $('scriptAutoTagIncrement');
+  if (scriptAutoTagIncrementEl) {
+    scriptAutoTagIncrementEl.addEventListener('change', (e) => {
+      toggleScriptAdvancedTaggingSection(e.target.checked);
+    });
+  }
+  
   // Add null checks for all button event handlers
   const saveCfgBtn = $('saveCfg');
   const checkConnectionBtn = $('checkConnection');
@@ -717,13 +743,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add null checks for button event handlers
   const saveDockerCfgBtn = $('saveDockerCfg');
   const runDockerBuildBtn = $('runDockerBuild');
-  const runSwarmDeployBtn = $('runSwarmDeploy');
   const runScriptBuildBtn = $('runScriptBuild');
   const checkPullBuildBtn = $('checkPullBuild');
   
   if (saveDockerCfgBtn) saveDockerCfgBtn.onclick = saveDockerConfig;
   if (runDockerBuildBtn) runDockerBuildBtn.onclick = runDockerBuild;
-  if (runSwarmDeployBtn) runSwarmDeployBtn.onclick = runSwarmDeploy;
   if (runScriptBuildBtn) runScriptBuildBtn.onclick = runScriptBuild;
   if (checkPullBuildBtn) checkPullBuildBtn.onclick = runCheckPullBuild;
   
@@ -767,6 +791,17 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize general log stream for realtime logs
   openLogStream();
+  
+  // Add event listeners for tag input fields
+  const imageTagNumberEl = $('imageTagNumber');
+  const imageTagTextEl = $('imageTagText');
+  const scriptImageTagNumberEl = $('scriptImageTagNumber');
+  const scriptImageTagTextEl = $('scriptImageTagText');
+  
+  if (imageTagNumberEl) imageTagNumberEl.addEventListener('input', updateTagPreview);
+  if (imageTagTextEl) imageTagTextEl.addEventListener('input', updateTagPreview);
+  if (scriptImageTagNumberEl) scriptImageTagNumberEl.addEventListener('input', updateScriptTagPreview);
+  if (scriptImageTagTextEl) scriptImageTagTextEl.addEventListener('input', updateScriptTagPreview);
 });
 
 // Modal state
@@ -935,6 +970,65 @@ async function restartScheduler() {
     }
   } catch (error) {
     alert(`Lỗi khi restart scheduler: ${error.message}`);
+  }
+}
+
+// Function to toggle advanced tagging section visibility
+function toggleAdvancedTaggingSection(show) {
+  const section = $('advancedTaggingSection');
+  if (section) {
+    section.style.display = show ? 'block' : 'none';
+  }
+}
+
+// Function to toggle script advanced tagging section visibility
+function toggleScriptAdvancedTaggingSection(show) {
+  const section = $('scriptAdvancedTaggingSection');
+  if (section) {
+    section.style.display = show ? 'block' : 'none';
+  }
+}
+
+// Helper functions for split tag system
+function splitTag(tag) {
+  if (!tag || tag === 'latest') {
+    return { number: '1.0.75', text: '' };
+  }
+  
+  // Tìm dấu gạch ngang cuối cùng để tách
+  const lastDashIndex = tag.lastIndexOf('-');
+  if (lastDashIndex === -1) {
+    // Không có dấu gạch ngang, coi toàn bộ là phần số
+    return { number: tag, text: '' };
+  }
+  
+  const number = tag.substring(0, lastDashIndex);
+  const text = tag.substring(lastDashIndex + 1);
+  
+  return { number, text };
+}
+
+function combineTag(number, text) {
+  if (!number) number = '1.0.75';
+  if (!text) return number;
+  return `${number}-${text}`;
+}
+
+function updateTagPreview() {
+  const number = $('imageTagNumber')?.value || '1.0.75';
+  const text = $('imageTagText')?.value || '';
+  const preview = $('finalTagPreview');
+  if (preview) {
+    preview.textContent = combineTag(number, text);
+  }
+}
+
+function updateScriptTagPreview() {
+  const number = $('scriptImageTagNumber')?.value || '1.0.75';
+  const text = $('scriptImageTagText')?.value || '';
+  const preview = $('scriptFinalTagPreview');
+  if (preview) {
+    preview.textContent = combineTag(number, text);
   }
 }
 

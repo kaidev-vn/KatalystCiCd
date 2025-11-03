@@ -141,6 +141,30 @@
                 <p class="muted">Nhập đường dẫn đến file script để thực hiện build.</p>
               </div>
             </div>
+            
+            <!-- Tag Configuration for Script Build -->
+            <div class="row">
+              <div>
+                <label>Image Tag</label>
+                <div class="row">
+                  <div>
+                    <label for="scriptImageTagNumber">Phần số (có thể tự tăng)</label>
+                    <input id="scriptImageTagNumber" type="text" placeholder="1.0.75" />
+                  </div>
+                  <div>
+                    <label for="scriptImageTagText">Phần chữ (cố định)</label>
+                    <input id="scriptImageTagText" type="text" placeholder="DAIHY-BETA" />
+                  </div>
+                </div>
+                <div class="check-inline mt6">
+                  <input id="scriptAutoTagIncrement" class="switch" type="checkbox" />
+                  <span class="muted">Tự động tăng phần số sau mỗi lần build</span>
+                </div>
+                <div class="mt6">
+                  <small class="muted">Tag cuối cùng: <span id="scriptFinalTagPreview">1.0.75-DAIHY-BETA</span></small>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Dockerfile Build Configuration -->
@@ -162,11 +186,23 @@
                 <input id="imageName" type="text" placeholder="my-registry.com/myproj/myapp" />
               </div>
               <div>
-                <label for="imageTag">Image Tag</label>
-                <input id="imageTag" type="text" placeholder="latest" />
+                <label>Image Tag</label>
+                <div class="row">
+                  <div>
+                    <label for="imageTagNumber">Phần số (có thể tự tăng)</label>
+                    <input id="imageTagNumber" type="text" placeholder="1.0.75" />
+                  </div>
+                  <div>
+                    <label for="imageTagText">Phần chữ (cố định)</label>
+                    <input id="imageTagText" type="text" placeholder="DAIHY-BETA" />
+                  </div>
+                </div>
                 <div class="check-inline mt6">
                   <input id="autoTagIncrement" class="switch" type="checkbox" />
-                  <span class="muted">Tự động tăng tag sau mỗi lần build</span>
+                  <span class="muted">Tự động tăng phần số sau mỗi lần build</span>
+                </div>
+                <div class="mt6">
+                  <small class="muted">Tag cuối cùng: <span id="finalTagPreview">1.0.75-DAIHY-BETA</span></small>
                 </div>
               </div>
             </div>
@@ -186,30 +222,6 @@
                 <input id="registryPassword" type="password" placeholder="••••••" />
               </div>
               <div></div>
-            </div>
-          </div>
-
-          <!-- Docker Swarm Configuration -->
-          <div class="swarm-config">
-            <h3>🐋 Cấu hình Docker Swarm Deploy</h3>
-            <div class="row">
-              <div>
-                <label for="composePath">docker-compose.yml Path</label>
-                <input id="composePath" type="text" placeholder="D:/deploy/compose.yml" />
-              </div>
-              <div>
-                <label for="stackName">Swarm Stack Name</label>
-                <input id="stackName" type="text" placeholder="my-stack" />
-              </div>
-            </div>
-            <div class="row">
-              <div>
-                <label for="autoDeploySwarm">Auto Deploy Swarm</label>
-                <div class="check-inline">
-                  <input id="autoDeploySwarm" class="switch" type="checkbox" />
-                  <span class="muted">Deploy Swarm tự động sau khi build thành công</span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -245,13 +257,6 @@
               <div class="action-info">
                 <h3>Build & Push</h3>
                 <p>Build image và push lên registry</p>
-              </div>
-            </button>
-            <button id="runSwarmDeploy" class="action-card">
-              <div class="action-icon">🐋</div>
-              <div class="action-info">
-                <h3>Deploy Swarm</h3>
-                <p>Deploy lên Docker Swarm</p>
               </div>
             </button>
             <button id="checkPullBuild" class="action-card primary">

@@ -18,12 +18,9 @@
     "imageName": "harbor.techres.vn/daihy/java-daihy-seemt-dashboard",
     "imageTag": "1.0.76-DAIHY-BETA",
     "autoTagIncrement": false,
-    "autoDeploySwarm": false,
     "registryUrl": "harbor.techres.vn",
     "registryUsername": "",
-    "registryPassword": "",
-    "composePath": "",
-    "stackName": ""
+    "registryPassword": ""
   },
   "deployServices": [
     {
@@ -118,9 +115,6 @@
       "serviceFile": "net.techres.springdoc.jar"
     }
   ],
-  "deploySwarmEnabled": false,
-  "deploySwarmNodeConstraints": "node.labels.purpose == api",
-  "deploySwarmTemplate": "docker-compose.yml",
   "lastBuiltCommit": "",
   "autoCheck": true
 }

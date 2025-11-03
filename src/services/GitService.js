@@ -1,4 +1,5 @@
 const { run } = require('../utils/exec');
+const { nextTag, nextTagWithConfig, nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 
 class GitService {
   constructor({ logger, dockerService, configService }) {
@@ -169,25 +170,48 @@ class GitService {
 
       // Chạy tuần tự cho từng CHOICE (nếu có)
       for (const ch of (choicesArr.length ? choicesArr : [undefined])) {
+        // Tính toán tag cho script build với hệ thống chia 2 phần
+        let scriptImageTag = cfg.scriptImageTag || 'latest';
+        if (cfg.scriptAutoTagIncrement) {
+          // Sử dụng hệ thống tag chia 2 phần mới
+          const { numberPart, textPart } = splitTagIntoParts(scriptImageTag);
+          this.logger?.send(`[DEPLOY] 🏷️  Tách tag thành: số="${numberPart}", chữ="${textPart}"`);
+          
+          scriptImageTag = nextSplitTag(numberPart, textPart, true);
+          this.logger?.send(`[DEPLOY] 🔄 Auto increment script tag từ "${cfg.scriptImageTag || 'latest'}" thành "${scriptImageTag}"`);
+          
+          // Cập nhật tag mới vào config
+          this.configService.updateConfig({ scriptImageTag });
+        }
+        
         const env = {
           CONTINUE_BUILD: 'y',
           PUSH_IMAGE: dockerCfg.registryUrl ? 'y' : 'n',
         };
         if (ch) env.CHOICE = String(ch);
-        if (dockerCfg.imageTag) env.DOCKER_IMAGE_TAG = dockerCfg.imageTag;
+        if (scriptImageTag) env.DOCKER_IMAGE_TAG = scriptImageTag;
         if (effectiveDockerfile) env.DOCKERFILE_PATH = toPosix(effectiveDockerfile);
         if (effectiveContext) env.CONTEXT_PATH = toPosix(effectiveContext);
         if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
         env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
-        // Swarm deployment config
-        if (cfg.deploySwarmEnabled) env.DEPLOY_SWARM = 'y';
-        if (cfg.deploySwarmNodeConstraints) env.DOCKER_SWARM_NODE_CONSTRAINTS = cfg.deploySwarmNodeConstraints;
-        if (cfg.deploySwarmTemplate) env.TEMPLATE_FILE = cfg.deploySwarmTemplate;
 
-        this.logger?.send(`[DEPLOY] Chạy deploy.sh (choice=${ch ?? 'N/A'}) với context: ${effectiveContext}`);
+        this.logger?.send(`[DEPLOY] 🚀 Chuẩn bị chạy deploy.sh`);
+        this.logger?.send(`[DEPLOY] 📁 Script path: ${posixPath}`);
+        this.logger?.send(`[DEPLOY] 🏷️  Choice: ${ch ?? 'N/A'}`);
+        this.logger?.send(`[DEPLOY] 📂 Context path: ${effectiveContext}`);
+        this.logger?.send(`[DEPLOY] 🐳 Dockerfile path: ${effectiveDockerfile}`);
+        this.logger?.send(`[DEPLOY] 🏗️  Image tag: ${scriptImageTag || 'N/A'}`);
+        this.logger?.send(`[DEPLOY] 🌐 Registry URL: ${dockerCfg.registryUrl || 'N/A'}`);
+        
+        this.logger?.send(`[DEPLOY] 🔧 Thực thi lệnh: bash "${posixPath}"`);
         const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });
+        
         if (r.error) {
-          this.logger?.send(`[DEPLOY][ERROR] ${r.error.message}`);
+          this.logger?.send(`[DEPLOY][ERROR] ❌ Deploy script thất bại!`);
+          this.logger?.send(`[DEPLOY][ERROR] 📝 Error message: ${r.error.message}`);
+          if (r.stderr) {
+            this.logger?.send(`[DEPLOY][ERROR] 📝 Stderr: ${r.stderr}`);
+          }
           if (r.stderr) this.logger?.send(`[DEPLOY][STDERR] ${String(r.stderr).trim()}`);
           try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: true }); } catch (_) {}
           result.hadError = true;
@@ -211,17 +235,6 @@ class GitService {
         autoTagIncrement: dockerCfg.autoTagIncrement,
         commitHash: remoteHash,
       });
-    }
-
-    // auto deploy swarm nếu bật
-    if (dockerCfg.autoDeploySwarm && !result.hadError && dockerCfg.composePath && dockerCfg.stackName) {
-      const { SwarmService } = require('./SwarmService');
-      const swarm = new SwarmService({ logger: this.logger });
-      await swarm.deploy({ composePath: dockerCfg.composePath, stackName: dockerCfg.stackName });
-    } else if (dockerCfg.autoDeploySwarm && !dockerCfg.composePath) {
-      this.logger?.send('[SWARM][WARN] autoDeploySwarm bật nhưng thiếu composePath');
-    } else if (dockerCfg.autoDeploySwarm && !dockerCfg.stackName) {
-      this.logger?.send('[SWARM][WARN] autoDeploySwarm bật nhưng thiếu stackName');
     }
 
     // Sau khi build thành công, cập nhật commit đã build để tránh trùng lặp

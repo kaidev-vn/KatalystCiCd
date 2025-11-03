@@ -1,4 +1,4 @@
-function registerDockerController(app, { dockerService, configService, swarmService, logger }) {
+function registerDockerController(app, { dockerService, configService, logger }) {
   app.post('/api/docker/build', async (req, res) => {
     try {
       const r = await dockerService.buildAndPush(req.body || {});

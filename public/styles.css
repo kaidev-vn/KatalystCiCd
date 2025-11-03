@@ -278,17 +278,6 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
   color: var(--primary);
 }
 
-.swarm-config {
-  border-top: 1px solid var(--border);
-  padding-top: 20px;
-  margin-top: 20px;
-}
-
-.swarm-config h3 {
-  margin: 0 0 16px;
-  font-size: 16px;
-}
-
 /* Build Actions Grid */
 .build-actions-grid {
   display: grid;
