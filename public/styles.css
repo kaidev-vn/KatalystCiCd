@@ -145,6 +145,41 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn.secondary { background: color-mix(in oklab, var(--primary) 8%, transparent); color: var(--text); border-color: var(--border); }
 .btn.small { padding: 6px 10px; border-radius: 10px; }
 
+/* Use Common Config Button */
+.use-common-config-btn {
+  background: linear-gradient(135deg, var(--success) 0%, color-mix(in oklab, var(--success) 80%, var(--primary)) 100%);
+  color: white;
+  border: 1px solid var(--success);
+  padding: 12px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: var(--shadow);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  width: 100%;
+  justify-content: center;
+}
+
+.use-common-config-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--success) 30%, transparent);
+}
+
+.use-common-config-btn:active {
+  transform: translateY(0);
+}
+
+.use-common-config-btn::before {
+  content: "⚙️";
+  font-size: 16px;
+}
+
 /* Navigation */
 .tab-navigation {
   display: flex; gap: 4px; align-items: center;
@@ -276,6 +311,156 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
   margin: 0 0 16px;
   font-size: 16px;
   color: var(--primary);
+}
+
+/* Resource Monitor Styles */
+.resource-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.resource-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.resource-label {
+  min-width: 120px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.resource-bar {
+  flex: 1;
+  height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.resource-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #FFC107, #FF5722);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.resource-value {
+  min-width: 50px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.resource-settings {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Scheduler Status Styles */
+.scheduler-status {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.scheduler-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.scheduler-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-item strong {
+  color: var(--text);
+}
+
+.info-item span {
+  color: var(--text-muted);
+}
+
+/* Status Badge Styles */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.stopped {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-badge.running {
+  background: #e8f5e8;
+  color: #2e7d32;
+}
+
+.status-badge.paused {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+/* Tag Configuration Styles */
+.tag-config-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.tag-config-section h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.tag-preview {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: var(--bg-color);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.tag-preview .muted {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.tag-preview span {
+  font-weight: 600;
+  color: var(--primary-color);
+  font-family: 'Courier New', monospace;
 }
 
 /* Build Actions Grid */
@@ -648,4 +833,566 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
   margin: 0;
   font-size: 0.9em;
   line-height: 1.4;
+}
+
+/* Job Management Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.modal.show {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--card-bg);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 80%, transparent));
+  color: var(--primary-contrast);
+  border-radius: 16px 16px 0 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--primary-contrast);
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.modal-close:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 24px;
+  max-height: calc(90vh - 140px);
+  overflow-y: auto;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--bg) 50%, var(--card-bg));
+}
+
+/* Form Sections */
+.form-section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.form-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Row Layout */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 600px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Build Method Selector */
+.build-method-selector {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.method-option {
+  flex: 1;
+  position: relative;
+}
+
+.method-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.method-option label {
+  display: block;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--card-bg);
+  font-weight: 500;
+}
+
+.method-option input[type="radio"]:checked + label {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 10%, var(--card-bg));
+  color: var(--primary);
+}
+
+.method-option label:hover {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 5%, var(--card-bg));
+}
+
+/* Build Actions Grid */
+.build-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.action-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.action-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--primary) 15%, transparent);
+}
+
+.action-card h3 {
+  margin: 0 0 8px 0;
+  color: var(--primary);
+  font-size: 1.1rem;
+}
+
+.action-card p {
+  margin: 0 0 16px 0;
+  font-size: 0.9rem;
+}
+
+.action-card .btn {
+  width: 100%;
+}
+
+/* Method Config Sections */
+.method-config {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--bg) 30%, var(--card-bg));
+  margin-top: 16px;
+}
+
+/* Services Selection */
+.services-selection {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.services-header {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  background: color-mix(in oklab, var(--primary) 5%, var(--card-bg));
+  border-bottom: 1px solid var(--border);
+}
+
+.services-checkboxes {
+  padding: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.service-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  transition: all 0.2s ease;
+}
+
+.service-checkbox:hover {
+  background: color-mix(in oklab, var(--primary) 5%, var(--card-bg));
+  border-color: var(--primary);
+}
+
+.service-checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.service-checkbox label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Checkbox Groups */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.checkbox-group label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Button Sizes */
+.btn.small {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+/* Job Statistics */
+.job-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.stat-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Job Actions */
+.job-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+/* Search Bar */
+.search-bar {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.search-bar input {
+  padding-left: 40px;
+}
+
+.search-bar::before {
+  content: "🔍";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+/* Queue Management Styles */
+.queue-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.queue-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-number {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--primary);
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.running-jobs-list, .queue-list, .completed-jobs-list, .failed-jobs-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.job-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: var(--card-bg);
+  transition: all 0.2s ease;
+}
+
+.job-item:hover {
+  border-color: var(--primary);
+  transform: translateX(2px);
+}
+
+.job-info {
+  flex: 1;
+}
+
+.job-name {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.job-meta {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.job-status {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.job-status.queued {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.job-status.running {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.job-status.completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.job-status.failed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.job-status.cancelled {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.job-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.job-actions .btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: auto;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.priority-badge {
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority-badge.high {
+  background: #ff6b6b;
+  color: white;
+}
+
+.priority-badge.medium {
+  background: #feca57;
+  color: #333;
+}
+
+.priority-badge.low {
+  background: #48dbfb;
+  color: #333;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+.tabs-container {
+  margin-top: 15px;
+}
+
+.tab-buttons {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 15px;
+}
+
+.tab-buttons .tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab-buttons .tab-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.tab-buttons .tab-btn:hover {
+  color: var(--primary);
+}
+
+.execution-time {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* Responsive adjustments for queue */
+@media (max-width: 768px) {
+  .queue-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .queue-controls {
+    flex-direction: column;
+  }
+  
+  .job-meta {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .job-actions {
+    flex-direction: column;
+  }
 }

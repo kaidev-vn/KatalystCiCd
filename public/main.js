@@ -709,6 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBuilds();
   loadVersions();
   loadBuildHistory();
+  loadJobs(); // Load jobs for job management tab
   
   // Add event listener for auto tag increment checkbox
   const autoTagIncrementEl = $('autoTagIncrement');
@@ -723,6 +724,49 @@ document.addEventListener('DOMContentLoaded', () => {
   if (scriptAutoTagIncrementEl) {
     scriptAutoTagIncrementEl.addEventListener('change', (e) => {
       toggleScriptAdvancedTaggingSection(e.target.checked);
+    });
+  }
+
+  // Job Management Event Listeners
+  const createJobBtn = $('createJobBtn');
+  const refreshJobsBtn = $('refreshJobsBtn');
+  const jobModalClose = $('jobModalClose');
+  const saveJobBtn = $('saveJob');
+  const cancelJobBtn = $('cancelJob');
+  const jobSearchInput = $('jobSearch');
+  const selectAllServicesBtn = $('selectAllServices');
+  const deselectAllServicesBtn = $('deselectAllServices');
+  const jobAutoCheckbox = $('jobAutoCheck');
+
+  if (createJobBtn) createJobBtn.onclick = () => showJobModal();
+  if (refreshJobsBtn) refreshJobsBtn.onclick = loadJobs;
+  if (jobModalClose) jobModalClose.onclick = hideJobModal;
+  if (saveJobBtn) saveJobBtn.onclick = saveJob;
+  if (cancelJobBtn) cancelJobBtn.onclick = hideJobModal;
+  if (jobSearchInput) jobSearchInput.oninput = searchJobs;
+  if (selectAllServicesBtn) selectAllServicesBtn.onclick = selectAllServices;
+  if (deselectAllServicesBtn) deselectAllServicesBtn.onclick = deselectAllServices;
+  if (jobAutoCheckbox) {
+    jobAutoCheckbox.addEventListener('change', (e) => {
+      toggleScheduleConfig(e.target.checked);
+    });
+  }
+
+  // Build method radio buttons for job modal
+  const jobMethodRadios = document.querySelectorAll('input[name="jobBuildMethod"]');
+  jobMethodRadios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      toggleBuildMethodConfig(e.target.value);
+    });
+  });
+
+  // Close modal when clicking outside
+  const jobModal = $('jobModal');
+  if (jobModal) {
+    jobModal.addEventListener('click', (e) => {
+      if (e.target === jobModal) {
+        hideJobModal();
+      }
     });
   }
   
@@ -821,6 +865,48 @@ document.addEventListener('DOMContentLoaded', () => {
   if (imageTagTextEl) imageTagTextEl.addEventListener('input', updateTagPreview);
   if (scriptImageTagNumberEl) scriptImageTagNumberEl.addEventListener('input', updateScriptTagPreview);
   if (scriptImageTagTextEl) scriptImageTagTextEl.addEventListener('input', updateScriptTagPreview);
+  
+  // Queue management event listeners
+  const toggleQueueBtn = $('toggleQueueBtn');
+  const saveQueueConfigBtn = $('saveQueueConfigBtn');
+  const refreshQueueBtn = $('refreshQueueBtn');
+  
+  if (toggleQueueBtn) toggleQueueBtn.addEventListener('click', toggleQueueProcessing);
+  if (saveQueueConfigBtn) saveQueueConfigBtn.addEventListener('click', saveQueueConfig);
+  if (refreshQueueBtn) refreshQueueBtn.addEventListener('click', loadQueueStatus);
+  
+  // Load queue status on page load
+  loadQueueStatus();
+  
+  // Add event listeners for job tag configuration
+  const jobImageTagNumber = document.getElementById('jobImageTagNumber');
+  const jobImageTagText = document.getElementById('jobImageTagText');
+  
+  if (jobImageTagNumber) {
+    jobImageTagNumber.addEventListener('input', updateJobTagPreview);
+  }
+  if (jobImageTagText) {
+    jobImageTagText.addEventListener('input', updateJobTagPreview);
+  }
+  
+  // Add event listeners for Script tag configuration
+  const jobScriptImageTagNumber = document.getElementById('jobScriptImageTagNumber');
+  const jobScriptImageTagText = document.getElementById('jobScriptImageTagText');
+  if (jobScriptImageTagNumber) {
+    jobScriptImageTagNumber.addEventListener('input', updateJobScriptTagPreview);
+  }
+  if (jobScriptImageTagText) {
+    jobScriptImageTagText.addEventListener('input', updateJobScriptTagPreview);
+  }
+  
+  // Add event listener for "Use Common Config" button
+  const useCommonConfigBtn = document.getElementById('useCommonConfigBtn');
+  if (useCommonConfigBtn) {
+    useCommonConfigBtn.addEventListener('click', useCommonConfig);
+  }
+  
+  // Refresh queue status every 5 seconds
+  setInterval(loadQueueStatus, 5000);
 });
 
 // Modal state
@@ -1051,6 +1137,120 @@ function updateScriptTagPreview() {
   }
 }
 
+function updateJobTagPreview() {
+  const number = document.getElementById('jobImageTagNumber')?.value || '1.0.0';
+  const text = document.getElementById('jobImageTagText')?.value || '';
+  const preview = document.getElementById('jobTagPreview');
+  if (preview) {
+    preview.textContent = combineTag(number, text);
+  }
+}
+
+function updateJobScriptTagPreview() {
+  const number = document.getElementById('jobScriptImageTagNumber')?.value || '1.0.0';
+  const text = document.getElementById('jobScriptImageTagText')?.value || '';
+  const preview = document.getElementById('jobScriptTagPreview');
+  if (preview) {
+    preview.textContent = combineTag(number, text);
+  }
+}
+
+// Hàm sử dụng cấu hình chung để điền vào form job
+function useCommonConfig() {
+  if (!CURRENT_CFG) {
+    alert('Không có cấu hình chung để sử dụng. Vui lòng cấu hình trong tab Cấu hình chung trước.');
+    return;
+  }
+
+  // Điền thông tin Git
+  const jobGitRepoUrlEl = $('jobGitRepoUrl');
+  if (jobGitRepoUrlEl) jobGitRepoUrlEl.value = CURRENT_CFG.repoUrl || '';
+  
+  const jobGitRepoPathEl = $('jobGitRepoPath');
+  if (jobGitRepoPathEl) jobGitRepoPathEl.value = CURRENT_CFG.repoPath || '';
+  
+  const jobGitBranchEl = $('jobGitBranch');
+  if (jobGitBranchEl) jobGitBranchEl.value = CURRENT_CFG.branch || 'main';
+  
+  const jobGitAccountEl = $('jobGitAccount');
+  if (jobGitAccountEl) jobGitAccountEl.value = CURRENT_CFG.account || '';
+  
+  const jobGitTokenEl = $('jobGitToken');
+  if (jobGitTokenEl) jobGitTokenEl.value = CURRENT_CFG.token || '';
+
+  // Điền build method
+  const buildMethod = CURRENT_CFG.buildMethod || 'dockerfile';
+  const jobBuildMethodRadio = document.querySelector(`input[name="jobBuildMethod"][value="${buildMethod}"]`);
+  if (jobBuildMethodRadio) {
+    jobBuildMethodRadio.checked = true;
+    // Trigger để hiển thị đúng config section
+    toggleBuildMethodConfig(buildMethod);
+  }
+
+  // Điền Docker config nếu có
+  const d = CURRENT_CFG.docker || {};
+  
+  // Docker config
+  const jobDockerfilePathEl = $('jobDockerfilePath');
+  if (jobDockerfilePathEl) jobDockerfilePathEl.value = d.dockerfilePath || '';
+  
+  const jobContextPathEl = $('jobContextPath');
+  if (jobContextPathEl) jobContextPathEl.value = d.contextPath || '';
+  
+  const jobImageNameEl = $('jobImageName');
+  if (jobImageNameEl) jobImageNameEl.value = d.imageName || '';
+  
+  // Docker tag config
+  const jobImageTagNumberEl = $('jobImageTagNumber');
+  const jobImageTagTextEl = $('jobImageTagText');
+  if (d.imageTag) {
+    const parts = splitTag(d.imageTag);
+    if (jobImageTagNumberEl) jobImageTagNumberEl.value = parts.number || '1.0.75';
+    if (jobImageTagTextEl) jobImageTagTextEl.value = parts.text || '';
+  } else {
+    if (jobImageTagNumberEl) jobImageTagNumberEl.value = '1.0.75';
+    if (jobImageTagTextEl) jobImageTagTextEl.value = '';
+  }
+  
+  const jobAutoTagIncrementEl = $('jobAutoTagIncrement');
+  if (jobAutoTagIncrementEl) {
+    jobAutoTagIncrementEl.checked = !!d.autoTagIncrement;
+  }
+  
+  // Docker registry config
+  const jobRegistryUrlEl = $('jobRegistryUrl');
+  if (jobRegistryUrlEl) jobRegistryUrlEl.value = d.registryUrl || '';
+  
+  const jobRegistryUsernameEl = $('jobRegistryUsername');
+  if (jobRegistryUsernameEl) jobRegistryUsernameEl.value = d.registryUsername || '';
+  
+  const jobRegistryPasswordEl = $('jobRegistryPassword');
+  if (jobRegistryPasswordEl) jobRegistryPasswordEl.value = d.registryPassword || '';
+
+  // Script config
+  const jobScriptPathEl = $('jobScriptPath');
+  if (jobScriptPathEl) jobScriptPathEl.value = CURRENT_CFG.scriptPath || '';
+  
+  // Script sử dụng cùng các trường với Docker (jobImageName, jobImageTagNumber, etc.)
+  // Nếu có script config riêng, ưu tiên sử dụng
+  if (CURRENT_CFG.scriptImageTagNumber && jobImageTagNumberEl) {
+    jobImageTagNumberEl.value = CURRENT_CFG.scriptImageTagNumber;
+  }
+  if (CURRENT_CFG.scriptImageTagText && jobImageTagTextEl) {
+    jobImageTagTextEl.value = CURRENT_CFG.scriptImageTagText;
+  }
+  if (CURRENT_CFG.scriptAutoTagIncrement !== undefined && jobAutoTagIncrementEl) {
+    jobAutoTagIncrementEl.checked = !!CURRENT_CFG.scriptAutoTagIncrement;
+  }
+
+  // Cập nhật preview
+  updateJobTagPreview();
+  updateJobScriptTagPreview();
+  
+  // Hiển thị thông báo thành công
+  alert('Đã áp dụng cấu hình chung thành công!');
+}
+
 // Build history management functions
 async function refreshBuildHistory() {
   try {
@@ -1090,3 +1290,740 @@ async function clearBuildHistory() {
 }
 
 // Phần chạy deploy.sh thủ công đã được loại bỏ theo yêu cầu. Giữ lại API tải choice.
+
+// ===== JOB MANAGEMENT =====
+let jobs = [];
+let editingJobId = null;
+
+// Load jobs from server
+async function loadJobs() {
+  try {
+    const response = await fetch('/api/jobs');
+    if (response.ok) {
+      jobs = await response.json();
+      renderJobsTable();
+      updateJobStats();
+    } else {
+      console.error('Failed to load jobs');
+    }
+  } catch (error) {
+    console.error('Error loading jobs:', error);
+  }
+}
+
+// Render jobs table
+function renderJobsTable() {
+  const tbody = document.querySelector('#jobsTable tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  
+  jobs.forEach(job => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>
+        <div class="job-name">${job.name}</div>
+        <div class="job-description">${job.description || ''}</div>
+      </td>
+      <td>
+        <span class="tag ${job.enabled ? 'success' : 'muted'}">
+          ${job.enabled ? '✅ Kích hoạt' : '❌ Tắt'}
+        </span>
+      </td>
+      <td>${job.git?.branch || 'N/A'}</td>
+      <td>${job.services?.length || 0} services</td>
+      <td>
+        <span class="tag ${getStatusClass(job.lastBuildStatus)}">
+          ${getStatusText(job.lastBuildStatus)}
+        </span>
+      </td>
+      <td>${job.lastBuildTime ? new Date(job.lastBuildTime).toLocaleString('vi-VN') : 'Chưa build'}</td>
+      <td>
+        <div class="job-actions-inline">
+          <button class="btn small primary" onclick="runJob('${job.id}')">▶️ Chạy</button>
+          <button class="btn small outline" onclick="editJob('${job.id}')">✏️ Sửa</button>
+          <button class="btn small danger" onclick="deleteJob('${job.id}')">🗑️ Xóa</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+// Update job statistics
+function updateJobStats() {
+  const totalJobs = jobs.length;
+  const activeJobs = jobs.filter(j => j.enabled).length;
+  const successfulBuilds = jobs.filter(j => j.lastBuildStatus === 'success').length;
+  const failedBuilds = jobs.filter(j => j.lastBuildStatus === 'failed').length;
+
+  const totalEl = document.querySelector('#totalJobs .stat-number');
+  const activeEl = document.querySelector('#activeJobs .stat-number');
+  const successEl = document.querySelector('#successfulBuilds .stat-number');
+  const failedEl = document.querySelector('#failedBuilds .stat-number');
+
+  if (totalEl) totalEl.textContent = totalJobs;
+  if (activeEl) activeEl.textContent = activeJobs;
+  if (successEl) successEl.textContent = successfulBuilds;
+  if (failedEl) failedEl.textContent = failedBuilds;
+}
+
+// Get status class for styling
+function getStatusClass(status) {
+  switch (status) {
+    case 'success': return 'success';
+    case 'failed': return 'danger';
+    case 'running': return 'warning';
+    default: return 'muted';
+  }
+}
+
+// Get status text
+function getStatusText(status) {
+  switch (status) {
+    case 'success': return '✅ Thành công';
+    case 'failed': return '❌ Thất bại';
+    case 'running': return '⏳ Đang chạy';
+    default: return '⚪ Chưa chạy';
+  }
+}
+
+// Show job modal
+function showJobModal(jobId = null) {
+  editingJobId = jobId;
+  const modal = document.getElementById('jobModal');
+  const title = document.getElementById('jobModalTitle');
+  
+  if (jobId) {
+    title.textContent = 'Chỉnh sửa Job';
+    const job = jobs.find(j => j.id === jobId);
+    if (job) {
+      populateJobForm(job);
+    }
+  } else {
+    title.textContent = 'Tạo Job mới';
+    resetJobForm();
+  }
+  
+  loadServicesForSelection();
+  modal.classList.add('show');
+}
+
+// Hide job modal
+function hideJobModal() {
+  const modal = document.getElementById('jobModal');
+  modal.classList.remove('show');
+  editingJobId = null;
+}
+
+// Populate job form with data
+function populateJobForm(job) {
+  document.getElementById('jobName').value = job.name || '';
+  document.getElementById('jobDescription').value = job.description || '';
+  document.getElementById('jobEnabled').checked = job.enabled !== false;
+  
+  // Git configuration
+  document.getElementById('jobGitProvider').value = job.git?.provider || 'gitlab';
+  document.getElementById('jobGitAccount').value = job.git?.account || '';
+  document.getElementById('jobGitToken').value = job.git?.token || '';
+  document.getElementById('jobGitBranch').value = job.git?.branch || 'main';
+  document.getElementById('jobGitRepoUrl').value = job.git?.repoUrl || '';
+  document.getElementById('jobGitRepoPath').value = job.git?.repoPath || '';
+  
+  // Build configuration
+  const buildMethod = job.build?.method || 'dockerfile';
+  document.querySelector(`input[name="jobBuildMethod"][value="${buildMethod}"]`).checked = true;
+  toggleBuildMethodConfig(buildMethod);
+  
+  document.getElementById('jobBuildOrder').value = job.build?.order || 'parallel';
+  
+  if (buildMethod === 'script') {
+    document.getElementById('jobScriptPath').value = job.build?.scriptPath || '';
+    
+    // Handle script tag configuration
+    document.getElementById('jobScriptImageName').value = job.build?.imageName || '';
+    const scriptTagNumber = job.build?.imageTagNumber || '1.0.0';
+    const scriptTagText = job.build?.imageTagText || '';
+    document.getElementById('jobScriptImageTagNumber').value = scriptTagNumber;
+    document.getElementById('jobScriptImageTagText').value = scriptTagText;
+    updateJobScriptTagPreview();
+    
+    document.getElementById('jobScriptRegistryUrl').value = job.build?.registryUrl || '';
+    document.getElementById('jobScriptRegistryUsername').value = job.build?.registryUsername || '';
+    document.getElementById('jobScriptRegistryPassword').value = job.build?.registryPassword || '';
+    document.getElementById('jobScriptAutoTagIncrement').checked = job.build?.autoTagIncrement || false;
+  } else {
+    document.getElementById('jobDockerfilePath').value = job.build?.dockerfilePath || './Dockerfile';
+    document.getElementById('jobContextPath').value = job.build?.contextPath || '.';
+    document.getElementById('jobImageName').value = job.build?.imageName || '';
+    
+    // Handle tag configuration
+    const tagNumber = job.build?.imageTagNumber || '1.0.0';
+    const tagText = job.build?.imageTagText || '';
+    document.getElementById('jobImageTagNumber').value = tagNumber;
+    document.getElementById('jobImageTagText').value = tagText;
+    updateJobTagPreview();
+    
+    document.getElementById('jobRegistryUrl').value = job.build?.registryUrl || '';
+    document.getElementById('jobRegistryUsername').value = job.build?.registryUsername || '';
+    document.getElementById('jobRegistryPassword').value = job.build?.registryPassword || '';
+    document.getElementById('jobAutoTagIncrement').checked = job.build?.autoTagIncrement || false;
+  }
+  
+  // Schedule configuration
+  document.getElementById('jobAutoCheck').checked = job.schedule?.autoCheck || false;
+  toggleScheduleConfig(job.schedule?.autoCheck || false);
+  document.getElementById('jobPolling').value = job.schedule?.polling || 30;
+  document.getElementById('jobCron').value = job.schedule?.cron || '';
+}
+
+// Reset job form
+function resetJobForm() {
+  document.getElementById('jobName').value = '';
+  document.getElementById('jobDescription').value = '';
+  document.getElementById('jobEnabled').checked = true;
+  
+  // Reset Git configuration
+  document.getElementById('jobGitProvider').value = 'gitlab';
+  document.getElementById('jobGitAccount').value = '';
+  document.getElementById('jobGitToken').value = '';
+  document.getElementById('jobGitBranch').value = 'main';
+  document.getElementById('jobGitRepoUrl').value = '';
+  document.getElementById('jobGitRepoPath').value = '';
+  
+  // Reset Build configuration
+  document.querySelector('input[name="jobBuildMethod"][value="dockerfile"]').checked = true;
+  toggleBuildMethodConfig('dockerfile');
+  document.getElementById('jobBuildOrder').value = 'parallel';
+  
+  // Reset Docker config
+  document.getElementById('jobDockerfilePath').value = './Dockerfile';
+  document.getElementById('jobContextPath').value = '.';
+  document.getElementById('jobImageName').value = '';
+  
+  // Reset tag configuration
+  document.getElementById('jobImageTagNumber').value = '1.0.0';
+  document.getElementById('jobImageTagText').value = '';
+  updateJobTagPreview();
+  
+  document.getElementById('jobRegistryUrl').value = '';
+  document.getElementById('jobRegistryUsername').value = '';
+  document.getElementById('jobRegistryPassword').value = '';
+  document.getElementById('jobAutoTagIncrement').checked = false;
+  
+  // Reset Script config
+  document.getElementById('jobScriptPath').value = '';
+  document.getElementById('jobScriptImageName').value = '';
+  document.getElementById('jobScriptImageTagNumber').value = '1';
+  document.getElementById('jobScriptImageTagText').value = 'latest';
+  document.getElementById('jobScriptRegistryUrl').value = '';
+  document.getElementById('jobScriptRegistryUsername').value = '';
+  document.getElementById('jobScriptRegistryPassword').value = '';
+  document.getElementById('jobScriptAutoTagIncrement').checked = false;
+  updateJobScriptTagPreview();
+  
+  // Reset Schedule configuration
+  document.getElementById('jobAutoCheck').checked = false;
+  toggleScheduleConfig(false);
+  document.getElementById('jobPolling').value = 30;
+  document.getElementById('jobCron').value = '';
+  
+  // Reset services selection
+  const checkboxes = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]');
+  checkboxes.forEach(cb => cb.checked = false);
+}
+
+// Toggle build method configuration
+function toggleBuildMethodConfig(method) {
+  const scriptConfig = document.getElementById('jobScriptConfig');
+  const dockerConfig = document.getElementById('jobDockerConfig');
+  
+  if (method === 'script') {
+    scriptConfig.style.display = 'block';
+    dockerConfig.style.display = 'none';
+  } else {
+    scriptConfig.style.display = 'none';
+    dockerConfig.style.display = 'block';
+  }
+}
+
+// Toggle schedule configuration
+function toggleScheduleConfig(show) {
+  const scheduleConfig = document.getElementById('scheduleConfig');
+  scheduleConfig.style.display = show ? 'block' : 'none';
+}
+
+// Load services for selection
+async function loadServicesForSelection() {
+  try {
+    // Load from current config
+    const response = await fetch('/api/config');
+    if (response.ok) {
+      const config = await response.json();
+      const services = config.deployServices || [];
+      renderServicesCheckboxes(services);
+    }
+  } catch (error) {
+    console.error('Error loading services:', error);
+  }
+}
+
+// Render services checkboxes
+function renderServicesCheckboxes(services) {
+  const container = document.getElementById('servicesCheckboxes');
+  container.innerHTML = '';
+  
+  services.forEach(service => {
+    const div = document.createElement('div');
+    div.className = 'service-checkbox';
+    div.innerHTML = `
+      <input type="checkbox" id="service_${service.name}" value="${service.name}">
+      <label for="service_${service.name}">${service.name}</label>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Select/Deselect all services
+function selectAllServices() {
+  const checkboxes = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]');
+  checkboxes.forEach(cb => cb.checked = true);
+}
+
+function deselectAllServices() {
+  const checkboxes = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]');
+  checkboxes.forEach(cb => cb.checked = false);
+}
+
+// Save job
+async function saveJob() {
+  try {
+    const jobData = {
+      name: document.getElementById('jobName').value,
+      description: document.getElementById('jobDescription').value,
+      enabled: document.getElementById('jobEnabled').checked,
+      git: {
+        provider: document.getElementById('jobGitProvider').value,
+        account: document.getElementById('jobGitAccount').value,
+        token: document.getElementById('jobGitToken').value,
+        branch: document.getElementById('jobGitBranch').value,
+        repoUrl: document.getElementById('jobGitRepoUrl').value,
+        repoPath: document.getElementById('jobGitRepoPath').value
+      },
+      build: {
+        method: document.querySelector('input[name="jobBuildMethod"]:checked').value,
+        order: document.getElementById('jobBuildOrder').value
+      },
+      schedule: {
+        autoCheck: document.getElementById('jobAutoCheck').checked,
+        polling: parseInt(document.getElementById('jobPolling').value),
+        cron: document.getElementById('jobCron').value
+      }
+    };
+    
+    // Add build method specific config
+    if (jobData.build.method === 'script') {
+      jobData.build.scriptPath = document.getElementById('jobScriptPath').value;
+      jobData.build.imageName = document.getElementById('jobScriptImageName').value;
+      
+      // Save tag configuration
+      jobData.build.imageTagNumber = document.getElementById('jobScriptImageTagNumber').value;
+      jobData.build.imageTagText = document.getElementById('jobScriptImageTagText').value;
+      
+      jobData.build.registryUrl = document.getElementById('jobScriptRegistryUrl').value;
+      jobData.build.registryUsername = document.getElementById('jobScriptRegistryUsername').value;
+      jobData.build.registryPassword = document.getElementById('jobScriptRegistryPassword').value;
+      jobData.build.autoTagIncrement = document.getElementById('jobScriptAutoTagIncrement').checked;
+    } else {
+      jobData.build.dockerfilePath = document.getElementById('jobDockerfilePath').value;
+      jobData.build.contextPath = document.getElementById('jobContextPath').value;
+      jobData.build.imageName = document.getElementById('jobImageName').value;
+      
+      // Save tag configuration
+      jobData.build.imageTagNumber = document.getElementById('jobImageTagNumber').value;
+      jobData.build.imageTagText = document.getElementById('jobImageTagText').value;
+      
+      jobData.build.registryUrl = document.getElementById('jobRegistryUrl').value;
+      jobData.build.registryUsername = document.getElementById('jobRegistryUsername').value;
+      jobData.build.registryPassword = document.getElementById('jobRegistryPassword').value;
+      jobData.build.autoTagIncrement = document.getElementById('jobAutoTagIncrement').checked;
+    }
+    
+    // Get selected services
+    const selectedServices = [];
+    const checkboxes = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked');
+    checkboxes.forEach(cb => selectedServices.push(cb.value));
+    jobData.services = selectedServices;
+    
+    // Validate required fields
+    if (!jobData.name || !jobData.git.repoUrl || !jobData.git.branch || !jobData.git.token) {
+      alert('Vui lòng điền đầy đủ các trường bắt buộc (*)');
+      return;
+    }
+    
+    const url = editingJobId ? `/api/jobs/${editingJobId}` : '/api/jobs';
+    const method = editingJobId ? 'PUT' : 'POST';
+    
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(jobData)
+    });
+    
+    if (response.ok) {
+      hideJobModal();
+      loadJobs();
+      alert(editingJobId ? 'Job đã được cập nhật!' : 'Job đã được tạo thành công!');
+    } else {
+      const error = await response.text();
+      alert('Lỗi khi lưu job: ' + error);
+    }
+  } catch (error) {
+    console.error('Error saving job:', error);
+    alert('Lỗi khi lưu job: ' + error.message);
+  }
+}
+
+// Edit job
+function editJob(jobId) {
+  showJobModal(jobId);
+}
+
+// Delete job
+async function deleteJob(jobId) {
+  if (!confirm('Bạn có chắc chắn muốn xóa job này?')) return;
+  
+  try {
+    const response = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+    if (response.ok) {
+      loadJobs();
+      alert('Job đã được xóa!');
+    } else {
+      const error = await response.text();
+      alert('Lỗi khi xóa job: ' + error);
+    }
+  } catch (error) {
+    console.error('Error deleting job:', error);
+    alert('Lỗi khi xóa job: ' + error.message);
+  }
+}
+
+// Run job
+async function runJob(jobId) {
+  try {
+    const response = await fetch(`/api/jobs/${jobId}/run`, { method: 'POST' });
+    if (response.ok) {
+      alert('Job đã được khởi chạy!');
+      loadJobs(); // Refresh to show updated status
+    } else {
+      const error = await response.text();
+      alert('Lỗi khi chạy job: ' + error);
+    }
+  } catch (error) {
+    console.error('Error running job:', error);
+    alert('Lỗi khi chạy job: ' + error.message);
+  }
+}
+
+// Search jobs
+function searchJobs() {
+  const searchTerm = document.getElementById('jobSearch').value.toLowerCase();
+  const rows = document.querySelectorAll('#jobsTable tbody tr');
+  
+  rows.forEach(row => {
+    const jobName = row.querySelector('.job-name').textContent.toLowerCase();
+    const jobDescription = row.querySelector('.job-description').textContent.toLowerCase();
+    const isVisible = jobName.includes(searchTerm) || jobDescription.includes(searchTerm);
+    row.style.display = isVisible ? '' : 'none';
+  });
+}
+
+// ===== QUEUE MANAGEMENT =====
+let queueStatus = {
+  queue: [],
+  running: [],
+  completed: [],
+  failed: []
+};
+let queueStats = {};
+let queueProcessing = true;
+
+// Load queue status
+async function loadQueueStatus() {
+  try {
+    const response = await fetch('/api/queue/status');
+    if (response.ok) {
+      const data = await response.json();
+      queueStatus = data.status;
+      queueStats = data.stats;
+      renderQueueStatus();
+      updateQueueStats();
+    }
+  } catch (error) {
+    console.error('Error loading queue status:', error);
+  }
+}
+
+// Render queue status
+function renderQueueStatus() {
+  renderQueueList();
+  renderRunningJobs();
+  renderCompletedJobs();
+  renderFailedJobs();
+}
+
+// Render queue list
+function renderQueueList() {
+  const container = $('queueList');
+  if (!container) return;
+
+  if (queueStatus.queue.length === 0) {
+    container.innerHTML = '<div class="empty-state">Hàng đợi trống</div>';
+    return;
+  }
+
+  container.innerHTML = queueStatus.queue.map(job => `
+    <div class="job-item">
+      <div class="job-info">
+        <div class="job-name">${job.name}</div>
+        <div class="job-meta">
+          <span class="job-status ${job.status}">${getStatusText(job.status)}</span>
+          <span class="priority-badge ${job.priority}">${job.priority}</span>
+          <span>Thêm vào: ${new Date(job.queuedAt).toLocaleString()}</span>
+        </div>
+      </div>
+      <div class="job-actions">
+        <button class="btn danger small" onclick="cancelQueueJob('${job.id}')">❌ Hủy</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Render running jobs
+function renderRunningJobs() {
+  const container = $('runningJobsList');
+  if (!container) return;
+
+  if (queueStatus.running.length === 0) {
+    container.innerHTML = '<div class="empty-state">Không có job nào đang chạy</div>';
+    return;
+  }
+
+  container.innerHTML = queueStatus.running.map(job => `
+    <div class="job-item">
+      <div class="job-info">
+        <div class="job-name">${job.name}</div>
+        <div class="job-meta">
+          <span class="job-status ${job.status}">${getStatusText(job.status)}</span>
+          <span>Bắt đầu: ${new Date(job.startedAt).toLocaleString()}</span>
+        </div>
+        ${job.progress ? `
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${job.progress}%"></div>
+          </div>
+          <small>${job.progress}% hoàn thành</small>
+        ` : ''}
+      </div>
+      <div class="job-actions">
+        <button class="btn danger small" onclick="cancelQueueJob('${job.id}')">🛑 Dừng</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Render completed jobs
+function renderCompletedJobs() {
+  const container = $('completedJobsList');
+  if (!container) return;
+
+  if (queueStatus.completed.length === 0) {
+    container.innerHTML = '<div class="empty-state">Chưa có job nào hoàn thành</div>';
+    return;
+  }
+
+  container.innerHTML = queueStatus.completed.map(job => `
+    <div class="job-item">
+      <div class="job-info">
+        <div class="job-name">${job.name}</div>
+        <div class="job-meta">
+          <span class="job-status ${job.status}">${getStatusText(job.status)}</span>
+          <span>Hoàn thành: ${new Date(job.completedAt).toLocaleString()}</span>
+          <span class="execution-time">${job.executionTime}ms</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Render failed jobs
+function renderFailedJobs() {
+  const container = $('failedJobsList');
+  if (!container) return;
+
+  if (queueStatus.failed.length === 0) {
+    container.innerHTML = '<div class="empty-state">Chưa có job nào thất bại</div>';
+    return;
+  }
+
+  container.innerHTML = queueStatus.failed.map(job => `
+    <div class="job-item">
+      <div class="job-info">
+        <div class="job-name">${job.name}</div>
+        <div class="job-meta">
+          <span class="job-status ${job.status}">${getStatusText(job.status)}</span>
+          <span>Thất bại: ${new Date(job.failedAt).toLocaleString()}</span>
+          <span>Lỗi: ${job.error}</span>
+        </div>
+      </div>
+      <div class="job-actions">
+        <button class="btn primary small" onclick="retryJob('${job.id}')">🔄 Thử lại</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Update queue statistics
+function updateQueueStats() {
+  if (!queueStats) return;
+
+  const elements = {
+    queueLength: $('queueLength'),
+    runningJobs: $('runningJobs'),
+    completedJobs: $('completedJobs'),
+    failedJobs: $('failedJobs'),
+    avgExecutionTime: $('avgExecutionTime')
+  };
+
+  if (elements.queueLength) elements.queueLength.textContent = queueStats.queueLength || 0;
+  if (elements.runningJobs) elements.runningJobs.textContent = queueStats.runningJobs || 0;
+  if (elements.completedJobs) elements.completedJobs.textContent = queueStats.totalCompleted || 0;
+  if (elements.failedJobs) elements.failedJobs.textContent = queueStats.totalFailed || 0;
+  if (elements.avgExecutionTime) elements.avgExecutionTime.textContent = `${queueStats.averageExecutionTime || 0}ms`;
+}
+
+// Add job to queue
+async function addJobToQueue(jobId, priority = 'medium') {
+  try {
+    const response = await fetch('/api/queue/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId, priority })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      appendLog(`[QUEUE] Job đã được thêm vào hàng đợi: ${result.queueJobId}`);
+      loadQueueStatus();
+    } else {
+      appendLog(`[QUEUE][ERROR] Lỗi thêm job vào queue: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error adding job to queue:', error);
+    appendLog(`[QUEUE][ERROR] Lỗi thêm job vào queue: ${error.message}`);
+  }
+}
+
+// Cancel queue job
+async function cancelQueueJob(jobId) {
+  if (!confirm('Bạn có chắc chắn muốn hủy job này?')) return;
+
+  try {
+    const response = await fetch(`/api/queue/${jobId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      appendLog(`[QUEUE] Job đã được hủy: ${jobId}`);
+      loadQueueStatus();
+    } else {
+      appendLog(`[QUEUE][ERROR] Lỗi hủy job: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error cancelling job:', error);
+    appendLog(`[QUEUE][ERROR] Lỗi hủy job: ${error.message}`);
+  }
+}
+
+// Retry failed job
+async function retryJob(jobId) {
+  try {
+    // Tìm job gốc và thêm lại vào queue
+    const job = queueStatus.failed.find(j => j.id === jobId);
+    if (job && job.jobId) {
+      await addJobToQueue(job.jobId, 'high'); // Ưu tiên cao cho retry
+    }
+  } catch (error) {
+    console.error('Error retrying job:', error);
+    appendLog(`[QUEUE][ERROR] Lỗi thử lại job: ${error.message}`);
+  }
+}
+
+// Toggle queue processing
+async function toggleQueueProcessing() {
+  try {
+    const action = queueProcessing ? 'stop' : 'start';
+    const response = await fetch('/api/queue/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      queueProcessing = !queueProcessing;
+      const btn = $('toggleQueueBtn');
+      if (btn) {
+        btn.textContent = queueProcessing ? '⏸️ Tạm dừng Queue' : '▶️ Khởi động Queue';
+        btn.className = queueProcessing ? 'btn primary' : 'btn success';
+      }
+      appendLog(`[QUEUE] Queue đã được ${queueProcessing ? 'khởi động' : 'tạm dừng'}`);
+    }
+  } catch (error) {
+    console.error('Error toggling queue:', error);
+    appendLog(`[QUEUE][ERROR] Lỗi toggle queue: ${error.message}`);
+  }
+}
+
+// Save queue configuration
+async function saveQueueConfig() {
+  try {
+    const maxConcurrentJobs = parseInt($('maxConcurrentJobs').value);
+    const resourceThreshold = parseInt($('resourceThreshold').value);
+
+    const response = await fetch('/api/queue/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ maxConcurrentJobs, resourceThreshold })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      appendLog('[QUEUE] Cấu hình queue đã được lưu');
+    } else {
+      appendLog(`[QUEUE][ERROR] Lỗi lưu cấu hình: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error saving queue config:', error);
+    appendLog(`[QUEUE][ERROR] Lỗi lưu cấu hình queue: ${error.message}`);
+  }
+}
+
+// Run job immediately (bypass queue)
+async function runJobImmediate(jobId) {
+  try {
+    const response = await fetch(`/api/jobs/${jobId}/run-immediate`, {
+      method: 'POST'
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      appendLog(`[QUEUE] Job đã được chạy ngay lập tức: ${jobId}`);
+    } else {
+      appendLog(`[QUEUE][ERROR] Lỗi chạy job ngay: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error running job immediately:', error);
+    appendLog(`[QUEUE][ERROR] Lỗi chạy job ngay: ${error.message}`);
+  }
+}

@@ -25,6 +25,8 @@ const { registerPullController } = require('./src/controllers/PullController');
 const { registerWebhookController } = require('./src/controllers/WebhookController');
 const { registerDeployController } = require('./src/controllers/DeployController');
 const { SchedulerController } = require('./src/controllers/SchedulerController');
+const JobController = require('./src/controllers/JobController');
+const QueueController = require('./src/controllers/QueueController');
 
 app.use(bodyParser.json());
 // Phục vụ file tĩnh cho giao diện cấu hình CI/CD
@@ -46,6 +48,8 @@ const gitService = new GitService({ logger, dockerService, configService });
 const scheduler = new Scheduler({ logger, configService, gitService });
 const buildService = new BuildService({ logger, configService });
 const schedulerController = new SchedulerController({ scheduler, configService });
+const jobController = new JobController({ buildService, logger, configService });
+const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService });
 
 registerConfigController(app, { configService, scheduler, logger });
 registerBuildsController(app, { configService, buildService });
@@ -54,6 +58,25 @@ registerDockerController(app, { dockerService, configService, logger });
 registerPullController(app, { configService, logger });
 registerWebhookController(app, { logger, secret: WEBHOOK_SECRET });
 registerDeployController(app, { logger, configService });
+
+// Job Management Routes
+app.get('/api/jobs', (req, res) => jobController.getAllJobs(req, res));
+app.get('/api/jobs/enabled', (req, res) => jobController.getEnabledJobs(req, res));
+app.get('/api/jobs/:id', (req, res) => jobController.getJobById(req, res));
+app.post('/api/jobs', (req, res) => jobController.createJob(req, res));
+app.put('/api/jobs/:id', (req, res) => jobController.updateJob(req, res));
+app.delete('/api/jobs/:id', (req, res) => jobController.deleteJob(req, res));
+app.post('/api/jobs/:id/toggle', (req, res) => jobController.toggleJob(req, res));
+app.post('/api/jobs/:id/run', (req, res) => jobController.runJob(req, res));
+
+// Queue Management Routes
+app.post('/api/queue/add', (req, res) => queueController.addJobToQueue(req, res));
+app.get('/api/queue/status', (req, res) => queueController.getQueueStatus(req, res));
+app.get('/api/queue/stats', (req, res) => queueController.getQueueStats(req, res));
+app.delete('/api/queue/:jobId', (req, res) => queueController.cancelJob(req, res));
+app.put('/api/queue/config', (req, res) => queueController.updateQueueConfig(req, res));
+app.post('/api/queue/toggle', (req, res) => queueController.toggleQueueProcessing(req, res));
+app.post('/api/jobs/:jobId/run-immediate', (req, res) => queueController.runJobImmediate(req, res));
 
 // Scheduler API routes
 app.get('/api/scheduler/status', (req, res) => schedulerController.getStatus(req, res));

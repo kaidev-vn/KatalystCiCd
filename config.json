@@ -6,22 +6,31 @@
   "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
   "repoPath": "/opt/run_java/docker-build-app/system/",
   "branch": "developer_2",
-  "deployScriptPath": "/opt/run_java/docker-build-app/deploy.sh",
-  "buildMethod": "script",
+  "deployScriptPath": "",
+  "buildMethod": "dockerfile",
   "deployChoices": [],
   "deployChoice": 0,
   "deployContextSource": "repo",
   "deployContextCustomPath": "",
   "docker": {
-    "dockerfilePath": "/opt/Ci-Cd/DockerFile-Build",
-    "contextPath": "/opt/run_java/docker-build-app/system/",
-    "imageName": "harbor.techres.vn/daihy/java-daihy-seemt-dashboard",
-    "imageTag": "1.0.76-DAIHY-BETA",
+    "dockerfilePath": "",
+    "contextPath": "",
+    "imageName": "",
+    "imageTag": "1.0.75",
     "autoTagIncrement": false,
-    "registryUrl": "harbor.techres.vn",
+    "registryUrl": "",
     "registryUsername": "",
-    "registryPassword": ""
+    "registryPassword": "",
+    "tagConfig": {
+      "useAdvancedTagging": false,
+      "prefix": "",
+      "suffix": "",
+      "startVersion": 1,
+      "versionWidth": 0
+    }
   },
+  "scriptImageTag": "1.0.75",
+  "scriptAutoTagIncrement": false,
   "deployServices": [
     {
       "name": "harbor.techres.vn/overatevntech/admin-schedule-service",
@@ -116,5 +125,5 @@
     }
   ],
   "lastBuiltCommit": "",
-  "autoCheck": true
+  "autoCheck": false
 }
