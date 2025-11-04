@@ -141,12 +141,24 @@ class JobController {
       registryPassword: legacyBuild.registryPassword || d.registryPassword || ''
     };
 
+    // Build config: preserve script-specific fields sent from UI
+    const buildMethod = (d.buildConfig?.method || legacyBuild.method || d.method || 'dockerfile');
     const buildConfig = d.buildConfig || {
-      method: legacyBuild.method || d.method || 'dockerfile',
-      scriptPath: legacyBuild.scriptPath || d.scriptPath || '',
-      buildOrder: legacyBuild.buildOrder || d.buildOrder || 'parallel',
+      method: buildMethod,
+      scriptPath: legacyBuild.scriptPath || d.scriptPath || d.buildConfig?.scriptPath || '',
+      buildOrder: legacyBuild.buildOrder || d.buildOrder || d.buildConfig?.buildOrder || 'parallel',
       dockerConfig: legacyDockerConfig
     };
+    // If method is script, ensure we keep script tag/registry fields
+    if (buildMethod === 'script') {
+      buildConfig.imageName = d.buildConfig?.imageName || legacyBuild.imageName || d.imageName || '';
+      buildConfig.imageTagNumber = d.buildConfig?.imageTagNumber || legacyBuild.imageTagNumber || d.imageTagNumber || '';
+      buildConfig.imageTagText = d.buildConfig?.imageTagText || legacyBuild.imageTagText || d.imageTagText || '';
+      buildConfig.autoTagIncrement = !!(d.buildConfig?.autoTagIncrement || legacyBuild.autoTagIncrement || d.autoTagIncrement);
+      buildConfig.registryUrl = d.buildConfig?.registryUrl || legacyBuild.registryUrl || d.registryUrl || '';
+      buildConfig.registryUsername = d.buildConfig?.registryUsername || legacyBuild.registryUsername || d.registryUsername || '';
+      buildConfig.registryPassword = d.buildConfig?.registryPassword || legacyBuild.registryPassword || d.registryPassword || '';
+    }
 
     // Normalize services
     let services = Array.isArray(d.services) ? d.services : (Array.isArray(d.selectedServices) ? d.selectedServices : []);
@@ -315,6 +327,12 @@ class JobController {
           REGISTRY_USERNAME: registryUsername,
           REGISTRY_PASSWORD: registryPassword
         };
+
+        // Compat variables expected by existing deploy.sh scripts
+        env.DOCKER_IMAGE_TAG = env.IMAGE_TAG;
+        env.DOCKERFILE_PATH = dc.dockerfilePath || '';
+        env.CONTEXT_PATH = dc.contextPath || job.gitConfig.repoPath || '';
+
 
         buildResult = await this.buildService.runScript(
           bc.scriptPath,

@@ -63,21 +63,35 @@ class JobService {
       },
       
       // Build Configuration
-      buildConfig: {
-        method: jobData.buildConfig?.method || 'dockerfile',
-        scriptPath: jobData.buildConfig?.scriptPath || '',
-        buildOrder: jobData.buildConfig?.buildOrder || 'parallel', // parallel/sequential
-        dockerConfig: jobData.buildConfig?.dockerConfig || {
-          dockerfilePath: '',
-          contextPath: '',
-          imageName: '',
-          imageTag: '',
-          autoTagIncrement: false,
-          registryUrl: '',
-          registryUsername: '',
-          registryPassword: ''
+      buildConfig: (() => {
+        const method = jobData.buildConfig?.method || 'dockerfile';
+        const base = {
+          method,
+          scriptPath: jobData.buildConfig?.scriptPath || '',
+          buildOrder: jobData.buildConfig?.buildOrder || 'parallel',
+          dockerConfig: jobData.buildConfig?.dockerConfig || {
+            dockerfilePath: '',
+            contextPath: '',
+            imageName: '',
+            imageTag: '',
+            autoTagIncrement: false,
+            registryUrl: '',
+            registryUsername: '',
+            registryPassword: ''
+          }
+        };
+        // Preserve script-specific tagging/registry fields when method is script
+        if (method === 'script') {
+          base.imageName = jobData.buildConfig?.imageName || '';
+          base.imageTagNumber = jobData.buildConfig?.imageTagNumber || '';
+          base.imageTagText = jobData.buildConfig?.imageTagText || '';
+          base.autoTagIncrement = !!jobData.buildConfig?.autoTagIncrement;
+          base.registryUrl = jobData.buildConfig?.registryUrl || '';
+          base.registryUsername = jobData.buildConfig?.registryUsername || '';
+          base.registryPassword = jobData.buildConfig?.registryPassword || '';
         }
-      },
+        return base;
+      })(),
       
       // Services to build
       services: jobData.services || [],
