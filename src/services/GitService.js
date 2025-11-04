@@ -247,6 +247,72 @@ class GitService {
 
     return { ok: true, updated: !result.hadError };
   }
+
+  /**
+   * Simple check for new commits for a specific repoPath/branch and optionally perform pull.
+   * This does NOT rely on global configService buildMethod and can be used by JobController.
+   *
+   * Returns: { ok, hasNew, remoteHash, localHash, updated }
+   */
+  async checkNewCommitAndPull({ repoPath, branch, repoUrl, token, provider, doPull = true }) {
+    if (!repoPath) throw new Error('Chưa cấu hình repoPath');
+    const cfg = this.configService.getConfig();
+    const effectiveToken = typeof token === 'string' ? token : cfg?.token;
+    const effectiveRepoUrl = typeof repoUrl === 'string' ? repoUrl : cfg?.repoUrl || '';
+    const effectiveProvider = String(provider || cfg?.provider || 'gitlab').toLowerCase();
+
+    const useHttpsAuth = !!effectiveToken && /^https?:\/\//.test(String(effectiveRepoUrl));
+    let authConfig = '';
+    if (useHttpsAuth) {
+      try {
+        const basic = Buffer.from((effectiveProvider === 'github' ? 'x-access-token' : 'oauth2') + ':' + effectiveToken).toString('base64');
+        authConfig = `-c http.extraHeader=\"Authorization: Basic ${basic}\"`;
+        this.logger?.send('[GIT] Sử dụng HTTPS với PAT (Authorization: Basic) cho thao tác fetch/pull');
+      } catch (e) {
+        this.logger?.send(`[GIT][WARN] Không tạo được header Authorization: ${e.message}`);
+      }
+    }
+
+    // Fetch and compare remote vs local
+    this.logger?.send(`[GIT][JOB-CHECK] Kiểm tra commit mới cho branch ${branch} tại repoPath: ${repoPath}`);
+    const r0 = await run(`git -C "${repoPath}" ${authConfig} fetch origin`, this.logger);
+    if (r0.error) return { ok: false, hasNew: false, error: 'fetch_failed', stderr: r0.stderr };
+
+    const r1 = await run(`git -C "${repoPath}" ${authConfig} ls-remote --heads origin ${branch}`, this.logger);
+    if (r1.error) return { ok: false, hasNew: false, error: 'ls_remote_failed', stderr: r1.stderr };
+    const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
+    const remoteHash = remoteLine.split('\t')[0] || '';
+    this.logger?.send(`[GIT][JOB-CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
+
+    const r2 = await run(`git -C "${repoPath}" rev-parse HEAD`, this.logger);
+    if (r2.error) return { ok: false, hasNew: false, error: 'rev_parse_failed', stderr: r2.stderr };
+    const localHash = (r2.stdout || '').trim();
+    this.logger?.send(`[GIT][JOB-CHECK] Local HEAD hash: ${localHash}`);
+
+    if (!remoteHash || remoteHash === localHash) {
+      this.logger?.send('[GIT][JOB-CHECK] Không có commit mới, bỏ qua pull/build.');
+      return { ok: true, hasNew: false, remoteHash, localHash, updated: false };
+    }
+
+    if (!doPull) {
+      return { ok: true, hasNew: true, remoteHash, localHash, updated: false };
+    }
+
+    // Pull changes
+    const pullRes = await run(`git -C "${repoPath}" ${authConfig} pull origin ${branch}`, this.logger);
+    if (pullRes.error) {
+      this.logger?.send('[GIT][JOB-PULL][WARN] Pull thất bại hoặc phân kỳ branch. Thử reset --hard về origin để đồng bộ.');
+      const resetRes = await run(`git -C "${repoPath}" reset --hard origin/${branch}`, this.logger);
+      if (resetRes.error) {
+        this.logger?.send(`[GIT][JOB-RESET][ERROR] ${resetRes.error.message}`);
+        return { ok: false, hasNew: true, remoteHash, localHash, updated: false, error: 'reset_failed', stderr: resetRes.stderr };
+      }
+      this.logger?.send('[GIT][JOB-RESET] Đã reset về origin thành công.');
+    }
+
+    // After pull/reset, mark updated
+    return { ok: true, hasNew: true, remoteHash, localHash, updated: true };
+  }
 }
 
 module.exports = { GitService };

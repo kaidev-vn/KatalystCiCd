@@ -1,8 +1,9 @@
 class JobScheduler {
-  constructor({ logger, jobService, jobController }) {
+  constructor({ logger, jobService, jobController, queueService }) {
     this.logger = logger;
     this.jobService = jobService;
     this.jobController = jobController;
+    this.queueService = queueService;
     this._timers = new Map();
     this._isRunning = false;
   }
@@ -55,10 +56,21 @@ class JobScheduler {
           return;
         }
 
-        this.logger?.send(`[JOB-SCHEDULER] 🔁 Tự động chạy job: ${latestJob.name} (mỗi ${pollingSec}s)`);
-        const buildResult = await this.jobController.executeJobBuild(latestJob);
-        // Cập nhật thống kê
-        this.jobService.updateJobStats(jobId, buildResult);
+        this.logger?.send(`[JOB-SCHEDULER] 🔁 Thêm job vào hàng đợi: ${latestJob.name} (mỗi ${pollingSec}s)`);
+        try {
+          this.queueService?.addJob({
+            jobId: jobId,
+            name: latestJob.name,
+            priority: 'medium',
+            estimatedTime: 300000,
+            maxRetries: 1
+          });
+        } catch (e) {
+          // Nếu không có queueService, fallback chạy trực tiếp (không khuyến nghị)
+          this.logger?.send(`[JOB-SCHEDULER][WARN] QueueService không sẵn sàng, chạy trực tiếp.`);
+          const buildResult = await this.jobController.executeJobBuild(latestJob);
+          this.jobService.updateJobStats(jobId, buildResult);
+        }
       } catch (e) {
         this.logger?.send(`[JOB-SCHEDULER][ERROR] Khi chạy job ${job.name}: ${e.message}`);
       }

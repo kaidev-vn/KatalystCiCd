@@ -51,12 +51,16 @@ const gitService = new GitService({ logger, dockerService, configService });
 const scheduler = new Scheduler({ logger, configService, gitService });
 const buildService = new BuildService({ logger, configService });
 const schedulerController = new SchedulerController({ scheduler, configService });
-const jobController = new JobController({ buildService, logger, configService });
-// Khởi tạo JobScheduler sau khi có jobController
-const jobScheduler = new JobScheduler({ logger, jobService: jobController.jobService, jobController });
+// Khởi tạo JobController với gitService (queueService sẽ gán sau)
+const jobController = new JobController({ buildService, logger, configService, gitService });
+// Khởi tạo QueueController và truyền jobController để uỷ quyền thực thi
+const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService, jobController });
+// Gán queueService cho JobController để endpoint /api/jobs/:id/run thêm vào hàng đợi
+jobController.queueService = queueController.queueService;
+// Khởi tạo JobScheduler sau khi đã có queueService
+const jobScheduler = new JobScheduler({ logger, jobService: jobController.jobService, jobController, queueService: queueController.queueService });
 // Truyền jobScheduler vào jobController để auto restart khi cấu hình job thay đổi
 jobController.jobScheduler = jobScheduler;
-const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService });
 const emailService = new EmailService({ configService, logger });
 
 registerConfigController(app, { configService, scheduler, logger });

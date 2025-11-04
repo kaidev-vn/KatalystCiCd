@@ -2,12 +2,14 @@ const JobService = require('../services/JobService');
 const { BuildService } = require('../services/BuildService');
 
 class JobController {
-  constructor({ buildService, logger, configService, jobScheduler }) {
+  constructor({ buildService, logger, configService, jobScheduler, gitService, queueService }) {
     this.jobService = new JobService(logger);
     this.buildService = buildService;
     this.logger = logger;
     this.configService = configService;
     this.jobScheduler = jobScheduler; // Optional, sẽ dùng để restart lịch theo job
+    this.gitService = gitService; // Dùng để kiểm tra commit mới trước khi build
+    this.queueService = queueService; // Optional: sẽ được gán trong app.js nếu chưa có ở thời điểm khởi tạo
   }
 
   // GET /api/jobs - Get all jobs
@@ -216,17 +218,32 @@ class JobController {
         return res.status(400).json({ error: 'Job is disabled' });
       }
 
-      // Start build process
-      const buildResult = await this.executeJobBuild(job);
-      
-      // Update job statistics
-      this.jobService.updateJobStats(id, buildResult);
-      
-      res.json({
-        message: 'Job build started',
+      // Thay vì chạy ngay, thêm vào Queue để đảm bảo chỉ 1 job chạy tại một thời điểm
+      if (!this.queueService) {
+        this.logger?.send('[JOB] QueueService chưa sẵn sàng, chạy trực tiếp (không khuyến nghị).');
+        const buildResult = await this.executeJobBuild(job);
+        this.jobService.updateJobStats(id, buildResult);
+        return res.json({
+          message: 'Job build executed directly',
+          jobId: id,
+          buildId: buildResult.buildId,
+          status: buildResult.status
+        });
+      }
+
+      const queueJobId = this.queueService.addJob({
         jobId: id,
-        buildId: buildResult.buildId,
-        status: buildResult.status
+        name: job.name,
+        priority: 'high',
+        estimatedTime: 300000, // 5 phút mặc định
+        maxRetries: 1
+      });
+
+      res.json({
+        message: 'Job đã được thêm vào hàng đợi',
+        jobId: id,
+        queueJobId,
+        status: 'queued'
       });
     } catch (error) {
       console.error('Error running job:', error);
@@ -238,6 +255,38 @@ class JobController {
   async executeJobBuild(job) {
     try {
       console.log(`[JOB] Starting build for job: ${job.name} (${job.id})`);
+      
+      // Kiểm tra commit mới trước khi build để đáp ứng yêu cầu "phải có commit mới thì mới build"
+      const gc = job.gitConfig || {};
+      const repoPath = gc.repoPath;
+      const branch = gc.branch || 'main';
+      const repoUrl = gc.repoUrl;
+      const token = gc.token;
+      const provider = gc.provider || 'gitlab';
+
+      if (this.gitService && repoPath) {
+        const check = await this.gitService.checkNewCommitAndPull({
+          repoPath,
+          branch,
+          repoUrl,
+          token,
+          provider,
+          doPull: true
+        });
+        if (!check.ok) {
+          throw new Error(`Kiểm tra/pull commit thất bại: ${check.error || 'unknown'}`);
+        }
+        if (!check.hasNew) {
+          this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} (${branch}). Bỏ qua build.`);
+          return {
+            success: true,
+            buildId: `skip-${Date.now()}`,
+            status: 'skipped',
+            message: 'No new commit, build skipped'
+          };
+        }
+        this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
+      }
       
       // Determine build method and execute
       let buildResult;

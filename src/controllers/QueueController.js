@@ -4,10 +4,11 @@ const { QueueService } = require('../services/QueueService');
  * QueueController - API endpoints cho quản lý queue system
  */
 class QueueController {
-  constructor({ logger, buildService, jobService }) {
+  constructor({ logger, buildService, jobService, jobController }) {
     this.logger = logger;
     this.buildService = buildService;
     this.jobService = jobService;
+    this.jobController = jobController;
     
     // Khởi tạo QueueService với cấu hình tối ưu cho máy yếu
     this.queueService = new QueueService({
@@ -55,8 +56,10 @@ class QueueController {
         throw new Error(`Job ${queueJob.jobId} không tồn tại`);
       }
 
-      // Thực hiện build theo cấu hình job
-      const buildResult = await this.runJobBuild(job, queueJob);
+      // Uỷ quyền cho JobController để tránh trùng lặp và đảm bảo kiểm tra commit mới
+      const buildResult = await this.jobController.executeJobBuild(job);
+      // Cập nhật thống kê job sau khi hoàn thành
+      try { this.jobService.updateJobStats(queueJob.jobId, buildResult); } catch (_) {}
       
       return {
         success: true,
@@ -73,7 +76,8 @@ class QueueController {
    * Thực hiện build cho job
    */
   async runJobBuild(job, queueJob) {
-    const results = [];
+    // Delegate to jobController for unified logic (kept for backward compatibility)
+    return await this.jobController.executeJobBuild(job);
     
     // Build theo thứ tự (sequential) hoặc song song (parallel)
     if (job.buildConfig.buildOrder === 'sequential') {
@@ -114,71 +118,8 @@ class QueueController {
    * Build một service đơn lẻ
    */
   async buildSingleService(job, service) {
-    try {
-      if (job.buildConfig.method === 'script') {
-        // Build bằng script
-        const scriptPath = job.buildConfig.scriptPath || job.buildConfig.deployScriptPath;
-        const workingDir = job.gitConfig.repoPath;
-
-        // Chuẩn bị biến môi trường từ cấu hình tag/registry
-        const bc = job.buildConfig || {};
-        const dc = bc.dockerConfig || {};
-        const imageName = bc.imageName || dc.imageName || '';
-        const tagNumber = bc.imageTagNumber || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).numberPart : '');
-        const tagText = bc.imageTagText || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).textPart : '');
-        const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
-        const { nextSplitTag } = require('../utils/tag');
-        const imageTag = nextSplitTag(tagNumber || '1.0.75', tagText || '', autoInc);
-        const registryUrl = bc.registryUrl || dc.registryUrl || '';
-        const registryUsername = bc.registryUsername || dc.registryUsername || '';
-        const registryPassword = bc.registryPassword || dc.registryPassword || '';
-
-        const env = {
-          IMAGE_NAME: imageName,
-          IMAGE_TAG_NUMBER: tagNumber || '',
-          IMAGE_TAG_TEXT: tagText || '',
-          IMAGE_TAG: imageTag,
-          AUTO_TAG_INCREMENT: String(autoInc),
-          REGISTRY_URL: registryUrl,
-          REGISTRY_USERNAME: registryUsername,
-          REGISTRY_PASSWORD: registryPassword
-        };
-
-        const result = await this.buildService.runScript(scriptPath, workingDir, env);
-        return {
-          service: service.name,
-          success: true,
-          method: 'script',
-          result: result
-        };
-      } else {
-        // Build bằng Docker
-        const dockerConfig = {
-          imageName: service.imageName || job.buildConfig.imageName,
-          tag: job.buildConfig.tag || 'latest',
-          dockerfilePath: job.buildConfig.dockerfilePath,
-          contextPath: job.buildConfig.contextPath || job.gitConfig.repoPath,
-          registryUrl: job.buildConfig.registryUrl,
-          registryUsername: job.buildConfig.registryUsername,
-          registryPassword: job.buildConfig.registryPassword
-        };
-
-        // Sử dụng DockerService để build (cần inject DockerService)
-        const result = await this.buildDockerImage(dockerConfig);
-        return {
-          service: service.name,
-          success: true,
-          method: 'docker',
-          result: result
-        };
-      }
-    } catch (error) {
-      return {
-        service: service.name,
-        success: false,
-        error: error.message
-      };
-    }
+    // Deprecated: logic moved to JobController.executeJobBuild
+    return await this.jobController.executeJobBuild(job);
   }
 
   /**
