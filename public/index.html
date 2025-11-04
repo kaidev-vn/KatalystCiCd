@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CI/CD Config Panel</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
+    <link rel="shortcut icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
   </head>
   <body>
     <header class="app-header">
       <div class="brand">
-        <div class="logo">⚙️</div>
+        <div class="logo"><img src="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" alt="Logo" /></div>
         <div>
           <h1>CI/CD Control Center</h1>
           <p class="muted">Quản lý cấu hình, build, deploy và theo dõi realtime.</p>
@@ -19,16 +21,19 @@
         <button id="themeToggle" class="btn secondary">Chế độ tối</button>
       </div>
     </header>
-    <!-- Tab Navigation -->
-    <nav class="tab-nav">
-      <button class="tab-btn active" data-tab="config-tab">Cấu hình chung</button>
-      <button class="tab-btn" data-tab="build-tab">Build & Deploy</button>
-      <button class="tab-btn" data-tab="jobs-tab">Quản lý Jobs</button>
-      <button class="tab-btn" data-tab="queue-tab">Hàng đợi Build</button>
-      <button class="tab-btn" data-tab="builds-tab">Quản lý Builds</button>
-    </nav>
+    <div class="layout">
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <nav class="side-nav">
+          <button class="tab-btn active" data-tab="config-tab">⚙️ Cấu hình chung</button>
+          <button class="tab-btn" data-tab="jobs-tab">📋 Quản lý Jobs</button>
+          <button class="tab-btn" data-tab="queue-tab">⏳ Hàng đợi Build</button>
+          <button class="tab-btn" data-tab="builds-tab">🚀 Quản lý Builds</button>
+          <button class="tab-btn" data-tab="raw-config-tab">📝 config.json</button>
+        </nav>
+      </aside>
 
-    <main class="container tab-container">
+      <main class="container tab-container">
       <!-- Tab 1: Cấu hình chung -->
       <div id="config-tab" class="tab-content active">
         <!-- Git Configuration Section -->
@@ -182,139 +187,7 @@
         </section>
       </div>
 
-      <!-- Tab 2: Build & Deploy -->
-      <div id="build-tab" class="tab-content">
-        <!-- Scheduler Status Section -->
-        <section class="card">
-          <h2>⏰ Trạng thái Scheduler</h2>
-          <div class="scheduler-status">
-            <div class="status-indicator">
-              <span id="schedulerStatus" class="status-badge stopped">Đã dừng</span>
-              <span id="schedulerUptime">Uptime: 0s</span>
-            </div>
-            <div class="scheduler-controls">
-              <button id="startScheduler" class="btn primary">▶️ Bắt đầu</button>
-              <button id="stopScheduler" class="btn danger">⏹️ Dừng</button>
-              <button id="restartScheduler" class="btn outline">🔄 Khởi động lại</button>
-            </div>
-          </div>
-          
-          <div class="scheduler-info">
-            <div class="info-item">
-              <strong>Chu kỳ kiểm tra:</strong> <span id="schedulerInterval">10 giây</span>
-            </div>
-            <div class="info-item">
-              <strong>Lần kiểm tra cuối:</strong> <span id="lastCheck">Chưa có</span>
-            </div>
-            <div class="info-item">
-              <strong>Jobs đang theo dõi:</strong> <span id="monitoredJobs">0</span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Global Build Settings -->
-        <section class="card">
-          <h2>🔧 Cấu hình Build toàn cục</h2>
-          <div class="form-section">
-            <div class="row">
-              <div>
-                <label for="maxConcurrentBuilds">Số build đồng thời tối đa</label>
-                <input id="maxConcurrentBuilds" type="number" value="2" min="1" max="10" />
-              </div>
-              <div>
-                <label for="buildTimeout">Timeout build (phút)</label>
-                <input id="buildTimeout" type="number" value="30" min="5" max="120" />
-              </div>
-            </div>
-            
-            <div class="row">
-              <div>
-                <label for="retryAttempts">Số lần thử lại khi thất bại</label>
-                <input id="retryAttempts" type="number" value="2" min="0" max="5" />
-              </div>
-              <div>
-                <label for="cleanupAfterBuild">Dọn dẹp sau build (ngày)</label>
-                <input id="cleanupAfterBuild" type="number" value="7" min="1" max="30" />
-              </div>
-            </div>
-            
-            <div class="checkbox-group">
-              <input type="checkbox" id="enableBuildNotifications" checked />
-              <label for="enableBuildNotifications">Bật thông báo build</label>
-            </div>
-            
-            <div class="checkbox-group">
-              <input type="checkbox" id="enableBuildLogs" checked />
-              <label for="enableBuildLogs">Lưu logs chi tiết</label>
-            </div>
-          </div>
-        </section>
-
-        <!-- System Resources -->
-        <section class="card">
-          <h2>💻 Giám sát Tài nguyên</h2>
-          <div class="resource-monitor">
-            <div class="resource-item">
-              <div class="resource-label">CPU Usage</div>
-              <div class="resource-bar">
-                <div class="resource-fill" id="cpuUsage" style="width: 0%"></div>
-              </div>
-              <div class="resource-value" id="cpuValue">0%</div>
-            </div>
-            
-            <div class="resource-item">
-              <div class="resource-label">Memory Usage</div>
-              <div class="resource-bar">
-                <div class="resource-fill" id="memoryUsage" style="width: 0%"></div>
-              </div>
-              <div class="resource-value" id="memoryValue">0%</div>
-            </div>
-            
-            <div class="resource-item">
-              <div class="resource-label">Disk Usage</div>
-              <div class="resource-bar">
-                <div class="resource-fill" id="diskUsage" style="width: 0%"></div>
-              </div>
-              <div class="resource-value" id="diskValue">0%</div>
-            </div>
-          </div>
-          
-          <div class="resource-settings">
-            <div class="row">
-              <div>
-                <label for="cpuThreshold">Ngưỡng CPU cảnh báo (%)</label>
-                <input id="cpuThreshold" type="number" value="80" min="50" max="95" />
-              </div>
-              <div>
-                <label for="memoryThreshold">Ngưỡng Memory cảnh báo (%)</label>
-                <input id="memoryThreshold" type="number" value="85" min="50" max="95" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Global Actions -->
-        <section class="card">
-          <h2>🚀 Thao tác toàn cục</h2>
-          <div class="build-actions-grid">
-            <div class="action-card">
-              <h3>💾 Lưu cấu hình</h3>
-              <p>Lưu tất cả cấu hình global hiện tại</p>
-              <button class="btn primary">Lưu cấu hình</button>
-            </div>
-            <div class="action-card">
-              <h3>🔄 Khởi động lại hệ thống</h3>
-              <p>Khởi động lại toàn bộ build system</p>
-              <button class="btn outline">Restart System</button>
-            </div>
-            <div class="action-card">
-              <h3>🧹 Dọn dẹp</h3>
-              <p>Xóa logs cũ và temporary files</p>
-              <button class="btn danger">Cleanup</button>
-            </div>
-          </div>
-        </section>
-      </div>
+      <!-- Tab 2: Build & Deploy (đã loại bỏ theo yêu cầu) -->
 
       <!-- Tab 3: Quản lý Jobs -->
       <div id="jobs-tab" class="tab-content">
@@ -566,7 +439,40 @@
           <div id="logs" aria-live="polite" aria-atomic="false" class="logs"></div>
         </section>
       </div>
-    </main>
+
+      <!-- Tab 5: Chỉnh sửa trực tiếp config.json -->
+      <div id="raw-config-tab" class="tab-content">
+        <section class="card full">
+          <div class="card-header">
+            <h2>📝 Chỉnh sửa trực tiếp config.json</h2>
+            <div class="header-actions">
+              <button id="reloadConfigJson" class="btn small outline">🔄 Tải lại</button>
+              <button id="formatConfigJson" class="btn small outline">🧹 Format JSON</button>
+              <button id="validateConfigJson" class="btn small outline">✅ Validate</button>
+              <button id="saveConfigJson" class="btn small">💾 Lưu</button>
+            </div>
+          </div>
+          <p class="muted">Cẩn trọng: Sửa sai cấu trúc JSON có thể gây lỗi hệ thống. Hãy kiểm tra trước khi lưu.</p>
+          <textarea id="configJsonEditor" rows="26" spellcheck="false" placeholder="{\n  \"provider\": \"gitlab\",\n  ...\n}"></textarea>
+          <p id="configJsonStatus" class="status"></p>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2>🗂 Phiên bản cấu hình</h2>
+            <div class="header-actions">
+              <button id="loadConfigVersions" class="btn small outline">📥 Tải danh sách phiên bản</button>
+            </div>
+          </div>
+          <div id="configVersionsContainer">
+            <ul id="configVersionsList" style="list-style: none; padding-left: 0; margin: 0;">
+              <!-- Danh sách phiên bản sẽ hiển thị ở đây -->
+            </ul>
+          </div>
+        </section>
+      </div>
+      </main>
+    </div>
     
     <!-- Modal chỉnh sửa Build -->
     <div id="modalBackdrop" class="backdrop hidden"></div>

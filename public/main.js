@@ -33,6 +33,11 @@ function switchTab(tabId) {
     loadBuilds();
     loadBuildHistory();
   }
+  // Load editor when mở tab config.json
+  if (tabId === 'raw-config-tab') {
+    loadRawConfigEditor();
+    loadConfigVersions();
+  }
 }
 
 // Build Method Selection
@@ -70,10 +75,14 @@ async function loadBuildHistory() {
     const response = await fetch('/api/build-history');
     buildHistory = await response.json();
     renderBuildHistory();
+    // Đồng bộ số liệu thống kê job theo lịch sử build thực tế
+    updateJobStats();
   } catch (error) {
     console.error('Error loading build history:', error);
     buildHistory = [];
     renderBuildHistory();
+    // Vẫn cập nhật thống kê với dữ liệu rỗng để UI không hiển thị sai
+    updateJobStats();
   }
 }
 
@@ -373,6 +382,131 @@ async function loadConfig() {
   }
   const enableEmailNotifyEl = $('enableEmailNotify');
   if (enableEmailNotifyEl) enableEmailNotifyEl.checked = !!(cfg.email?.enableEmailNotify);
+}
+
+// ===== Raw config.json editor =====
+async function loadRawConfigEditor() {
+  try {
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    const txt = JSON.stringify(cfg, null, 2);
+    const editor = $('configJsonEditor');
+    if (editor) editor.value = txt;
+    const st = $('configJsonStatus');
+    if (st) { st.style.color = '#16a34a'; st.textContent = 'Đã tải config hiện tại'; setTimeout(() => st.textContent = '', 2000); }
+  } catch (e) {
+    const st = $('configJsonStatus');
+    if (st) { st.style.color = '#dc2626'; st.textContent = `Lỗi tải config: ${e.message || e}`; }
+  }
+}
+
+function formatConfigJson() {
+  const editor = $('configJsonEditor');
+  const st = $('configJsonStatus');
+  if (!editor) return;
+  try {
+    const obj = JSON.parse(editor.value);
+    editor.value = JSON.stringify(obj, null, 2);
+    if (st) { st.style.color = '#16a34a'; st.textContent = 'Đã format JSON'; setTimeout(() => st.textContent = '', 1500); }
+  } catch (e) {
+    if (st) { st.style.color = '#dc2626'; st.textContent = `JSON không hợp lệ: ${e.message || e}`; }
+  }
+}
+
+function validateConfigJson() {
+  const editor = $('configJsonEditor');
+  const st = $('configJsonStatus');
+  if (!editor) return;
+  try {
+    JSON.parse(editor.value);
+    if (st) { st.style.color = '#16a34a'; st.textContent = 'JSON hợp lệ ✅'; setTimeout(() => st.textContent = '', 1500); }
+  } catch (e) {
+    if (st) { st.style.color = '#dc2626'; st.textContent = `JSON không hợp lệ: ${e.message || e}`; }
+  }
+}
+
+async function saveRawConfigJson() {
+  const editor = $('configJsonEditor');
+  const st = $('configJsonStatus');
+  if (!editor) return;
+  try {
+    const obj = JSON.parse(editor.value);
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obj),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (st) { st.style.color = '#16a34a'; st.textContent = '💾 Đã lưu config.json thành công!'; setTimeout(() => st.textContent = '', 2000); }
+    } else {
+      throw new Error(data.error || 'Lưu thất bại');
+    }
+  } catch (e) {
+    if (st) { st.style.color = '#dc2626'; st.textContent = `Lưu thất bại: ${e.message || e}`; }
+  }
+}
+
+async function loadConfigVersions() {
+  try {
+    const res = await fetch('/api/config/versions');
+    const list = await res.json();
+    renderConfigVersions(list || []);
+  } catch (e) {
+    renderConfigVersions([]);
+  }
+}
+
+function renderConfigVersions(list) {
+  const ul = $('configVersionsList');
+  if (!ul) return;
+  ul.innerHTML = '';
+  if (!Array.isArray(list) || list.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'Chưa có phiên bản cấu hình nào';
+    ul.appendChild(li);
+    return;
+  }
+  list.sort((a,b) => String(b.file).localeCompare(String(a.file))); // mới nhất trước
+  list.forEach(item => {
+    const li = document.createElement('li');
+    li.style.display = 'flex';
+    li.style.alignItems = 'center';
+    li.style.justifyContent = 'space-between';
+    li.style.border = '1px solid var(--border)';
+    li.style.borderRadius = '12px';
+    li.style.padding = '10px 12px';
+    li.style.margin = '6px 0';
+    const name = document.createElement('span');
+    name.textContent = item.file || '';
+    const actions = document.createElement('div');
+    const rb = document.createElement('button');
+    rb.className = 'btn small outline';
+    rb.textContent = '↩️ Rollback';
+    rb.onclick = () => rollbackConfigVersion(item.file);
+    actions.appendChild(rb);
+    li.appendChild(name);
+    li.appendChild(actions);
+    ul.appendChild(li);
+  });
+}
+
+async function rollbackConfigVersion(file) {
+  const st = $('configJsonStatus');
+  try {
+    const res = await fetch('/api/config/rollback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Rollback thất bại');
+    if (st) { st.style.color = '#16a34a'; st.textContent = 'Đã rollback cấu hình!'; setTimeout(() => st.textContent = '', 2000); }
+    await loadRawConfigEditor();
+  } catch (e) {
+    if (st) { st.style.color = '#dc2626'; st.textContent = `Rollback thất bại: ${e.message || e}`; }
+  }
 }
 
 // Tải danh sách CHOICE từ deploy.sh và populate vào các select
@@ -751,6 +885,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVersions();
   loadBuildHistory();
   loadJobs(); // Load jobs for job management tab
+  // Nếu người dùng đang ở tab config.json lúc tải lại, nạp editor
+  if (savedTab === 'raw-config-tab') {
+    loadRawConfigEditor();
+    loadConfigVersions();
+  }
   
   // Add event listener for auto tag increment checkbox
   const autoTagIncrementEl = $('autoTagIncrement');
@@ -873,6 +1012,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (runDockerBuildBtn) runDockerBuildBtn.onclick = runDockerBuild;
   if (runScriptBuildBtn) runScriptBuildBtn.onclick = runScriptBuild;
   if (checkPullBuildBtn) checkPullBuildBtn.onclick = runCheckPullBuild;
+
+  // Raw config editor events
+  const reloadConfigJsonBtn = $('reloadConfigJson');
+  const formatConfigJsonBtn = $('formatConfigJson');
+  const validateConfigJsonBtn = $('validateConfigJson');
+  const saveConfigJsonBtn = $('saveConfigJson');
+  const loadConfigVersionsBtn = $('loadConfigVersions');
+  if (reloadConfigJsonBtn) reloadConfigJsonBtn.onclick = loadRawConfigEditor;
+  if (formatConfigJsonBtn) formatConfigJsonBtn.onclick = formatConfigJson;
+  if (validateConfigJsonBtn) validateConfigJsonBtn.onclick = validateConfigJson;
+  if (saveConfigJsonBtn) saveConfigJsonBtn.onclick = saveRawConfigJson;
+  if (loadConfigVersionsBtn) loadConfigVersionsBtn.onclick = loadConfigVersions;
   
   // Modal events
   const editCancelBtn = $('editCancel');
@@ -933,12 +1084,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Queue management event listeners
   const toggleQueueBtn = $('toggleQueueBtn');
-  const saveQueueConfigBtn = $('saveQueueConfigBtn');
+  const saveQueueConfigBtn = $('saveQueueConfig') || $('saveQueueConfigBtn');
   const refreshQueueBtn = $('refreshQueueBtn');
+  const clearQueueBtn = $('clearQueueBtn');
   
   if (toggleQueueBtn) toggleQueueBtn.addEventListener('click', toggleQueueProcessing);
   if (saveQueueConfigBtn) saveQueueConfigBtn.addEventListener('click', saveQueueConfig);
   if (refreshQueueBtn) refreshQueueBtn.addEventListener('click', loadQueueStatus);
+  if (clearQueueBtn) clearQueueBtn.addEventListener('click', clearQueue);
   
   // Load queue status on page load
   loadQueueStatus();
@@ -1344,6 +1497,8 @@ async function clearBuildHistory() {
     if (result.success) {
       buildHistory = [];
       renderBuildHistory();
+      // Cập nhật thống kê sau khi xóa lịch sử
+      updateJobStats();
       appendLog('[UI] Đã xóa lịch sử builds thành công');
     } else {
       appendLog(`[UI][ERROR] Lỗi khi xóa lịch sử builds: ${result.error || 'Unknown error'}`);
@@ -1423,11 +1578,12 @@ function renderJobsTable() {
 function updateJobStats() {
   const totalJobs = jobs.length;
   const activeJobs = jobs.filter(j => j.enabled).length;
-  // Tổng số builds thành công/thất bại (cộng dồn theo thống kê của từng job)
-  const successfulBuilds = jobs.reduce((sum, j) => sum + (j.stats?.successfulBuilds || 0), 0);
-  const failedBuilds = jobs.reduce((sum, j) => sum + (j.stats?.failedBuilds || 0), 0);
-  // Tổng lượt build (cộng dồn): ưu tiên stats.totalBuilds nếu có, fallback = success + fail
-  const totalBuilds = jobs.reduce((sum, j) => sum + (j.stats?.totalBuilds || 0), 0) || (successfulBuilds + failedBuilds);
+  // Số liệu build phải lấy từ build-history.json dựa theo trạng thái
+  const history = Array.isArray(buildHistory) ? buildHistory : [];
+  const successfulBuilds = history.filter(b => b.status === 'success').length;
+  const failedBuilds = history.filter(b => b.status === 'failed').length;
+  // Tổng lượt build = tổng số bản ghi trong lịch sử
+  const totalBuilds = history.length;
 
   // Các phần tử thống kê có id đặt trực tiếp trên .stat-number
   const totalEl = document.getElementById('totalJobs');
@@ -2102,6 +2258,26 @@ async function saveQueueConfig() {
   } catch (error) {
     console.error('Error saving queue config:', error);
     appendLog(`[QUEUE][ERROR] Lỗi lưu cấu hình queue: ${error.message}`);
+  }
+}
+
+// Clear entire pending queue (frontend: cancel each queued job)
+async function clearQueue() {
+  try {
+    await loadQueueStatus();
+    const queuedIds = (queueStatus.queue || []).map(j => j.id);
+    if (!queuedIds.length) {
+      appendLog('[QUEUE] Không có job nào trong hàng đợi để xóa');
+      return;
+    }
+    appendLog(`[QUEUE] Đang hủy ${queuedIds.length} job trong hàng đợi...`);
+    for (const id of queuedIds) {
+      await cancelQueueJob(id);
+    }
+    await loadQueueStatus();
+    appendLog('[QUEUE] Đã xóa xong hàng đợi');
+  } catch (e) {
+    appendLog(`[QUEUE] Lỗi khi xóa hàng đợi: ${e.message || e}`);
   }
 }
 
