@@ -1,5 +1,85 @@
 [
   {
+    "id": "script-1762240527454-kwy5aw",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:15:27.454Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:15:27.969Z",
+    "duration": "0s"
+  },
+  {
+    "id": "script-1762240527407-yylyg2",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:15:27.407Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:15:27.924Z",
+    "duration": "0s"
+  },
+  {
+    "id": "script-1762240497440-3b5i2w",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:14:57.440Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:14:57.905Z",
+    "duration": "0s"
+  },
+  {
+    "id": "script-1762240497394-fovs6n",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:14:57.394Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:14:57.916Z",
+    "duration": "0s"
+  },
+  {
+    "id": "script-1762240467429-yogrsa",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:14:27.429Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:14:32.383Z",
+    "duration": "4s"
+  },
+  {
+    "id": "script-1762240467390-zi0kzl",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:14:27.390Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:14:32.377Z",
+    "duration": "4s"
+  },
+  {
+    "id": "script-1762240335483-suqg1t",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:12:15.483Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:12:15.488Z",
+    "duration": "0s"
+  },
+  {
+    "id": "script-1762240335437-ovtima",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T07:12:15.437Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T07:12:15.451Z",
+    "duration": "0s"
+  },
+  {
     "id": "script-1762240016969-poo9ju",
     "name": "Script Build: deploy.sh",
     "method": "script",

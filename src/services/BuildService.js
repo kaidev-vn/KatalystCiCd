@@ -1,4 +1,4 @@
-const { runSeries } = require('../utils/exec');
+const { runSeries, resolveShell } = require('../utils/exec');
 const fs = require('fs');
 const path = require('path');
 
@@ -163,16 +163,37 @@ class BuildService {
     };
     
     try {
-      // Determine working directory
-      const cwd = workingDir || config.repoPath || process.cwd();
+      // Determine working directory (ensure it exists to avoid ENOENT from spawn)
+      let cwd = workingDir || config.repoPath || path.dirname(scriptPath) || process.cwd();
+      if (!cwd || !fs.existsSync(cwd)) {
+        const scriptDir = path.dirname(scriptPath);
+        if (scriptDir && fs.existsSync(scriptDir)) {
+          buildLogger.send(`[SCRIPT BUILD] Cảnh báo: Thư mục làm việc không tồn tại: ${cwd}. Fallback sang: ${scriptDir}`);
+          cwd = scriptDir;
+        } else {
+          buildLogger.send(`[SCRIPT BUILD] Cảnh báo: Thư mục làm việc không tồn tại: ${cwd}. Fallback sang: ${process.cwd()}`);
+          cwd = process.cwd();
+        }
+      }
       
       // Make script executable (for Unix-like systems)
-      const makeExecutableCmd = process.platform === 'win32' ? null : ` "${scriptPath}"`;
+      const makeExecutableCmd = process.platform === 'win32' ? null : `chmod +x "${scriptPath}"`;
       
-      // Execute script
-      const scriptCmd = process.platform === 'win32' 
-        ? `bash "${scriptPath}"` 
-        : `"${scriptPath}"`;
+      // Execute script (detect script type on Windows)
+      let scriptCmd;
+      if (process.platform === 'win32') {
+        const ext = path.extname(scriptPath).toLowerCase();
+        if (ext === '.ps1') {
+          scriptCmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`;
+        } else if (ext === '.bat' || ext === '.cmd') {
+          scriptCmd = `"${scriptPath}"`;
+        } else {
+          // Default to bash for .sh or no extension; requires Git Bash/WSL installed
+          scriptCmd = `bash "${scriptPath}"`;
+        }
+      } else {
+        scriptCmd = `"${scriptPath}"`;
+      }
       
       const commands = makeExecutableCmd ? [makeExecutableCmd, scriptCmd] : [scriptCmd];
       
@@ -181,7 +202,8 @@ class BuildService {
       
       const { hadError } = await runSeries(commands, buildLogger, { 
         env: process.env,
-        cwd: cwd
+        cwd: cwd,
+        shell: resolveShell()
       });
       
       const endTime = new Date().toISOString();
