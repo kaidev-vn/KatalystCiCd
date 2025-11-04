@@ -119,8 +119,32 @@ class QueueController {
         // Build bằng script
         const scriptPath = job.buildConfig.scriptPath || job.buildConfig.deployScriptPath;
         const workingDir = job.gitConfig.repoPath;
-        
-        const result = await this.buildService.runScript(scriptPath, workingDir);
+
+        // Chuẩn bị biến môi trường từ cấu hình tag/registry
+        const bc = job.buildConfig || {};
+        const dc = bc.dockerConfig || {};
+        const imageName = bc.imageName || dc.imageName || '';
+        const tagNumber = bc.imageTagNumber || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).numberPart : '');
+        const tagText = bc.imageTagText || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).textPart : '');
+        const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
+        const { nextSplitTag } = require('../utils/tag');
+        const imageTag = nextSplitTag(tagNumber || '1.0.75', tagText || '', autoInc);
+        const registryUrl = bc.registryUrl || dc.registryUrl || '';
+        const registryUsername = bc.registryUsername || dc.registryUsername || '';
+        const registryPassword = bc.registryPassword || dc.registryPassword || '';
+
+        const env = {
+          IMAGE_NAME: imageName,
+          IMAGE_TAG_NUMBER: tagNumber || '',
+          IMAGE_TAG_TEXT: tagText || '',
+          IMAGE_TAG: imageTag,
+          AUTO_TAG_INCREMENT: String(autoInc),
+          REGISTRY_URL: registryUrl,
+          REGISTRY_USERNAME: registryUsername,
+          REGISTRY_PASSWORD: registryPassword
+        };
+
+        const result = await this.buildService.runScript(scriptPath, workingDir, env);
         return {
           service: service.name,
           success: true,

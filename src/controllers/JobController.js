@@ -243,9 +243,34 @@ class JobController {
       let buildResult;
       
       if (job.buildConfig.method === 'script') {
+        // Chuẩn bị biến môi trường cho script từ cấu hình tag/registry
+        const bc = job.buildConfig || {};
+        const dc = bc.dockerConfig || {};
+        const imageName = bc.imageName || dc.imageName || '';
+        const tagNumber = bc.imageTagNumber || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).numberPart : '');
+        const tagText = bc.imageTagText || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).textPart : '');
+        const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
+        const { nextSplitTag } = require('../utils/tag');
+        const imageTag = nextSplitTag(tagNumber || '1.0.75', tagText || '', autoInc);
+        const registryUrl = bc.registryUrl || dc.registryUrl || '';
+        const registryUsername = bc.registryUsername || dc.registryUsername || '';
+        const registryPassword = bc.registryPassword || dc.registryPassword || '';
+
+        const env = {
+          IMAGE_NAME: imageName,
+          IMAGE_TAG_NUMBER: tagNumber || '',
+          IMAGE_TAG_TEXT: tagText || '',
+          IMAGE_TAG: imageTag,
+          AUTO_TAG_INCREMENT: String(autoInc),
+          REGISTRY_URL: registryUrl,
+          REGISTRY_USERNAME: registryUsername,
+          REGISTRY_PASSWORD: registryPassword
+        };
+
         buildResult = await this.buildService.runScript(
-          job.buildConfig.scriptPath,
-          job.gitConfig.repoPath
+          bc.scriptPath,
+          job.gitConfig.repoPath,
+          env
         );
       } else if (job.buildConfig.method === 'dockerfile') {
         // For dockerfile builds, we'll need to implement docker build logic

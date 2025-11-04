@@ -131,7 +131,7 @@ class BuildService {
     }
   }
 
-  async runScript(scriptPath, workingDir = null) {
+  async runScript(scriptPath, workingDir = null, envOverrides = {}) {
     const config = this.configService.getConfig();
     const buildId = `script-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
@@ -201,7 +201,7 @@ class BuildService {
       buildLogger.send(`[SCRIPT BUILD] Lệnh: ${scriptCmd}`);
       
       const { hadError } = await runSeries(commands, buildLogger, { 
-        env: process.env,
+        env: { ...process.env, ...(envOverrides || {}) },
         cwd: cwd,
         shell: resolveShell()
       });
