@@ -41,9 +41,18 @@ class JobController {
   async createJob(req, res) {
     try {
       const jobData = req.body;
+      // Debug: log incoming payload to help diagnose validation issues reported by user
+      try {
+        console.log('[JobController] Incoming createJob payload:', JSON.stringify(jobData, null, 2));
+      } catch (e) {
+        console.log('[JobController] Incoming createJob payload (stringify failed):', jobData);
+      }
+
+      // Normalize payload to support both legacy (git/build) and new (gitConfig/buildConfig) schemas
+      const normalized = this.normalizeJobPayload(jobData);
       
       // Validate job data
-      const validationErrors = this.jobService.validateJobData(jobData);
+      const validationErrors = this.jobService.validateJobData(normalized);
       if (validationErrors.length > 0) {
         return res.status(400).json({ 
           error: 'Validation failed', 
@@ -51,7 +60,7 @@ class JobController {
         });
       }
 
-      const newJob = this.jobService.createJob(jobData);
+      const newJob = this.jobService.createJob(normalized);
       res.status(201).json(newJob);
     } catch (error) {
       console.error('Error creating job:', error);
@@ -63,7 +72,7 @@ class JobController {
   async updateJob(req, res) {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const updateData = this.normalizeJobPayload(req.body || {});
       
       // Validate job data if provided
       if (Object.keys(updateData).length > 0) {
@@ -90,6 +99,68 @@ class JobController {
         res.status(500).json({ error: 'Failed to update job' });
       }
     }
+  }
+
+  // Convert legacy payload shape to new standardized shape
+  normalizeJobPayload(data) {
+    const d = { ...(data || {}) };
+
+    // Normalize git config
+    const legacyGit = d.git || {};
+    const gitConfig = d.gitConfig || {
+      provider: legacyGit.provider || d.provider || 'gitlab',
+      account: legacyGit.account || d.account || '',
+      token: legacyGit.token || d.token || '',
+      branch: legacyGit.branch || d.branch || 'main',
+      repoUrl: legacyGit.repoUrl || d.repoUrl || '',
+      repoPath: legacyGit.repoPath || d.repoPath || ''
+    };
+    // Trim strings
+    ['provider','account','token','branch','repoUrl','repoPath'].forEach(k => {
+      if (typeof gitConfig[k] === 'string') gitConfig[k] = gitConfig[k].trim();
+    });
+
+    // Normalize build config
+    const legacyBuild = d.build || {};
+    // docker config might be nested or flat in legacy
+    const legacyDockerConfig = legacyBuild.dockerConfig || {
+      dockerfilePath: legacyBuild.dockerfilePath || d.dockerfilePath || '',
+      contextPath: legacyBuild.contextPath || d.contextPath || '',
+      imageName: legacyBuild.imageName || d.imageName || '',
+      imageTag: legacyBuild.imageTag || d.imageTag || '',
+      autoTagIncrement: !!(legacyBuild.autoTagIncrement || d.autoTagIncrement),
+      registryUrl: legacyBuild.registryUrl || d.registryUrl || '',
+      registryUsername: legacyBuild.registryUsername || d.registryUsername || '',
+      registryPassword: legacyBuild.registryPassword || d.registryPassword || ''
+    };
+
+    const buildConfig = d.buildConfig || {
+      method: legacyBuild.method || d.method || 'dockerfile',
+      scriptPath: legacyBuild.scriptPath || d.scriptPath || '',
+      buildOrder: legacyBuild.buildOrder || d.buildOrder || 'parallel',
+      dockerConfig: legacyDockerConfig
+    };
+
+    // Normalize services
+    let services = Array.isArray(d.services) ? d.services : (Array.isArray(d.selectedServices) ? d.selectedServices : []);
+
+    // Normalize schedule
+    const schedule = d.schedule || {
+      autoCheck: !!d.autoCheck,
+      polling: typeof d.polling === 'number' ? d.polling : 30,
+      cron: d.cron || ''
+    };
+
+    return {
+      id: d.id,
+      name: d.name,
+      description: d.description,
+      enabled: d.enabled !== false,
+      gitConfig,
+      buildConfig,
+      services,
+      schedule
+    };
   }
 
   // DELETE /api/jobs/:id - Delete job

@@ -27,6 +27,8 @@ const { registerDeployController } = require('./src/controllers/DeployController
 const { SchedulerController } = require('./src/controllers/SchedulerController');
 const JobController = require('./src/controllers/JobController');
 const QueueController = require('./src/controllers/QueueController');
+const { EmailService } = require('./src/services/EmailService');
+const { registerEmailController } = require('./src/controllers/EmailController');
 
 app.use(bodyParser.json());
 // Phục vụ file tĩnh cho giao diện cấu hình CI/CD
@@ -50,6 +52,7 @@ const buildService = new BuildService({ logger, configService });
 const schedulerController = new SchedulerController({ scheduler, configService });
 const jobController = new JobController({ buildService, logger, configService });
 const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService });
+const emailService = new EmailService({ configService, logger });
 
 registerConfigController(app, { configService, scheduler, logger });
 registerBuildsController(app, { configService, buildService });
@@ -58,6 +61,7 @@ registerDockerController(app, { dockerService, configService, logger });
 registerPullController(app, { configService, logger });
 registerWebhookController(app, { logger, secret: WEBHOOK_SECRET });
 registerDeployController(app, { logger, configService });
+registerEmailController(app, { emailService, logger });
 
 // Job Management Routes
 app.get('/api/jobs', (req, res) => jobController.getAllJobs(req, res));

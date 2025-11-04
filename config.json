@@ -31,6 +31,20 @@
   },
   "scriptImageTag": "1.0.75",
   "scriptAutoTagIncrement": false,
+  "maxConcurrentBuilds": 1,
+  "buildTimeout": 30,
+  "logRetentionDays": 30,
+  "diskSpaceThreshold": 80,
+  "email": {
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "emailUser": "jenkins119vn@gmail.com",
+    "emailPassword": "uwzwzzonsyrocqwz",
+    "notifyEmails": [
+      "khanhdev2901@gmail.com"
+    ],
+    "enableEmailNotify": true
+  },
   "deployServices": [
     {
       "name": "harbor.techres.vn/overatevntech/admin-schedule-service",

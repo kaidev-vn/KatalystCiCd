@@ -346,6 +346,33 @@ async function loadConfig() {
   if (el) el.textContent = short;
   // Cập nhật hiển thị Context hiệu lực cho deploy.sh
   updateEffectiveContextInfo();
+
+  // System configuration
+  const maxConcurrentBuildsEl = $('maxConcurrentBuilds');
+  if (maxConcurrentBuildsEl) maxConcurrentBuildsEl.value = (cfg.maxConcurrentBuilds ?? 1);
+  const buildTimeoutEl = $('buildTimeout');
+  if (buildTimeoutEl) buildTimeoutEl.value = (cfg.buildTimeout ?? 30);
+  const logRetentionDaysEl = $('logRetentionDays');
+  if (logRetentionDaysEl) logRetentionDaysEl.value = (cfg.logRetentionDays ?? 30);
+  const diskSpaceThresholdEl = $('diskSpaceThreshold');
+  if (diskSpaceThresholdEl) diskSpaceThresholdEl.value = (cfg.diskSpaceThreshold ?? 80);
+
+  // Email configuration
+  const smtpHostEl = $('smtpHost');
+  if (smtpHostEl) smtpHostEl.value = cfg.email?.smtpHost ?? '';
+  const smtpPortEl = $('smtpPort');
+  if (smtpPortEl) smtpPortEl.value = cfg.email?.smtpPort ?? 587;
+  const emailUserEl = $('emailUser');
+  if (emailUserEl) emailUserEl.value = cfg.email?.emailUser ?? '';
+  const emailPasswordEl = $('emailPassword');
+  if (emailPasswordEl) emailPasswordEl.value = cfg.email?.emailPassword ?? '';
+  const notifyEmailsEl = $('notifyEmails');
+  if (notifyEmailsEl) {
+    const ne = cfg.email?.notifyEmails;
+    notifyEmailsEl.value = Array.isArray(ne) ? ne.join(', ') : (ne ?? '');
+  }
+  const enableEmailNotifyEl = $('enableEmailNotify');
+  if (enableEmailNotifyEl) enableEmailNotifyEl.checked = !!(cfg.email?.enableEmailNotify);
 }
 
 // Tải danh sách CHOICE từ deploy.sh và populate vào các select
@@ -422,6 +449,20 @@ async function saveConfig() {
     // Script build tag configuration
     scriptImageTag: combineTag($('scriptImageTagNumber')?.value || '1.0.75', $('scriptImageTagText')?.value || ''),
     scriptAutoTagIncrement: $('scriptAutoTagIncrement')?.checked || false,
+    // System configuration
+    maxConcurrentBuilds: Number($('maxConcurrentBuilds')?.value || (CURRENT_CFG?.maxConcurrentBuilds ?? 1)),
+    buildTimeout: Number($('buildTimeout')?.value || (CURRENT_CFG?.buildTimeout ?? 30)),
+    logRetentionDays: Number($('logRetentionDays')?.value || (CURRENT_CFG?.logRetentionDays ?? 30)),
+    diskSpaceThreshold: Number($('diskSpaceThreshold')?.value || (CURRENT_CFG?.diskSpaceThreshold ?? 80)),
+    // Email configuration
+    email: {
+      smtpHost: $('smtpHost')?.value || (CURRENT_CFG?.email?.smtpHost ?? ''),
+      smtpPort: Number($('smtpPort')?.value || (CURRENT_CFG?.email?.smtpPort ?? 587)),
+      emailUser: $('emailUser')?.value || (CURRENT_CFG?.email?.emailUser ?? ''),
+      emailPassword: $('emailPassword')?.value || (CURRENT_CFG?.email?.emailPassword ?? ''),
+      notifyEmails: $('notifyEmails')?.value || (Array.isArray(CURRENT_CFG?.email?.notifyEmails) ? CURRENT_CFG.email.notifyEmails.join(', ') : (CURRENT_CFG?.email?.notifyEmails ?? '')),
+      enableEmailNotify: Boolean($('enableEmailNotify')?.checked ?? (CURRENT_CFG?.email?.enableEmailNotify ?? false)),
+    },
   };
   const res = await fetch('/api/config', {
     method: 'POST',
@@ -783,6 +824,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // Add event listener for saveAllConfig button
   const saveAllConfigBtn = $('saveAllConfig');
   if (saveAllConfigBtn) saveAllConfigBtn.onclick = saveConfig;
+  const saveSystemConfigBtn = $('saveSystemConfig');
+  if (saveSystemConfigBtn) saveSystemConfigBtn.onclick = saveConfig;
+  const saveEmailConfigBtn = $('saveEmailConfig');
+  if (saveEmailConfigBtn) saveEmailConfigBtn.onclick = saveConfig;
+  const testEmailBtn = $('testEmail');
+  if (testEmailBtn) testEmailBtn.onclick = async () => {
+    try {
+      const toRaw = $('notifyEmails')?.value || '';
+      const to = (toRaw || '').split(',').map(s => s.trim()).filter(Boolean)[0] || ($('emailUser')?.value || '');
+      const res = await fetch('/api/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject: 'CI/CD Test Email', text: 'Đây là email test từ hệ thống CI/CD.' }),
+      });
+      const data = await res.json();
+      const cfgStatusEl = $('cfgStatus');
+      if (cfgStatusEl) cfgStatusEl.textContent = data.ok ? 'Gửi email test thành công!' : `Gửi email thất bại: ${data.error || ''}`;
+      setTimeout(() => { if (cfgStatusEl) cfgStatusEl.textContent = ''; }, 3000);
+    } catch (e) {
+      const cfgStatusEl = $('cfgStatus');
+      if (cfgStatusEl) cfgStatusEl.textContent = `Gửi email thất bại: ${e.message || e}`;
+      setTimeout(() => { if (cfgStatusEl) cfgStatusEl.textContent = ''; }, 3000);
+    }
+  };
   if (checkConnectionBtn) checkConnectionBtn.onclick = runCheckConnection;
   if (startPullBtn) startPullBtn.onclick = startPull;
   if (addBuildBtn) addBuildBtn.onclick = addBuild;
@@ -1313,12 +1378,18 @@ async function loadJobs() {
 
 // Render jobs table
 function renderJobsTable() {
-  const tbody = document.querySelector('#jobsTable tbody');
+  // Sử dụng đúng selector theo index.html: tbody có id="jobsTableBody"
+  const tbody = document.getElementById('jobsTableBody');
   if (!tbody) return;
 
   tbody.innerHTML = '';
   
   jobs.forEach(job => {
+    const method = job?.buildConfig?.method || job?.method || 'dockerfile';
+    const methodText = method === 'script' ? '📜 Script' : '🐳 Dockerfile';
+    const lastStatus = job?.stats?.lastBuildStatus; // success/failed/running/null
+    const lastAt = job?.stats?.lastBuildAt; // ISO datetime or null
+
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>
@@ -1330,14 +1401,12 @@ function renderJobsTable() {
           ${job.enabled ? '✅ Kích hoạt' : '❌ Tắt'}
         </span>
       </td>
-      <td>${job.git?.branch || 'N/A'}</td>
+      <td>${methodText}</td>
       <td>${job.services?.length || 0} services</td>
       <td>
-        <span class="tag ${getStatusClass(job.lastBuildStatus)}">
-          ${getStatusText(job.lastBuildStatus)}
-        </span>
+        <div><span class="tag ${getStatusClass(lastStatus)}">${getStatusText(lastStatus)}</span></div>
+        <div class="muted">${lastAt ? new Date(lastAt).toLocaleString('vi-VN') : 'Chưa build'}</div>
       </td>
-      <td>${job.lastBuildTime ? new Date(job.lastBuildTime).toLocaleString('vi-VN') : 'Chưa build'}</td>
       <td>
         <div class="job-actions-inline">
           <button class="btn small primary" onclick="runJob('${job.id}')">▶️ Chạy</button>
@@ -1354,13 +1423,15 @@ function renderJobsTable() {
 function updateJobStats() {
   const totalJobs = jobs.length;
   const activeJobs = jobs.filter(j => j.enabled).length;
-  const successfulBuilds = jobs.filter(j => j.lastBuildStatus === 'success').length;
-  const failedBuilds = jobs.filter(j => j.lastBuildStatus === 'failed').length;
+  // Tổng số builds thành công/thất bại (cộng dồn theo thống kê của từng job)
+  const successfulBuilds = jobs.reduce((sum, j) => sum + (j.stats?.successfulBuilds || 0), 0);
+  const failedBuilds = jobs.reduce((sum, j) => sum + (j.stats?.failedBuilds || 0), 0);
 
-  const totalEl = document.querySelector('#totalJobs .stat-number');
-  const activeEl = document.querySelector('#activeJobs .stat-number');
-  const successEl = document.querySelector('#successfulBuilds .stat-number');
-  const failedEl = document.querySelector('#failedBuilds .stat-number');
+  // Các phần tử thống kê có id đặt trực tiếp trên .stat-number
+  const totalEl = document.getElementById('totalJobs');
+  const activeEl = document.getElementById('activeJobs');
+  const successEl = document.getElementById('successfulBuilds');
+  const failedEl = document.getElementById('failedBuilds');
 
   if (totalEl) totalEl.textContent = totalJobs;
   if (activeEl) activeEl.textContent = activeJobs;
@@ -1421,57 +1492,65 @@ function populateJobForm(job) {
   document.getElementById('jobName').value = job.name || '';
   document.getElementById('jobDescription').value = job.description || '';
   document.getElementById('jobEnabled').checked = job.enabled !== false;
-  
-  // Git configuration
-  document.getElementById('jobGitProvider').value = job.git?.provider || 'gitlab';
-  document.getElementById('jobGitAccount').value = job.git?.account || '';
-  document.getElementById('jobGitToken').value = job.git?.token || '';
-  document.getElementById('jobGitBranch').value = job.git?.branch || 'main';
-  document.getElementById('jobGitRepoUrl').value = job.git?.repoUrl || '';
-  document.getElementById('jobGitRepoPath').value = job.git?.repoPath || '';
-  
+
+  // Git configuration (support both old UI shape and backend shape)
+  const git = job.git || job.gitConfig || {};
+  document.getElementById('jobGitProvider').value = git.provider || 'gitlab';
+  document.getElementById('jobGitAccount').value = git.account || '';
+  document.getElementById('jobGitToken').value = git.token || '';
+  document.getElementById('jobGitBranch').value = git.branch || 'main';
+  document.getElementById('jobGitRepoUrl').value = git.repoUrl || '';
+  document.getElementById('jobGitRepoPath').value = git.repoPath || '';
+
   // Build configuration
-  const buildMethod = job.build?.method || 'dockerfile';
+  const build = job.build || job.buildConfig || {};
+  const buildMethod = build.method || 'dockerfile';
   document.querySelector(`input[name="jobBuildMethod"][value="${buildMethod}"]`).checked = true;
   toggleBuildMethodConfig(buildMethod);
   
-  document.getElementById('jobBuildOrder').value = job.build?.order || 'parallel';
+  document.getElementById('jobBuildOrder').value = build.buildOrder || build.order || 'parallel';
   
   if (buildMethod === 'script') {
-    document.getElementById('jobScriptPath').value = job.build?.scriptPath || '';
-    
-    // Handle script tag configuration
-    document.getElementById('jobScriptImageName').value = job.build?.imageName || '';
-    const scriptTagNumber = job.build?.imageTagNumber || '1.0.0';
-    const scriptTagText = job.build?.imageTagText || '';
+    document.getElementById('jobScriptPath').value = build.scriptPath || '';
+
+    // Handle script tag configuration (UI only; backend doesn't store these under script)
+    document.getElementById('jobScriptImageName').value = build.imageName || '';
+    const scriptTagNumber = build.imageTagNumber || '1.0.0';
+    const scriptTagText = build.imageTagText || '';
     document.getElementById('jobScriptImageTagNumber').value = scriptTagNumber;
     document.getElementById('jobScriptImageTagText').value = scriptTagText;
     updateJobScriptTagPreview();
     
-    document.getElementById('jobScriptRegistryUrl').value = job.build?.registryUrl || '';
-    document.getElementById('jobScriptRegistryUsername').value = job.build?.registryUsername || '';
-    document.getElementById('jobScriptRegistryPassword').value = job.build?.registryPassword || '';
-    document.getElementById('jobScriptAutoTagIncrement').checked = job.build?.autoTagIncrement || false;
+    document.getElementById('jobScriptRegistryUrl').value = build.registryUrl || '';
+    document.getElementById('jobScriptRegistryUsername').value = build.registryUsername || '';
+    document.getElementById('jobScriptRegistryPassword').value = build.registryPassword || '';
+    document.getElementById('jobScriptAutoTagIncrement').checked = build.autoTagIncrement || false;
   } else {
-    document.getElementById('jobDockerfilePath').value = job.build?.dockerfilePath || './Dockerfile';
-    document.getElementById('jobContextPath').value = job.build?.contextPath || '.';
-    document.getElementById('jobImageName').value = job.build?.imageName || '';
+    const d = build.dockerConfig || build;
+    document.getElementById('jobDockerfilePath').value = d.dockerfilePath || './Dockerfile';
+    document.getElementById('jobContextPath').value = d.contextPath || '.';
+    document.getElementById('jobImageName').value = d.imageName || '';
     
     // Handle tag configuration
-    const tagNumber = job.build?.imageTagNumber || '1.0.0';
-    const tagText = job.build?.imageTagText || '';
+    let tagNumber = d.imageTagNumber || '1.0.0';
+    let tagText = d.imageTagText || '';
+    if ((!tagNumber || tagNumber === '1.0.0') && d.imageTag) {
+      const parts = splitTag(String(d.imageTag));
+      tagNumber = parts.number;
+      tagText = parts.text;
+    }
     document.getElementById('jobImageTagNumber').value = tagNumber;
     document.getElementById('jobImageTagText').value = tagText;
     updateJobTagPreview();
     
-    document.getElementById('jobRegistryUrl').value = job.build?.registryUrl || '';
-    document.getElementById('jobRegistryUsername').value = job.build?.registryUsername || '';
-    document.getElementById('jobRegistryPassword').value = job.build?.registryPassword || '';
-    document.getElementById('jobAutoTagIncrement').checked = job.build?.autoTagIncrement || false;
+    document.getElementById('jobRegistryUrl').value = d.registryUrl || '';
+    document.getElementById('jobRegistryUsername').value = d.registryUsername || '';
+    document.getElementById('jobRegistryPassword').value = d.registryPassword || '';
+    document.getElementById('jobAutoTagIncrement').checked = d.autoTagIncrement || false;
   }
   
   // Schedule configuration
-  document.getElementById('jobAutoCheck').checked = job.schedule?.autoCheck || false;
+  document.getElementById('jobAutoCheck').checked = (job.schedule?.autoCheck || false);
   toggleScheduleConfig(job.schedule?.autoCheck || false);
   document.getElementById('jobPolling').value = job.schedule?.polling || 30;
   document.getElementById('jobCron').value = job.schedule?.cron || '';
@@ -1537,13 +1616,16 @@ function resetJobForm() {
 function toggleBuildMethodConfig(method) {
   const scriptConfig = document.getElementById('jobScriptConfig');
   const dockerConfig = document.getElementById('jobDockerConfig');
+  const servicesSection = document.getElementById('servicesSection');
   
   if (method === 'script') {
     scriptConfig.style.display = 'block';
     dockerConfig.style.display = 'none';
+    if (servicesSection) servicesSection.style.display = 'none';
   } else {
     scriptConfig.style.display = 'none';
     dockerConfig.style.display = 'block';
+    if (servicesSection) servicesSection.style.display = 'block';
   }
 }
 
@@ -1602,7 +1684,7 @@ async function saveJob() {
       name: document.getElementById('jobName').value,
       description: document.getElementById('jobDescription').value,
       enabled: document.getElementById('jobEnabled').checked,
-      git: {
+      gitConfig: {
         provider: document.getElementById('jobGitProvider').value,
         account: document.getElementById('jobGitAccount').value,
         token: document.getElementById('jobGitToken').value,
@@ -1610,9 +1692,9 @@ async function saveJob() {
         repoUrl: document.getElementById('jobGitRepoUrl').value,
         repoPath: document.getElementById('jobGitRepoPath').value
       },
-      build: {
+      buildConfig: {
         method: document.querySelector('input[name="jobBuildMethod"]:checked').value,
-        order: document.getElementById('jobBuildOrder').value
+        buildOrder: document.getElementById('jobBuildOrder').value,
       },
       schedule: {
         autoCheck: document.getElementById('jobAutoCheck').checked,
@@ -1622,41 +1704,43 @@ async function saveJob() {
     };
     
     // Add build method specific config
-    if (jobData.build.method === 'script') {
-      jobData.build.scriptPath = document.getElementById('jobScriptPath').value;
-      jobData.build.imageName = document.getElementById('jobScriptImageName').value;
-      
-      // Save tag configuration
-      jobData.build.imageTagNumber = document.getElementById('jobScriptImageTagNumber').value;
-      jobData.build.imageTagText = document.getElementById('jobScriptImageTagText').value;
-      
-      jobData.build.registryUrl = document.getElementById('jobScriptRegistryUrl').value;
-      jobData.build.registryUsername = document.getElementById('jobScriptRegistryUsername').value;
-      jobData.build.registryPassword = document.getElementById('jobScriptRegistryPassword').value;
-      jobData.build.autoTagIncrement = document.getElementById('jobScriptAutoTagIncrement').checked;
+    if (jobData.buildConfig.method === 'script') {
+      jobData.buildConfig.scriptPath = document.getElementById('jobScriptPath').value;
+      // Các trường image/registry dành riêng cho docker, nên bỏ qua ở chế độ script
     } else {
-      jobData.build.dockerfilePath = document.getElementById('jobDockerfilePath').value;
-      jobData.build.contextPath = document.getElementById('jobContextPath').value;
-      jobData.build.imageName = document.getElementById('jobImageName').value;
-      
-      // Save tag configuration
-      jobData.build.imageTagNumber = document.getElementById('jobImageTagNumber').value;
-      jobData.build.imageTagText = document.getElementById('jobImageTagText').value;
-      
-      jobData.build.registryUrl = document.getElementById('jobRegistryUrl').value;
-      jobData.build.registryUsername = document.getElementById('jobRegistryUsername').value;
-      jobData.build.registryPassword = document.getElementById('jobRegistryPassword').value;
-      jobData.build.autoTagIncrement = document.getElementById('jobAutoTagIncrement').checked;
+      const imageTag = combineTag(
+        document.getElementById('jobImageTagNumber').value,
+        document.getElementById('jobImageTagText').value
+      );
+      jobData.buildConfig.dockerConfig = {
+        dockerfilePath: document.getElementById('jobDockerfilePath').value,
+        contextPath: document.getElementById('jobContextPath').value,
+        imageName: document.getElementById('jobImageName').value,
+        imageTag,
+        registryUrl: document.getElementById('jobRegistryUrl').value,
+        registryUsername: document.getElementById('jobRegistryUsername').value,
+        registryPassword: document.getElementById('jobRegistryPassword').value,
+        autoTagIncrement: document.getElementById('jobAutoTagIncrement').checked,
+      };
     }
     
+    // Debug: log payload before sending to backend
+    try {
+      console.log('[UI] saveJob payload:', JSON.stringify(jobData, null, 2));
+    } catch (e) {
+      console.log('[UI] saveJob payload (stringify failed):', jobData);
+    }
+
     // Get selected services
     const selectedServices = [];
     const checkboxes = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked');
     checkboxes.forEach(cb => selectedServices.push(cb.value));
     jobData.services = selectedServices;
+
+    console.log('[UI] Selected services:', selectedServices);
     
     // Validate required fields
-    if (!jobData.name || !jobData.git.repoUrl || !jobData.git.branch || !jobData.git.token) {
+    if (!jobData.name || !jobData.gitConfig.repoUrl || !jobData.gitConfig.branch) {
       alert('Vui lòng điền đầy đủ các trường bắt buộc (*)');
       return;
     }
@@ -1728,7 +1812,8 @@ async function runJob(jobId) {
 // Search jobs
 function searchJobs() {
   const searchTerm = document.getElementById('jobSearch').value.toLowerCase();
-  const rows = document.querySelectorAll('#jobsTable tbody tr');
+  // Theo cấu trúc mới của bảng jobs, tbody có id="jobsTableBody"
+  const rows = document.querySelectorAll('#jobsTableBody tr');
   
   rows.forEach(row => {
     const jobName = row.querySelector('.job-name').textContent.toLowerCase();

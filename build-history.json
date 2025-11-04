@@ -1,0 +1,12 @@
+[
+  {
+    "id": "script-1762233245197-5vbxs7",
+    "name": "Script Build: deploy.sh",
+    "method": "script",
+    "status": "failed",
+    "startTime": "2025-11-04T05:14:05.199Z",
+    "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+    "endTime": "2025-11-04T05:14:05.209Z",
+    "duration": "0s"
+  }
+]

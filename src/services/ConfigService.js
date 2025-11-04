@@ -126,6 +126,20 @@ class ConfigService {
       ],
       lastBuiltCommit: '',
       autoCheck: false,
+      // System configuration defaults
+      maxConcurrentBuilds: 1,
+      buildTimeout: 30,
+      logRetentionDays: 30,
+      diskSpaceThreshold: 80,
+      // Email configuration defaults
+      email: {
+        smtpHost: '',
+        smtpPort: 587,
+        emailUser: '',
+        emailPassword: '',
+        notifyEmails: [],
+        enableEmailNotify: false,
+      },
       docker: {
         dockerfilePath: '',
         contextPath: '',
@@ -173,6 +187,25 @@ class ConfigService {
     cfg.deployServices = Array.isArray(cfg.deployServices) ? cfg.deployServices : this.getDefaultConfig().deployServices;
     cfg.lastBuiltCommit = String(cfg.lastBuiltCommit || '');
     cfg.autoCheck = Boolean(cfg.autoCheck);
+    // Normalize system configuration
+    cfg.maxConcurrentBuilds = Number(cfg.maxConcurrentBuilds || 1);
+    cfg.buildTimeout = Number(cfg.buildTimeout || 30);
+    cfg.logRetentionDays = Number(cfg.logRetentionDays || 30);
+    cfg.diskSpaceThreshold = Number(cfg.diskSpaceThreshold || 80);
+    // Normalize email configuration
+    const emailCfg = cfg.email || {};
+    const neRaw = emailCfg.notifyEmails;
+    let notifyEmails = [];
+    if (Array.isArray(neRaw)) notifyEmails = neRaw.map(s => String(s).trim()).filter(Boolean);
+    else if (typeof neRaw === 'string') notifyEmails = neRaw.split(',').map(s => s.trim()).filter(Boolean);
+    cfg.email = {
+      smtpHost: String(emailCfg.smtpHost || ''),
+      smtpPort: Number(emailCfg.smtpPort || 587),
+      emailUser: String(emailCfg.emailUser || ''),
+      emailPassword: String(emailCfg.emailPassword || ''),
+      notifyEmails,
+      enableEmailNotify: Boolean(emailCfg.enableEmailNotify),
+    };
     cfg.docker = {
       dockerfilePath: String(cfg.docker?.dockerfilePath || ''),
       contextPath: String(cfg.docker?.contextPath || ''),

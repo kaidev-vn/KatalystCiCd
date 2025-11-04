@@ -206,8 +206,12 @@ class JobService {
       errors.push('Dockerfile path is required for dockerfile build method');
     }
 
-    if (!jobData.services || jobData.services.length === 0) {
-      errors.push('At least one service must be selected');
+    // Services selection is only required for dockerfile builds.
+    // For script builds, services are optional.
+    if (jobData.buildConfig?.method === 'dockerfile') {
+      if (!jobData.services || jobData.services.length === 0) {
+        errors.push('At least one service must be selected for dockerfile build method');
+      }
     }
 
     return errors;
