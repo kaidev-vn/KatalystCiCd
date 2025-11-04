@@ -1706,7 +1706,14 @@ async function saveJob() {
     // Add build method specific config
     if (jobData.buildConfig.method === 'script') {
       jobData.buildConfig.scriptPath = document.getElementById('jobScriptPath').value;
-      // Các trường image/registry dành riêng cho docker, nên bỏ qua ở chế độ script
+      // Lưu đầy đủ cấu hình Tag/Registry cho chế độ Script (yêu cầu của người dùng)
+      jobData.buildConfig.imageName = document.getElementById('jobScriptImageName').value;
+      jobData.buildConfig.imageTagNumber = document.getElementById('jobScriptImageTagNumber').value;
+      jobData.buildConfig.imageTagText = document.getElementById('jobScriptImageTagText').value;
+      jobData.buildConfig.autoTagIncrement = document.getElementById('jobScriptAutoTagIncrement').checked;
+      jobData.buildConfig.registryUrl = document.getElementById('jobScriptRegistryUrl').value;
+      jobData.buildConfig.registryUsername = document.getElementById('jobScriptRegistryUsername').value;
+      jobData.buildConfig.registryPassword = document.getElementById('jobScriptRegistryPassword').value;
     } else {
       const imageTag = combineTag(
         document.getElementById('jobImageTagNumber').value,

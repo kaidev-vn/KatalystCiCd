@@ -5,33 +5,28 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-04T03:48:46.234Z",
-    "updatedAt": "2025-11-04T05:14:05.216Z",
+    "updatedAt": "2025-11-04T06:56:38.763Z",
     "gitConfig": {
       "provider": "gitlab",
       "account": "khanhnq",
       "token": "glpat-RFqEnsH73z6pQ3v5CIxSsW86MQp1OjFlCA.01.0y1y5e59w",
+      "branch": "developer_2",
       "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
-      "repoPath": "/opt/run_java/docker-build-app/system/",
-      "branch": "developer_2"
+      "repoPath": "/opt/run_java/docker-build-app/system/"
     },
     "buildConfig": {
       "method": "script",
-      "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
       "buildOrder": "sequential",
-      "dockerConfig": {
-        "dockerfilePath": "",
-        "contextPath": "",
-        "imageName": "",
-        "imageTag": "",
-        "autoTagIncrement": false,
-        "registryUrl": "",
-        "registryUsername": "",
-        "registryPassword": ""
-      }
+      "scriptPath": "/opt/run_java/build-dashboard/deploy.sh",
+      "imageName": "",
+      "imageTagNumber": "1.0.78",
+      "imageTagText": "DAIHY-BETA",
+      "autoTagIncrement": true,
+      "registryUrl": "https://harbor.techres.vn/",
+      "registryUsername": "nghiant",
+      "registryPassword": "szHnUmesLtV2GNUKfoEt"
     },
-    "services": [
-      "harbor.techres.vn/overatevntech/seemt-service"
-    ],
+    "services": [],
     "schedule": {
       "autoCheck": true,
       "polling": 30,
