@@ -5,7 +5,7 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-04T03:48:46.234Z",
-    "updatedAt": "2025-11-04T07:05:56.924Z",
+    "updatedAt": "2025-11-04T07:06:56.922Z",
     "gitConfig": {
       "provider": "gitlab",
       "account": "khanhnq",
@@ -33,10 +33,10 @@
       "cron": ""
     },
     "stats": {
-      "totalBuilds": 5,
+      "totalBuilds": 7,
       "successfulBuilds": 0,
-      "failedBuilds": 5,
-      "lastBuildAt": "2025-11-04T07:05:56.924Z",
+      "failedBuilds": 7,
+      "lastBuildAt": "2025-11-04T07:06:56.921Z",
       "lastBuildStatus": "failed"
     }
   },
@@ -46,7 +46,7 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-04T04:52:11.506Z",
-    "updatedAt": "2025-11-04T07:05:56.970Z",
+    "updatedAt": "2025-11-04T07:06:56.985Z",
     "gitConfig": {
       "provider": "gitlab",
       "account": "khanhnq",
@@ -77,10 +77,10 @@
       "cron": ""
     },
     "stats": {
-      "totalBuilds": 4,
+      "totalBuilds": 6,
       "successfulBuilds": 0,
-      "failedBuilds": 4,
-      "lastBuildAt": "2025-11-04T07:05:56.970Z",
+      "failedBuilds": 6,
+      "lastBuildAt": "2025-11-04T07:06:56.985Z",
       "lastBuildStatus": "failed"
     }
   }
