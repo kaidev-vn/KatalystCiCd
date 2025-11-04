@@ -167,7 +167,7 @@ class BuildService {
       const cwd = workingDir || config.repoPath || process.cwd();
       
       // Make script executable (for Unix-like systems)
-      const makeExecutableCmd = process.platform === 'win32' ? null : `chmod +x "${scriptPath}"`;
+      const makeExecutableCmd = process.platform === 'win32' ? null : ` "${scriptPath}"`;
       
       // Execute script
       const scriptCmd = process.platform === 'win32' 

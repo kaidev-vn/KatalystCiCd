@@ -26,6 +26,7 @@ const { registerWebhookController } = require('./src/controllers/WebhookControll
 const { registerDeployController } = require('./src/controllers/DeployController');
 const { SchedulerController } = require('./src/controllers/SchedulerController');
 const JobController = require('./src/controllers/JobController');
+const { JobScheduler } = require('./src/services/JobScheduler');
 const QueueController = require('./src/controllers/QueueController');
 const { EmailService } = require('./src/services/EmailService');
 const { registerEmailController } = require('./src/controllers/EmailController');
@@ -51,6 +52,10 @@ const scheduler = new Scheduler({ logger, configService, gitService });
 const buildService = new BuildService({ logger, configService });
 const schedulerController = new SchedulerController({ scheduler, configService });
 const jobController = new JobController({ buildService, logger, configService });
+// Khởi tạo JobScheduler sau khi có jobController
+const jobScheduler = new JobScheduler({ logger, jobService: jobController.jobService, jobController });
+// Truyền jobScheduler vào jobController để auto restart khi cấu hình job thay đổi
+jobController.jobScheduler = jobScheduler;
 const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService });
 const emailService = new EmailService({ configService, logger });
 
@@ -96,4 +101,6 @@ app.listen(PORT, () => {
 // Khởi động scheduler sau khi server sẵn sàng
 process.nextTick(() => {
   scheduler.restart();
+  // Khởi động JobScheduler cho các job có autoCheck
+  jobScheduler.restart();
 });

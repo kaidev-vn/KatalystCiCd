@@ -2,11 +2,12 @@ const JobService = require('../services/JobService');
 const { BuildService } = require('../services/BuildService');
 
 class JobController {
-  constructor({ buildService, logger, configService }) {
+  constructor({ buildService, logger, configService, jobScheduler }) {
     this.jobService = new JobService(logger);
     this.buildService = buildService;
     this.logger = logger;
     this.configService = configService;
+    this.jobScheduler = jobScheduler; // Optional, sẽ dùng để restart lịch theo job
   }
 
   // GET /api/jobs - Get all jobs
@@ -61,6 +62,8 @@ class JobController {
       }
 
       const newJob = this.jobService.createJob(normalized);
+      // Restart job scheduler để áp dụng job mới
+      try { this.jobScheduler?.restart(); } catch (_) {}
       res.status(201).json(newJob);
     } catch (error) {
       console.error('Error creating job:', error);
@@ -90,6 +93,8 @@ class JobController {
       }
 
       const updatedJob = this.jobService.updateJob(id, updateData);
+      // Restart job scheduler để cập nhật lịch
+      try { this.jobScheduler?.restart(); } catch (_) {}
       res.json(updatedJob);
     } catch (error) {
       console.error('Error updating job:', error);
@@ -168,6 +173,7 @@ class JobController {
     try {
       const { id } = req.params;
       this.jobService.deleteJob(id);
+      try { this.jobScheduler?.restart(); } catch (_) {}
       res.json({ message: 'Job deleted successfully' });
     } catch (error) {
       console.error('Error deleting job:', error);
@@ -184,6 +190,7 @@ class JobController {
     try {
       const { id } = req.params;
       const updatedJob = this.jobService.toggleJob(id);
+      try { this.jobScheduler?.restart(); } catch (_) {}
       res.json(updatedJob);
     } catch (error) {
       console.error('Error toggling job:', error);
