@@ -1,4 +1,4 @@
-function registerBuildsController(app, { configService, buildService }) {
+function registerBuildsController(app, { configService, buildService, emailService }) {
   app.get('/api/builds', (req, res) => {
     try { res.json(buildService.list()); } catch (e) { res.json([]); }
   });
@@ -37,6 +37,25 @@ function registerBuildsController(app, { configService, buildService }) {
     try {
       const id = String(req.params.id);
       const r = await buildService.run(id);
+
+      // Gửi email notify nếu bật
+      try {
+        const cfg = configService.getConfig();
+        const emailCfg = cfg.email || {};
+        if (emailService && emailCfg.enableEmailNotify && Array.isArray(emailCfg.notifyEmails) && emailCfg.notifyEmails.length) {
+          const statusLabel = r.ok ? 'THÀNH CÔNG' : 'THẤT BẠI';
+          const subject = `[CI/CD] Build custom ${statusLabel}`;
+          const lines = [
+            `Build ID: ${r.buildId}`,
+            `Trạng thái: ${statusLabel}`,
+            `Thời gian: ${new Date().toLocaleString()}`
+          ];
+          const text = lines.join('\n');
+          const html = `<div style="font-family:Arial,sans-serif;line-height:1.6">${lines.map(l => `<div>${l}</div>`).join('')}<hr/><div>CI/CD System</div></div>`;
+          await emailService.sendNotificationEmail({ toList: emailCfg.notifyEmails, subject, text, html });
+        }
+      } catch (_) {}
+
       res.json({ ok: true, result: r });
     } catch (e) {
       res.status(400).json({ ok: false, error: e.message });
@@ -96,6 +115,26 @@ function registerBuildsController(app, { configService, buildService }) {
       }
       
       const result = await buildService.runScript(scriptPath, workingDir);
+
+      // Gửi email notify nếu bật
+      try {
+        const cfg = configService.getConfig();
+        const emailCfg = cfg.email || {};
+        if (emailService && emailCfg.enableEmailNotify && Array.isArray(emailCfg.notifyEmails) && emailCfg.notifyEmails.length) {
+          const statusLabel = result.ok ? 'THÀNH CÔNG' : 'THẤT BẠI';
+          const subject = `[CI/CD] Script build ${statusLabel}`;
+          const lines = [
+            `Script: ${scriptPath}`,
+            `Build ID: ${result.buildId}`,
+            `Trạng thái: ${statusLabel}`,
+            `Thời gian: ${new Date().toLocaleString()}`
+          ];
+          const text = lines.join('\n');
+          const html = `<div style="font-family:Arial,sans-serif;line-height:1.6">${lines.map(l => `<div>${l}</div>`).join('')}<hr/><div>CI/CD System</div></div>`;
+          await emailService.sendNotificationEmail({ toList: emailCfg.notifyEmails, subject, text, html });
+        }
+      } catch (_) {}
+
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: error.message });

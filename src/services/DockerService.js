@@ -7,14 +7,29 @@ class DockerService {
     this.configService = configService;
   }
 
+  /**
+   * Build & push Docker image
+   * @param {Object} params
+   * @param {string} params.dockerfilePath
+   * @param {string} params.contextPath
+   * @param {string} params.imageName
+   * @param {string} params.imageTag
+   * @param {boolean} params.autoTagIncrement
+   * @param {string} params.registryUrl
+   * @param {string} params.registryUsername
+   * @param {string} params.registryPassword
+   * @param {string} params.commitHash
+   * @param {boolean} [params.updateConfigTag] - Nếu true, cập nhật imageTag trong config.json sau khi auto-increment thành công. Mặc định: true
+   */
   async buildAndPush(params) {
     const cfg = this.configService.getConfig();
     const p = { ...cfg.docker, ...(params || {}) };
+    const updateConfigTag = (params && typeof params.updateConfigTag === 'boolean') ? params.updateConfigTag : true;
     
     let tagToUse;
     if (p.autoTagIncrement) {
-      // Sử dụng hệ thống tag chia 2 phần mới
-      const currentTag = cfg.docker?.imageTag || p.imageTag || 'latest';
+      // Ưu tiên tag được truyền vào (job-specific), sau đó mới đến config.json
+      const currentTag = p.imageTag || cfg.docker?.imageTag || 'latest';
       const { numberPart, textPart } = splitTagIntoParts(currentTag);
       this.logger?.send(`[DOCKER] 🏷️  Tách tag thành: số="${numberPart}", chữ="${textPart}"`);
       
@@ -39,7 +54,7 @@ class DockerService {
     const { hadError } = await runSeries(cmds, this.logger);
     this.logger?.send(`[DOCKER] Hoàn tất build & push cho ${image}`);
 
-    if (p.autoTagIncrement && !hadError) {
+    if (p.autoTagIncrement && !hadError && updateConfigTag) {
       const newCfg = this.configService.getConfig();
       if (!newCfg.docker) newCfg.docker = {};
       newCfg.docker.imageTag = tagToUse;

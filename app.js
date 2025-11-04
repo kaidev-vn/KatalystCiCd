@@ -30,8 +30,8 @@ const { JobScheduler } = require('./src/services/JobScheduler');
 const QueueController = require('./src/controllers/QueueController');
 const { EmailService } = require('./src/services/EmailService');
 const { registerEmailController } = require('./src/controllers/EmailController');
-
 app.use(bodyParser.json());
+
 // Phục vụ file tĩnh cho giao diện cấu hình CI/CD
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -51,8 +51,10 @@ const gitService = new GitService({ logger, dockerService, configService });
 const scheduler = new Scheduler({ logger, configService, gitService });
 const buildService = new BuildService({ logger, configService });
 const schedulerController = new SchedulerController({ scheduler, configService });
+// Khởi tạo EmailService sớm để truyền vào JobController
+const emailService = new EmailService({ configService, logger });
 // Khởi tạo JobController với gitService (queueService sẽ gán sau)
-const jobController = new JobController({ buildService, logger, configService, gitService });
+const jobController = new JobController({ buildService, logger, configService, gitService, emailService });
 // Khởi tạo QueueController và truyền jobController để uỷ quyền thực thi
 const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService, jobController });
 // Gán queueService cho JobController để endpoint /api/jobs/:id/run thêm vào hàng đợi
@@ -61,10 +63,9 @@ jobController.queueService = queueController.queueService;
 const jobScheduler = new JobScheduler({ logger, jobService: jobController.jobService, jobController, queueService: queueController.queueService });
 // Truyền jobScheduler vào jobController để auto restart khi cấu hình job thay đổi
 jobController.jobScheduler = jobScheduler;
-const emailService = new EmailService({ configService, logger });
 
 registerConfigController(app, { configService, scheduler, logger });
-registerBuildsController(app, { configService, buildService });
+registerBuildsController(app, { configService, buildService, emailService });
 registerGitController(app, { gitService });
 registerDockerController(app, { dockerService, configService, logger });
 registerPullController(app, { configService, logger });

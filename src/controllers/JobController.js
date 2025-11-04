@@ -2,7 +2,7 @@ const JobService = require('../services/JobService');
 const { BuildService } = require('../services/BuildService');
 
 class JobController {
-  constructor({ buildService, logger, configService, jobScheduler, gitService, queueService }) {
+  constructor({ buildService, logger, configService, jobScheduler, gitService, queueService, emailService }) {
     this.jobService = new JobService(logger);
     this.buildService = buildService;
     this.logger = logger;
@@ -10,6 +10,7 @@ class JobController {
     this.jobScheduler = jobScheduler; // Optional, sẽ dùng để restart lịch theo job
     this.gitService = gitService; // Dùng để kiểm tra commit mới trước khi build
     this.queueService = queueService; // Optional: sẽ được gán trong app.js nếu chưa có ở thời điểm khởi tạo
+    this.emailService = emailService; // Optional: gửi email khi build xong
   }
 
   // GET /api/jobs - Get all jobs
@@ -298,6 +299,8 @@ class JobController {
           };
         }
         this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
+        // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
+        this.lastCommitHash = check.remoteHash;
       }
       
       // Determine build method and execute
@@ -334,19 +337,50 @@ class JobController {
         env.CONTEXT_PATH = dc.contextPath || job.gitConfig.repoPath || '';
 
 
-        buildResult = await this.buildService.runScript(
+        const r = await this.buildService.runScript(
           bc.scriptPath,
           job.gitConfig.repoPath,
           env
         );
+
+        // Chuẩn hóa kết quả để phù hợp với hệ thống thống kê
+        buildResult = {
+          buildId: r?.buildId || `script-${Date.now()}`,
+          status: r?.ok ? 'completed' : 'failed',
+          message: r?.ok ? 'Script build completed' : 'Script build failed'
+        };
+
+        // Nếu auto-increment, cập nhật lại tagNumber trong job để lần sau hiển thị đúng
+        if (r?.ok && autoInc) {
+          const { splitTagIntoParts } = require('../utils/tag');
+          const parts = splitTagIntoParts(imageTag);
+          const updated = {
+            ...job,
+            buildConfig: {
+              ...job.buildConfig,
+              imageTagNumber: parts.numberPart,
+              imageTagText: parts.textPart
+            }
+          };
+          try { this.jobService.updateJob(job.id, updated); } catch (_) {}
+        }
       } else if (job.buildConfig.method === 'dockerfile') {
         // For dockerfile builds, we'll need to implement docker build logic
-        buildResult = await this.executeDockerBuild(job);
+        buildResult = await this.executeDockerBuild(job, (this.lastCommitHash || null));
       } else {
         throw new Error(`Unsupported build method: ${job.buildConfig.method}`);
       }
 
       console.log(`[JOB] Build completed for job: ${job.name}, Status: ${buildResult.status}`);
+
+      // Gửi email thông báo nếu cấu hình cho phép (chỉ gửi cho completed/failed)
+      try {
+        if (this.emailService && ['completed', 'failed'].includes(buildResult.status)) {
+          await this._notifyBuildResult(job, buildResult);
+        }
+      } catch (e) {
+        this.logger?.send?.(`[JOB][EMAIL] Lỗi gửi email notify: ${e.message}`);
+      }
       
       return {
         success: buildResult.status === 'completed',
@@ -356,6 +390,14 @@ class JobController {
       };
     } catch (error) {
       console.error(`[JOB] Build failed for job: ${job.name}`, error);
+      // Gửi email thất bại
+      try {
+        if (this.emailService) {
+          await this._notifyBuildResult(job, { buildId: null, status: 'failed', message: error.message });
+        }
+      } catch (e) {
+        this.logger?.send?.(`[JOB][EMAIL] Lỗi gửi email notify khi thất bại: ${e.message}`);
+      }
       
       return {
         success: false,
@@ -366,16 +408,90 @@ class JobController {
     }
   }
 
+  /**
+   * Gửi email thông báo kết quả build
+   */
+  async _notifyBuildResult(job, buildResult) {
+    const cfg = this.configService.getConfig();
+    const emailCfg = cfg.email || {};
+    if (!emailCfg.enableEmailNotify) return; // không gửi nếu tắt
+
+    const recipients = Array.isArray(emailCfg.notifyEmails) ? emailCfg.notifyEmails : [];
+    if (!recipients.length) return;
+
+    const statusLabel = buildResult.status === 'completed' ? 'THÀNH CÔNG' : (buildResult.status === 'failed' ? 'THẤT BẠI' : buildResult.status);
+    const subject = `[CI/CD] Job "${job.name}" ${statusLabel}`;
+
+    // Thu thập thông tin thêm
+    const gc = job.gitConfig || {};
+    const bc = job.buildConfig || {};
+    const method = bc.method || 'dockerfile';
+    const commitHash = this.lastCommitHash || '';
+    const timeStr = new Date().toLocaleString();
+
+    const lines = [
+      `Job: ${job.name}`,
+      `Trạng thái: ${statusLabel}`,
+      `Phương thức build: ${method}`,
+      commitHash ? `Commit: ${commitHash}` : undefined,
+      gc.branch ? `Branch: ${gc.branch}` : undefined,
+      gc.repoUrl ? `Repo: ${gc.repoUrl}` : undefined,
+      `Thời gian: ${timeStr}`,
+      buildResult.message ? `Thông điệp: ${buildResult.message}` : undefined,
+    ].filter(Boolean);
+
+    const text = lines.join('\n');
+    const html = `<div style="font-family:Arial,sans-serif;line-height:1.6">${lines.map(l => `<div>${l}</div>`).join('')}<hr/><div>CI/CD System</div></div>`;
+
+    return await this.emailService.sendNotificationEmail({ toList: recipients, subject, text, html });
+  }
+
   // Execute Docker build (placeholder for now)
-  async executeDockerBuild(job) {
-    // This will be implemented when we integrate with DockerService
-    console.log(`[JOB] Docker build not yet implemented for job: ${job.name}`);
-    
-    return {
-      buildId: `docker-${Date.now()}`,
-      status: 'pending',
-      message: 'Docker build not yet implemented'
+  async executeDockerBuild(job, commitHash = null) {
+    // Build Docker image sử dụng cấu hình từ job (không dùng config.json)
+    const { DockerService } = require('../services/DockerService');
+    const dockerService = new DockerService({ logger: this.logger, configService: this.configService });
+
+    const dc = (job.buildConfig && job.buildConfig.dockerConfig) ? job.buildConfig.dockerConfig : {};
+    const ctxPath = dc.contextPath || job.gitConfig?.repoPath || '.';
+    const params = {
+      dockerfilePath: dc.dockerfilePath || '',
+      contextPath: ctxPath,
+      imageName: dc.imageName || 'app',
+      imageTag: dc.imageTag || 'latest',
+      registryUrl: dc.registryUrl || '',
+      registryUsername: dc.registryUsername || '',
+      registryPassword: dc.registryPassword || '',
+      autoTagIncrement: !!dc.autoTagIncrement,
+      commitHash: commitHash || '',
+      updateConfigTag: false // Không cập nhật config.json khi build theo job
     };
+
+    const r = await dockerService.buildAndPush(params);
+
+    // Chuẩn hóa kết quả
+    const result = {
+      buildId: `docker-${Date.now()}`,
+      status: r.hadError ? 'failed' : 'completed',
+      message: r.hadError ? 'Docker build failed' : 'Docker build completed'
+    };
+
+    // Nếu auto-increment và build thành công, cập nhật lại tag trong job
+    if (!r.hadError && dc.autoTagIncrement) {
+      const updated = {
+        ...job,
+        buildConfig: {
+          ...job.buildConfig,
+          dockerConfig: {
+            ...dc,
+            imageTag: r.tagToUse
+          }
+        }
+      };
+      try { this.jobService.updateJob(job.id, updated); } catch (_) {}
+    }
+
+    return result;
   }
 
   // GET /api/jobs/enabled - Get enabled jobs for scheduler

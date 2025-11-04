@@ -1426,15 +1426,19 @@ function updateJobStats() {
   // Tổng số builds thành công/thất bại (cộng dồn theo thống kê của từng job)
   const successfulBuilds = jobs.reduce((sum, j) => sum + (j.stats?.successfulBuilds || 0), 0);
   const failedBuilds = jobs.reduce((sum, j) => sum + (j.stats?.failedBuilds || 0), 0);
+  // Tổng lượt build (cộng dồn): ưu tiên stats.totalBuilds nếu có, fallback = success + fail
+  const totalBuilds = jobs.reduce((sum, j) => sum + (j.stats?.totalBuilds || 0), 0) || (successfulBuilds + failedBuilds);
 
   // Các phần tử thống kê có id đặt trực tiếp trên .stat-number
   const totalEl = document.getElementById('totalJobs');
   const activeEl = document.getElementById('activeJobs');
+  const totalBuildsEl = document.getElementById('totalBuilds');
   const successEl = document.getElementById('successfulBuilds');
   const failedEl = document.getElementById('failedBuilds');
 
   if (totalEl) totalEl.textContent = totalJobs;
   if (activeEl) activeEl.textContent = activeJobs;
+  if (totalBuildsEl) totalBuildsEl.textContent = totalBuilds;
   if (successEl) successEl.textContent = successfulBuilds;
   if (failedEl) failedEl.textContent = failedBuilds;
 }
