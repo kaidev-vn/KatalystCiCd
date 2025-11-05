@@ -53,6 +53,14 @@ const { EmailService } = require('./src/services/EmailService');
 const { registerEmailController } = require('./src/controllers/EmailController');
 const { WebhookService } = require('./src/services/WebhookService');
 
+// Auth & User Management
+const { UserService } = require('./src/services/UserService');
+const { AuthService } = require('./src/services/AuthService');
+const { createAuthMiddleware } = require('./src/middleware/auth');
+const { requireAdmin } = require('./src/middleware/rbac');
+const { registerAuthController } = require('./src/controllers/AuthController');
+const { registerUserController } = require('./src/controllers/UserController');
+
 app.use(bodyParser.json());
 
 // Phục vụ file tĩnh cho giao diện cấu hình CI/CD
@@ -81,6 +89,11 @@ const schedulerController = new SchedulerController({ scheduler, configService }
 
 // Khởi tạo EmailService sớm để truyền vào JobController
 const emailService = new EmailService({ configService, logger });
+
+// Khởi tạo User & Auth Services
+const userService = new UserService({ logger });
+const authService = new AuthService({ userService, logger });
+const authMiddleware = createAuthMiddleware(authService);
 
 // Khởi tạo JobController với gitService (queueService sẽ gán sau)
 const jobController = new JobController({ buildService, logger, configService, gitService, emailService });
@@ -118,6 +131,16 @@ registerPullController(app, { configService, logger });
 registerWebhookController(app, { logger, secret: WEBHOOK_SECRET, webhookService });
 registerDeployController(app, { logger, configService });
 registerEmailController(app, { emailService, logger });
+
+// ========================================
+// AUTH & USER MANAGEMENT ROUTES
+// ========================================
+
+// Auth routes (login, logout, change password)
+registerAuthController(app, { authService, userService, authMiddleware });
+
+// User management routes (admin only)
+registerUserController(app, { userService, authMiddleware, requireAdmin });
 
 // ========================================
 // Job Management Routes

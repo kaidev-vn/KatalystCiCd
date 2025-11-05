@@ -59,4 +59,4 @@ function timestamp() {
   return `${yyyy}${MM}${dd}-${hh}${mm}${ss}`;
 }
 
-module.exports = { readJson, writeJson, timestamp };
+module.exports = { ensureDir, readJson, writeJson, timestamp };
