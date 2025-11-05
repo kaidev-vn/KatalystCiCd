@@ -33,6 +33,7 @@ export async function loadConfig() {
     const tokenEl = $('token'); if (tokenEl) tokenEl.value = data.token || '';
     const repoUrlEl = $('repoUrl'); if (repoUrlEl) repoUrlEl.value = data.repoUrl || '';
     const repoPathEl = $('repoPath'); if (repoPathEl) repoPathEl.value = data.repoPath || '';
+    const contextInitEl = $('contextInitPath'); if (contextInitEl) contextInitEl.value = data.contextInitPath || '';
     const branchEl = $('branch'); if (branchEl) branchEl.value = data.branch || '';
 
     // Email config (align keys with backend ConfigService)
@@ -43,11 +44,11 @@ export async function loadConfig() {
     $('notifyEmails') && ($('notifyEmails').value = (data.email?.notifyEmails || []).join(', '));
     const enableEmailEl = $('enableEmailNotify'); if (enableEmailEl) enableEmailEl.checked = !!data.email?.enableEmailNotify;
 
-    // System config
-    $('maxConcurrentBuilds') && ($('maxConcurrentBuilds').value = data.system?.maxConcurrentBuilds || '1');
-    $('buildTimeout') && ($('buildTimeout').value = data.system?.buildTimeout || '30');
-    $('logRetentionDays') && ($('logRetentionDays').value = data.system?.logRetentionDays || '30');
-    $('diskSpaceThreshold') && ($('diskSpaceThreshold').value = data.system?.diskSpaceThreshold || '80');
+    // System config (đọc từ các khoá top-level theo chuẩn backend ConfigService)
+    $('maxConcurrentBuilds') && ($('maxConcurrentBuilds').value = String(data.maxConcurrentBuilds ?? '1'));
+    $('buildTimeout') && ($('buildTimeout').value = String(data.buildTimeout ?? '30'));
+    $('logRetentionDays') && ($('logRetentionDays').value = String(data.logRetentionDays ?? '30'));
+    $('diskSpaceThreshold') && ($('diskSpaceThreshold').value = String(data.diskSpaceThreshold ?? '80'));
   } catch (e) {
     console.error(e);
   }
@@ -62,6 +63,7 @@ export async function saveConfig() {
       token: $('token')?.value || '',
       repoUrl: $('repoUrl')?.value || '',
       repoPath: $('repoPath')?.value || '',
+      contextInitPath: $('contextInitPath')?.value || '',
       branch: $('branch')?.value || '',
       // Email config payload must match backend keys
       email: {
@@ -72,12 +74,11 @@ export async function saveConfig() {
         enableEmailNotify: !!$('enableEmailNotify')?.checked,
         notifyEmails: ($('notifyEmails')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
       },
-      system: {
-        maxConcurrentBuilds: Number($('maxConcurrentBuilds')?.value || 1),
-        buildTimeout: Number($('buildTimeout')?.value || 30),
-        logRetentionDays: Number($('logRetentionDays')?.value || 30),
-        diskSpaceThreshold: Number($('diskSpaceThreshold')?.value || 80),
-      },
+      // System config: gửi đúng theo khoá top-level backend mong đợi
+      maxConcurrentBuilds: Number($('maxConcurrentBuilds')?.value || 1),
+      buildTimeout: Number($('buildTimeout')?.value || 30),
+      logRetentionDays: Number($('logRetentionDays')?.value || 30),
+      diskSpaceThreshold: Number($('diskSpaceThreshold')?.value || 80),
     };
     const { ok, data } = await fetchJSON('/api/config', {
       method: 'POST',

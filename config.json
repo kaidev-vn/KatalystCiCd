@@ -5,6 +5,7 @@
   "token": "glpat-RFqEnsH73z6pQ3v5CIxSsW86MQp1OjFlCA.01.0y1y5e59w",
   "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
   "repoPath": "",
+  "contextInitPath": "D:\\SOURCE-CODE",
   "branch": "developer_2",
   "email": {
     "smtpHost": "smtp.gmail.com",
@@ -16,12 +17,10 @@
     ],
     "enableEmailNotify": true
   },
-  "system": {
-    "maxConcurrentBuilds": 1,
-    "buildTimeout": 30,
-    "logRetentionDays": 30,
-    "diskSpaceThreshold": 80
-  },
+  "maxConcurrentBuilds": 1,
+  "buildTimeout": 30,
+  "logRetentionDays": 30,
+  "diskSpaceThreshold": 80,
   "deployScriptPath": "",
   "buildMethod": "dockerfile",
   "deployChoice": 0,
@@ -123,10 +122,6 @@
   ],
   "lastBuiltCommit": "",
   "autoCheck": false,
-  "maxConcurrentBuilds": 1,
-  "buildTimeout": 30,
-  "logRetentionDays": 30,
-  "diskSpaceThreshold": 80,
   "docker": {
     "dockerfilePath": "",
     "contextPath": "",

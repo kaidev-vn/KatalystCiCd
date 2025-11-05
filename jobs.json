@@ -1,1 +1,101 @@
-[]
+[
+  {
+    "id": "838c7848-5a1b-4cd0-a59c-3424fd9499f3",
+    "name": "ffffff",
+    "description": "",
+    "enabled": true,
+    "createdAt": "2025-11-05T07:17:23.137Z",
+    "updatedAt": "2025-11-05T07:17:23.137Z",
+    "gitConfig": {
+      "provider": "gitlab",
+      "account": "khanhnq",
+      "token": "glpat-RFqEnsH73z6pQ3v5CIxSsW86MQp1OjFlCA.01.0y1y5e59w",
+      "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
+      "repoPath": "",
+      "branch": "developer_2"
+    },
+    "buildConfig": {
+      "method": "script",
+      "scriptPath": "",
+      "jsonPipelinePath": "",
+      "buildOrder": "sequential",
+      "dockerConfig": {
+        "dockerfilePath": "",
+        "contextPath": "",
+        "imageName": "",
+        "imageTag": "latest",
+        "autoTagIncrement": false,
+        "registryUrl": "",
+        "registryUsername": "",
+        "registryPassword": ""
+      },
+      "imageName": "",
+      "imageTagNumber": "latest",
+      "imageTagText": "",
+      "autoTagIncrement": true,
+      "registryUrl": "https://harbor.techres.vn/",
+      "registryUsername": "nghiant",
+      "registryPassword": "szHnUmesLtV2GNUKfoEt"
+    },
+    "services": [],
+    "schedule": {
+      "autoCheck": true,
+      "polling": 30,
+      "cron": ""
+    },
+    "stats": {
+      "totalBuilds": 0,
+      "successfulBuilds": 0,
+      "failedBuilds": 0,
+      "lastBuildAt": null,
+      "lastBuildStatus": null
+    }
+  },
+  {
+    "id": "79a81f01-adfe-4b75-ba06-024ab843cbd2",
+    "name": "Test job",
+    "description": "",
+    "enabled": true,
+    "createdAt": "2025-11-05T07:17:33.369Z",
+    "updatedAt": "2025-11-05T07:17:33.369Z",
+    "gitConfig": {
+      "provider": "gitlab",
+      "account": "",
+      "token": "",
+      "repoUrl": "https://example.com/repo.git",
+      "repoPath": "",
+      "branch": "main"
+    },
+    "buildConfig": {
+      "method": "dockerfile",
+      "scriptPath": "",
+      "jsonPipelinePath": "",
+      "buildOrder": "parallel",
+      "dockerConfig": {
+        "dockerfilePath": "",
+        "contextPath": "",
+        "imageName": "my-app",
+        "imageTag": "1.0.0-BETA",
+        "autoTagIncrement": false,
+        "registryUrl": "",
+        "registryUsername": "",
+        "registryPassword": ""
+      }
+    },
+    "services": [
+      "app"
+    ],
+    "schedule": {
+      "autoCheck": false,
+      "polling": 30,
+      "cron": ""
+    },
+    "stats": {
+      "totalBuilds": 0,
+      "successfulBuilds": 0,
+      "failedBuilds": 0,
+      "lastBuildAt": null,
+      "lastBuildStatus": null
+    }
+  }
+]

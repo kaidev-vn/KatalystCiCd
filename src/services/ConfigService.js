@@ -21,6 +21,8 @@ class ConfigService {
       polling: 30,
       repoUrl: '',
       repoPath: '',
+      // Lưu đường dẫn người dùng chọn để khởi tạo Context (Katalyst/repo, Katalyst/builder)
+      contextInitPath: '',
       branch: 'main',
       deployScriptPath: '',
       buildMethod: 'dockerfile',
@@ -172,6 +174,8 @@ class ConfigService {
     cfg.polling = Number(cfg.polling || 30);
     cfg.repoUrl = String(cfg.repoUrl || '');
     cfg.repoPath = String(cfg.repoPath || '');
+    // Lưu lại đường dẫn khởi tạo Context để hiển thị lại trên UI
+    cfg.contextInitPath = String(cfg.contextInitPath || '');
     cfg.branch = String(cfg.branch || 'main');
     cfg.deployScriptPath = String(cfg.deployScriptPath || '');
     const bm = String(cfg.buildMethod || 'dockerfile').toLowerCase();

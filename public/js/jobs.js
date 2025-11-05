@@ -181,26 +181,41 @@ export function populateJobForm(job) {
 
   // Docker config
   // Nếu để trống, backend sẽ tự dùng Context/Katalyst/repo làm context và Dockerfile mặc định trong repo
-  $('jobDockerfilePath') && ($('jobDockerfilePath').value = job.docker?.dockerfilePath || '');
-  $('jobContextPath') && ($('jobContextPath').value = job.docker?.contextPath || '');
-  $('jobImageName') && ($('jobImageName').value = job.docker?.imageName || '');
+  const dockerCfg = job.docker?.dockerfilePath || job.docker?.contextPath || job.docker?.imageName
+    ? {
+        dockerfilePath: job.docker?.dockerfilePath,
+        contextPath: job.docker?.contextPath,
+        imageName: job.docker?.imageName,
+        imageTag: (job.docker?.tag?.number || job.docker?.tag?.text) ? `${job.docker?.tag?.number || ''}${job.docker?.tag?.text ? '-' + job.docker?.tag?.text : ''}` : '',
+        autoTagIncrement: !!job.docker?.tag?.autoIncrement,
+        registryUrl: job.docker?.registry?.url,
+        registryUsername: job.docker?.registry?.username,
+        registryPassword: job.docker?.registry?.password,
+      }
+    : (job.buildConfig?.dockerConfig || {});
 
-  $('jobImageTagNumber') && ($('jobImageTagNumber').value = job.docker?.tag?.number || '');
-  $('jobImageTagText') && ($('jobImageTagText').value = job.docker?.tag?.text || '');
-  const autoIncEl = $('jobAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!job.docker?.tag?.autoIncrement;
+  $('jobDockerfilePath') && ($('jobDockerfilePath').value = dockerCfg.dockerfilePath || '');
+  $('jobContextPath') && ($('jobContextPath').value = dockerCfg.contextPath || '');
+  $('jobImageName') && ($('jobImageName').value = dockerCfg.imageName || '');
 
-  $('jobRegistryUrl') && ($('jobRegistryUrl').value = job.docker?.registry?.url || '');
-  $('jobRegistryUsername') && ($('jobRegistryUsername').value = job.docker?.registry?.username || '');
-  $('jobRegistryPassword') && ($('jobRegistryPassword').value = job.docker?.registry?.password || '');
+  const dockerTagParts = splitTagLocal(dockerCfg.imageTag || '');
+  $('jobImageTagNumber') && ($('jobImageTagNumber').value = dockerTagParts.number || '');
+  $('jobImageTagText') && ($('jobImageTagText').value = dockerTagParts.text || '');
+  const autoIncEl = $('jobAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!dockerCfg.autoTagIncrement;
+
+  $('jobRegistryUrl') && ($('jobRegistryUrl').value = dockerCfg.registryUrl || '');
+  $('jobRegistryUsername') && ($('jobRegistryUsername').value = dockerCfg.registryUsername || '');
+  $('jobRegistryPassword') && ($('jobRegistryPassword').value = dockerCfg.registryPassword || '');
 
   // Script config (không còn nhập thủ công script path)
-  $('jobScriptImageName') && ($('jobScriptImageName').value = job.script?.imageName || '');
-  $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = job.script?.tag?.number || '');
-  $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = job.script?.tag?.text || '');
-  const autoIncScriptEl = $('jobScriptAutoTagIncrement'); if (autoIncScriptEl) autoIncScriptEl.checked = !!job.script?.tag?.autoIncrement;
-  $('jobScriptRegistryUrl') && ($('jobScriptRegistryUrl').value = job.script?.registry?.url || '');
-  $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = job.script?.registry?.username || '');
-  $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = job.script?.registry?.password || '');
+  // Trong file jobs.json, cấu hình script được lưu trong buildConfig: imageName, imageTagNumber, imageTagText, autoTagIncrement, registry*
+  $('jobScriptImageName') && ($('jobScriptImageName').value = (job.script?.imageName || job.buildConfig?.imageName || ''));
+  $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = (job.script?.tag?.number || job.buildConfig?.imageTagNumber || ''));
+  $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = (job.script?.tag?.text || job.buildConfig?.imageTagText || ''));
+  const autoIncScriptEl = $('jobScriptAutoTagIncrement'); if (autoIncScriptEl) autoIncScriptEl.checked = !!(job.script?.tag?.autoIncrement || job.buildConfig?.autoTagIncrement);
+  $('jobScriptRegistryUrl') && ($('jobScriptRegistryUrl').value = (job.script?.registry?.url || job.buildConfig?.registryUrl || ''));
+  $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = (job.script?.registry?.username || job.buildConfig?.registryUsername || ''));
+  $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = (job.script?.registry?.password || job.buildConfig?.registryPassword || ''));
 
   // JSON Pipeline config
   $('jobJsonPipelinePath') && ($('jobJsonPipelinePath').value = job.buildConfig?.jsonPipelinePath || job.jsonPipelinePath || '');
@@ -358,7 +373,7 @@ export async function deleteJob(jobId) {
 }
 
 export async function runJob(jobId) {
-  const { ok } = await fetchJSON(`/api/jobs/run/${jobId}`, { method: 'POST' });
+  const { ok } = await fetchJSON(`/api/jobs/${jobId}/run`, { method: 'POST' });
   if (ok) {
     await loadJobs();
     await loadJobRelatedQueue();
