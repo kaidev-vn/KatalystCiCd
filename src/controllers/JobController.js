@@ -68,6 +68,12 @@ class JobController {
       }
 
       const newJob = this.jobService.createJob(normalized);
+      // Sau khi tạo job, nếu là phương thức script, chuẩn bị thư mục builder và file build-script.sh
+      try {
+        await this._ensureJobScript(newJob);
+      } catch (e) {
+        this.logger?.send?.(`[JOB][WARN] Không thể tạo file script sau khi lưu job: ${e.message}`);
+      }
       // Restart job scheduler để áp dụng job mới
       try { this.jobScheduler?.restart(); } catch (_) {}
       res.status(201).json(newJob);
@@ -99,6 +105,12 @@ class JobController {
       }
 
       const updatedJob = this.jobService.updateJob(id, updateData);
+      // Sau khi cập nhật job, nếu là phương thức script, đảm bảo thư mục và file script được tạo/cập nhật
+      try {
+        await this._ensureJobScript(updatedJob);
+      } catch (e) {
+        this.logger?.send?.(`[JOB][WARN] Không thể tạo/cập nhật file script sau khi cập nhật job: ${e.message}`);
+      }
       // Restart job scheduler để cập nhật lịch
       try { this.jobScheduler?.restart(); } catch (_) {}
       res.json(updatedJob);
@@ -199,6 +211,124 @@ class JobController {
     };
   }
 
+  /**
+   * Đảm bảo tạo thư mục builder cho job và file build-script.sh chứa các biến cấu hình.
+   * Thực thi khi lưu job (create/update) để người dùng có sẵn script mặc định.
+   */
+  async _ensureJobScript(job) {
+    try {
+      const method = job?.buildConfig?.method || 'dockerfile';
+      if (method !== 'script') return; // Chỉ xử lý cho phương thức script
+
+      const cfg = this.configService.getConfig();
+      // Xác định base context: <contextInitPath>/Katalyst
+      let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
+      const gc = job.gitConfig || {};
+      if (!baseContext) {
+        // Fallback nếu chưa cấu hình
+        const legacyRepoPath = cfg.repoPath || gc.repoPath || '';
+        baseContext = legacyRepoPath ? path.dirname(legacyRepoPath) : process.cwd();
+      }
+
+      const katalystRoot = path.join(baseContext, 'Katalyst');
+      const repoPath = path.join(katalystRoot, 'repo');
+      const builderRoot = path.join(katalystRoot, 'builder');
+      try {
+        fs.mkdirSync(repoPath, { recursive: true });
+        fs.mkdirSync(builderRoot, { recursive: true });
+      } catch (e) {
+        throw new Error(`Không thể tạo thư mục context tại ${katalystRoot}: ${e.message}`);
+      }
+
+      const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+      const jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
+      try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
+
+      // Xác định đường dẫn script mặc định nếu chưa có
+      const defaultScriptPath = path.join(jobBuilderDir, 'build-script.sh');
+      const bc = job.buildConfig || {};
+      const dc = bc.dockerConfig || {};
+
+      // Biến cấu hình
+      const imageName = bc.imageName || dc.imageName || '';
+      const tagNumber = bc.imageTagNumber || '';
+      const tagText = bc.imageTagText || '';
+      const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
+      const registryUrl = bc.registryUrl || dc.registryUrl || '';
+      const registryUsername = bc.registryUsername || dc.registryUsername || '';
+      const registryPassword = bc.registryPassword || dc.registryPassword || '';
+      const dockerfilePath = dc.dockerfilePath || '';
+      // contextPath ưu tiên theo cấu hình docker, nếu không có thì dùng repoPath mặc định
+      const contextPath = dc.contextPath || repoPath;
+
+      // Tạo IMAGE_TAG từ number/text (không tự tăng khi lưu)
+      const imageTag = (() => {
+        if (bc.imageTagNumber) {
+          return bc.imageTagText ? `${bc.imageTagNumber}-${bc.imageTagText}` : `${bc.imageTagNumber}`;
+        }
+        return dc.imageTag || 'latest';
+      })();
+
+      // Nội dung script mẫu
+      const scriptContent = `#!/usr/bin/env bash\n\n` +
+        `# Auto-generated build script for job: ${job.name} (${job.id})\n` +
+        `# Context root: ${katalystRoot}\n` +
+        `# Created at: ${new Date().toISOString()}\n\n` +
+        `# Git\n` +
+        `BRANCH="${gc.branch || 'main'}"\n` +
+        `REPO_URL="${gc.repoUrl || ''}"\n` +
+        `REPO_PATH="${repoPath}"\n\n` +
+        `# Docker Build Config\n` +
+        `CONTEXT_PATH="${contextPath}"\n` +
+        `DOCKERFILE_PATH="${dockerfilePath}"\n` +
+        `IMAGE_NAME="${imageName}"\n` +
+        `IMAGE_TAG_NUMBER="${tagNumber}"\n` +
+        `IMAGE_TAG_TEXT="${tagText}"\n` +
+        `IMAGE_TAG="${imageTag}"\n` +
+        `AUTO_TAG_INCREMENT="${autoInc ? 'true' : 'false'}"\n` +
+        `REGISTRY_URL="${registryUrl}"\n` +
+        `REGISTRY_USERNAME="${registryUsername}"\n` +
+        `REGISTRY_PASSWORD="${registryPassword}"\n\n` +
+        `# Job Info\n` +
+        `JOB_ID="${job.id}"\n` +
+        `JOB_NAME="${job.name}"\n` +
+        `KATALYST_ROOT="${katalystRoot}"\n` +
+        `JOB_BUILDER_DIR="${jobBuilderDir}"\n\n` +
+        `echo "[BUILD-SCRIPT] Job: $JOB_NAME ($JOB_ID)"\n` +
+        `echo "[BUILD-SCRIPT] Context: $CONTEXT_PATH"\n` +
+        `echo "[BUILD-SCRIPT] Dockerfile: $DOCKERFILE_PATH"\n` +
+        `echo "[BUILD-SCRIPT] Image: $IMAGE_NAME:$IMAGE_TAG"\n` +
+        `echo "[BUILD-SCRIPT] Registry: $REGISTRY_URL"\n\n` +
+        `# TODO: Add your build commands below\n` +
+        `# Example:\n` +
+        `# docker build -f "$DOCKERFILE_PATH" -t "$IMAGE_NAME:$IMAGE_TAG" "$CONTEXT_PATH"\n` +
+        `# echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin\n` +
+        `# docker push "$IMAGE_NAME:$IMAGE_TAG"\n`;
+
+      // Ghi file script nếu chưa tồn tại; nếu đã tồn tại, cập nhật nội dung để phản ánh thay đổi cấu hình
+      try {
+        fs.writeFileSync(defaultScriptPath, scriptContent, { encoding: 'utf8' });
+      } catch (e) {
+        throw new Error(`Không thể ghi file script: ${defaultScriptPath}: ${e.message}`);
+      }
+
+      // Cập nhật đường dẫn script trong job nếu chưa có hoặc khác với mặc định
+      if (!bc.scriptPath || bc.scriptPath !== defaultScriptPath) {
+        const updated = {
+          ...job,
+          buildConfig: {
+            ...job.buildConfig,
+            scriptPath: defaultScriptPath
+          }
+        };
+        try { this.jobService.updateJob(job.id, updated); } catch (_) {}
+      }
+    } catch (error) {
+      // Không làm thất bại thao tác lưu job nếu lỗi tạo script; chỉ log cảnh báo
+      this.logger?.send?.(`[JOB][SCRIPT] Lỗi khi chuẩn bị script cho job ${job?.name || ''}: ${error.message}`);
+    }
+  }
+
   // DELETE /api/jobs/:id - Delete job
   async deleteJob(req, res) {
     try {
@@ -292,6 +422,7 @@ class JobController {
       // Ngược lại, chuẩn bị context và repo như bình thường
       let repoPath = '';
       let builderRoot = '';
+      let jobBuilderDir = '';
       if ((job.buildConfig?.method || 'dockerfile') !== 'jsonfile') {
         // Xác định base context theo cấu hình: <contextInitPath>/Katalyst
         let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
@@ -311,6 +442,15 @@ class JobController {
           this.logger?.send?.(`[JOB][ERROR] Không thể tạo thư mục context tại ${katalystRoot}: ${e.message}`);
           throw e;
         }
+
+        // Nếu phương thức là script, tạo sẵn thư mục builder cho job ngay từ đầu
+        // để đảm bảo thư mục tồn tại kể cả khi không có commit mới (skip build)
+        if ((job.buildConfig?.method || 'dockerfile') === 'script') {
+          const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+          jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
+          try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
+        }
+
         const branch = gc.branch || 'main';
         const repoUrl = gc.repoUrl;
         const token = gc.token;
@@ -379,10 +519,13 @@ class JobController {
         env.DOCKERFILE_PATH = dc.dockerfilePath || '';
         env.CONTEXT_PATH = dc.contextPath || repoPath || '';
 
-        // Tạo thư mục builder cho job: <context>/Katalyst/builder/(ten-job + job_id)
-        const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
-        const jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
-        try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
+        // Thư mục builder cho job đã được tạo sẵn ở bước chuẩn bị.
+        // Nếu vì lý do nào đó chưa tạo được, thử tạo lại tại đây.
+        if (!jobBuilderDir) {
+          const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+          jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
+          try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
+        }
         const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build.sh');
 
         const r = await this.buildService.runScript(
