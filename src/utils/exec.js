@@ -30,7 +30,8 @@ function run(command, logger, options = {}) {
       maxBuffer: 10 * 1024 * 1024,
       env: { ...process.env, ...(options.env || {}) },
       cwd: options.cwd,
-      shell: options.shell || resolveShell()
+      shell: options.shell || resolveShell(),
+      timeout: typeof options.timeout === 'number' ? options.timeout : undefined
     }, (error, stdout, stderr) => {
       resolve({ error, stdout, stderr });
     });

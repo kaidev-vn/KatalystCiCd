@@ -68,6 +68,7 @@ class JobService {
         const base = {
           method,
           scriptPath: jobData.buildConfig?.scriptPath || '',
+          jsonPipelinePath: jobData.buildConfig?.jsonPipelinePath || '',
           buildOrder: jobData.buildConfig?.buildOrder || 'parallel',
           dockerConfig: jobData.buildConfig?.dockerConfig || {
             dockerfilePath: '',
@@ -204,12 +205,18 @@ class JobService {
       errors.push('Job name is required');
     }
 
-    if (!jobData.gitConfig?.repoUrl) {
-      errors.push('Repository URL is required');
-    }
-
-    if (!jobData.gitConfig?.branch) {
-      errors.push('Branch is required');
+    // Với phương thức jsonfile, cho phép bỏ qua git repo/branch vì pipeline tự xử lý checkout
+    if ((jobData.buildConfig?.method || 'dockerfile') !== 'jsonfile') {
+      if (!jobData.gitConfig?.repoUrl) {
+        errors.push('Repository URL is required');
+      }
+      if (!jobData.gitConfig?.branch) {
+        errors.push('Branch is required');
+      }
+    } else {
+      if (!jobData.buildConfig?.jsonPipelinePath) {
+        errors.push('Pipeline JSON file path is required for jsonfile build method');
+      }
     }
 
     // Với phương thức build script, đường dẫn script có thể được tạo tự động trong thư mục builder.

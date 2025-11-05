@@ -238,6 +238,152 @@ class BuildService {
     }
   }
 
+  /**
+   * Chạy pipeline từ file JSON mô tả các bước cần thực thi.
+   * JSON format:
+   * {
+   *   pipeline_name: string,
+   *   version: number|string,
+   *   working_directory: string,
+   *   environment_vars: { [key: string]: string },
+   *   steps: Array<{
+   *     step_order: number,
+   *     step_id?: string,
+   *     step_name?: string,
+   *     step_exec: string,
+   *     timeout_seconds?: number,
+   *     on_fail?: 'stop'|'continue',
+   *     ignore_failure?: boolean,
+   *     shell?: string
+   *   }>
+   * }
+   */
+  async runPipelineFile(filePath, envOverrides = {}) {
+    const { run, resolveShell } = require('../utils/exec');
+    const buildId = `pipeline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const startTime = new Date().toISOString();
+
+    // Record build start
+    this.addBuildHistory({
+      id: buildId,
+      name: `JSON Pipeline: ${path.basename(filePath)}`,
+      method: 'jsonfile',
+      status: 'running',
+      startTime,
+      scriptPath: filePath
+    });
+
+    // Create log file
+    const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
+    const logStream = fs.createWriteStream(logFile, { flags: 'w' });
+    const buildLogger = {
+      send: (message) => {
+        const timestamp = new Date().toISOString();
+        const logLine = `[${timestamp}] ${message}\n`;
+        logStream.write(logLine);
+        this.logger?.send(message);
+      }
+    };
+
+    try {
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Pipeline JSON không tồn tại: ${filePath}`);
+      }
+      const raw = fs.readFileSync(filePath, 'utf8');
+      let spec;
+      try { spec = JSON.parse(raw); } catch (e) { throw new Error(`Lỗi parse JSON: ${e.message}`); }
+
+      const pipelineName = spec.pipeline_name || path.basename(filePath);
+      const workingDir = spec.working_directory || process.cwd();
+      const envMap = spec.environment_vars || {};
+      const steps = Array.isArray(spec.steps) ? spec.steps.slice() : [];
+      // Sort by step_order if provided
+      steps.sort((a, b) => (Number(a.step_order || 0) - Number(b.step_order || 0)));
+
+      // Prepare environment: merge process.env, overrides, and pipeline env
+      // Also resolve simple ${VAR} templates within envMap using current env values
+      const baseEnv = { ...process.env, ...(envOverrides || {}) };
+      const resolvedEnv = { ...baseEnv };
+      for (const [k, v] of Object.entries(envMap)) {
+        let val = String(v);
+        val = val.replace(/\$\{([^}]+)\}/g, (_, name) => {
+          const repl = resolvedEnv[name] ?? '';
+          return String(repl);
+        });
+        resolvedEnv[k] = val;
+      }
+
+      buildLogger.send(`[PIPELINE] Bắt đầu: ${pipelineName}`);
+      buildLogger.send(`[PIPELINE] Working dir: ${workingDir}`);
+      const defaultShell = resolveShell();
+      let hadError = false;
+
+      // Ensure working directory exists
+      try {
+        if (!fs.existsSync(workingDir)) fs.mkdirSync(workingDir, { recursive: true });
+      } catch (e) {
+        buildLogger.send(`[PIPELINE][WARN] Không tạo được working directory: ${workingDir} (${e.message})`);
+      }
+
+      for (const step of steps) {
+        const name = step.step_name || step.step_id || `Step ${step.step_order}`;
+        const cmd = step.step_exec;
+        const timeoutMs = typeof step.timeout_seconds === 'number' ? step.timeout_seconds * 1000 : undefined;
+        const ignoreFailure = !!step.ignore_failure || String(step.on_fail || '').toLowerCase() === 'continue';
+        const stepShell = step.shell || defaultShell;
+
+        buildLogger.send(`[STEP ${step.step_order ?? '?'}] ${name}`);
+        buildLogger.send(`[STEP][EXEC] ${cmd}`);
+
+        const { error, stdout, stderr } = await run(cmd, buildLogger, {
+          env: resolvedEnv,
+          cwd: workingDir,
+          shell: stepShell,
+          timeout: timeoutMs
+        });
+
+        if (stdout) buildLogger.send(`[STEP][STDOUT] ${stdout.trim()}`);
+        if (stderr) buildLogger.send(`[STEP][STDERR] ${stderr.trim()}`);
+        if (error) {
+          hadError = true;
+          const code = error.code || '';
+          const sig = error.signal || '';
+          const msg = error.message || 'unknown error';
+          buildLogger.send(`[STEP][ERROR] code=${code} signal=${sig} message=${msg}`);
+          if (!ignoreFailure) {
+            buildLogger.send(`[PIPELINE] Dừng do lỗi ở step: ${name}`);
+            break;
+          } else {
+            buildLogger.send(`[PIPELINE] Bỏ qua lỗi và tiếp tục theo cấu hình step`);
+          }
+        }
+      }
+
+      const endTime = new Date().toISOString();
+      const duration = this.calculateDuration(startTime, endTime);
+      this.updateBuildHistory(buildId, {
+        status: hadError ? 'failed' : 'success',
+        endTime,
+        duration
+      });
+      buildLogger.send(`[PIPELINE] Hoàn tất: ${pipelineName} (hadError=${hadError})`);
+      logStream.end();
+      return { ok: !hadError, buildId };
+    } catch (error) {
+      const endTime = new Date().toISOString();
+      const duration = this.calculateDuration(startTime, endTime);
+      this.updateBuildHistory(buildId, {
+        status: 'failed',
+        endTime,
+        duration,
+        error: error.message
+      });
+      buildLogger.send(`[PIPELINE] Lỗi: ${error.message}`);
+      logStream.end();
+      throw error;
+    }
+  }
+
   // Build History Management
   getBuildHistory() {
     try {

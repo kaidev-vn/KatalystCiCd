@@ -1,0 +1,36 @@
+{
+  "pipeline_name": "Katalyst Initial Build (Sample)",
+  "version": 1.0,
+  "working_directory": "D:\\SOURCE-CODE\\NODEJS\\Ci-Cd\\work\\katalyst-repo",
+  "environment_vars": {
+    "BUILD_NUMBER": "42",
+    "BUILD_VERSION": "1.0.0-${BUILD_NUMBER}",
+    "REPO_URL": "https://github.com/sindresorhus/is.git"
+  },
+  "steps": [
+    {
+      "step_order": 1,
+      "step_id": "checkout_code",
+      "step_name": "Clone Mã nguồn",
+      "step_exec": "git clone $REPO_URL .",
+      "timeout_seconds": 120,
+      "on_fail": "stop"
+    },
+    {
+      "step_order": 2,
+      "step_id": "install_dependencies",
+      "step_name": "Cài đặt Phụ thuộc (npm)",
+      "step_exec": "npm install",
+      "ignore_failure": false,
+      "timeout_seconds": 300
+    },
+    {
+      "step_order": 3,
+      "step_id": "run_tests",
+      "step_name": "Chạy Unit Tests",
+      "step_exec": "npm test",
+      "on_fail": "continue",
+      "timeout_seconds": 120
+    }
+  ]
+}

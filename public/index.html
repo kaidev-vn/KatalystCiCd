@@ -573,6 +573,10 @@
                 <input type="radio" id="jobMethodDocker" name="jobBuildMethod" value="dockerfile" checked />
                 <label for="jobMethodDocker">🐳 Build theo Dockerfile</label>
               </div>
+              <div class="method-option">
+                <input type="radio" id="jobMethodJson" name="jobBuildMethod" value="jsonfile" />
+                <label for="jobMethodJson">📦 Build theo JSON Pipeline</label>
+              </div>
             </div>
             
             <!-- Use Common Config Button -->
@@ -712,6 +716,20 @@
               
               <label for="jobRegistryPassword">Registry Password</label>
               <input id="jobRegistryPassword" type="password" />
+            </div>
+
+            <!-- JSON Pipeline Config -->
+            <div id="jobJsonConfig" class="method-config" style="display: none;">
+              <div class="info-box">
+                <small class="muted">Nhập đường dẫn file JSON pipeline. Hệ thống sẽ thực thi các bước theo file, bỏ qua clone/pull repo mặc định.</small>
+              </div>
+              <div class="row">
+                <div>
+                  <label for="jobJsonPipelinePath">Pipeline JSON File Path *</label>
+                  <input id="jobJsonPipelinePath" type="text" placeholder="/home/katalyst/pipelines/initial-build.json" />
+                </div>
+              </div>
+              <small class="muted">JSON hỗ trợ: pipeline_name, version, working_directory, environment_vars, steps (step_exec, timeout_seconds, on_fail/ignore_failure, shell).</small>
             </div>
           </div>
 

@@ -25,10 +25,12 @@ export function renderJobsTable() {
   state.jobs.forEach(job => {
     const tr = document.createElement('tr');
     const lastBuildStatus = job?.stats?.lastStatus || 'N/A';
+    const method = job?.method || job?.buildConfig?.method || 'dockerfile';
+    const methodLabel = method === 'dockerfile' ? 'Dockerfile' : (method === 'script' ? 'Script' : (method === 'jsonfile' ? 'JSON Pipeline' : String(method)));
     tr.innerHTML = `
       <td>${job.name}</td>
       <td><span class="status ${getStatusClass(lastBuildStatus)}">${getStatusText(lastBuildStatus)}</span></td>
-      <td>${job.method === 'dockerfile' ? 'Dockerfile' : 'Script'}</td>
+      <td>${methodLabel}</td>
       <td>${(job.services || []).length}</td>
       <td>${job.stats?.lastBuildTime ? new Date(job.stats.lastBuildTime).toLocaleString() : '-'}</td>
       <td>
@@ -105,12 +107,14 @@ export function populateJobForm(job) {
   $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = job.git?.repoUrl || '');
 
   // Method
-  const isScript = job.method === 'script';
+  const method = job.method || job.buildConfig?.method || 'dockerfile';
   const scriptRadio = document.getElementById('jobMethodScript');
   const dockerRadio = document.getElementById('jobMethodDocker');
-  if (scriptRadio) scriptRadio.checked = isScript;
-  if (dockerRadio) dockerRadio.checked = !isScript;
-  toggleBuildMethodConfig(job.method);
+  const jsonRadio = document.getElementById('jobMethodJson');
+  if (scriptRadio) scriptRadio.checked = method === 'script';
+  if (dockerRadio) dockerRadio.checked = method === 'dockerfile';
+  if (jsonRadio) jsonRadio.checked = method === 'jsonfile';
+  toggleBuildMethodConfig(method);
 
   // Docker config
   // Nếu để trống, backend sẽ tự dùng Context/Katalyst/repo làm context và Dockerfile mặc định trong repo
@@ -135,6 +139,9 @@ export function populateJobForm(job) {
   $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = job.script?.registry?.username || '');
   $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = job.script?.registry?.password || '');
 
+  // JSON Pipeline config
+  $('jobJsonPipelinePath') && ($('jobJsonPipelinePath').value = job.buildConfig?.jsonPipelinePath || job.jsonPipelinePath || '');
+
   // Schedule
   const autoCheckEl = $('jobAutoCheck'); if (autoCheckEl) autoCheckEl.checked = !!job.schedule?.autoCheck;
   toggleScheduleConfig(!!job.schedule?.autoCheck);
@@ -150,7 +157,7 @@ export function populateJobForm(job) {
 }
 
 export function resetJobForm() {
-  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobPolling','jobCron'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobJsonPipelinePath','jobPolling','jobCron'].forEach(id => { const el = $(id); if (el) el.value = ''; });
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = true;
   const dockerRadio = document.getElementById('jobMethodDocker'); if (dockerRadio) dockerRadio.checked = true;
   toggleBuildMethodConfig('dockerfile');
@@ -160,12 +167,18 @@ export function resetJobForm() {
 export function toggleBuildMethodConfig(method) {
   const scriptCfg = $('jobScriptConfig');
   const dockerCfg = $('jobDockerConfig');
+  const jsonCfg = $('jobJsonConfig');
+  const servicesSec = $('servicesSection');
   if (method === 'script') {
     if (scriptCfg) scriptCfg.style.display = 'block';
     if (dockerCfg) dockerCfg.style.display = 'none';
+    if (jsonCfg) jsonCfg.style.display = 'none';
+    if (servicesSec) servicesSec.style.display = 'none';
   } else {
     if (scriptCfg) scriptCfg.style.display = 'none';
-    if (dockerCfg) dockerCfg.style.display = 'block';
+    if (dockerCfg) dockerCfg.style.display = method === 'dockerfile' ? 'block' : 'none';
+    if (jsonCfg) jsonCfg.style.display = method === 'jsonfile' ? 'block' : 'none';
+    if (servicesSec) servicesSec.style.display = method === 'dockerfile' ? 'block' : 'none';
   }
 }
 
@@ -176,12 +189,47 @@ export function toggleScheduleConfig(show) {
 
 export async function saveJob() {
   const id = state.editingJobId;
+  const selectedMethod = document.querySelector('input[name="jobBuildMethod"]:checked')?.value || 'dockerfile';
+  const buildOrder = $('jobBuildOrder')?.value || 'parallel';
+  const dockerConfig = {
+    dockerfilePath: $('jobDockerfilePath')?.value || '',
+    contextPath: $('jobContextPath')?.value || '',
+    imageName: $('jobImageName')?.value || '',
+    imageTag: (function() {
+      const num = $('jobImageTagNumber')?.value || '';
+      const txt = $('jobImageTagText')?.value || '';
+      if (!num && !txt) return '';
+      return txt ? `${num}-${txt}` : num;
+    })(),
+    autoTagIncrement: !!$('jobAutoTagIncrement')?.checked,
+    registryUrl: $('jobRegistryUrl')?.value || '',
+    registryUsername: $('jobRegistryUsername')?.value || '',
+    registryPassword: $('jobRegistryPassword')?.value || ''
+  };
+  const buildConfig = {
+    method: selectedMethod,
+    buildOrder,
+    dockerConfig,
+    scriptPath: ''
+  };
+  if (selectedMethod === 'script') {
+    buildConfig.imageName = $('jobScriptImageName')?.value || '';
+    buildConfig.imageTagNumber = $('jobScriptImageTagNumber')?.value || '';
+    buildConfig.imageTagText = $('jobScriptImageTagText')?.value || '';
+    buildConfig.autoTagIncrement = !!$('jobScriptAutoTagIncrement')?.checked;
+    buildConfig.registryUrl = $('jobScriptRegistryUrl')?.value || '';
+    buildConfig.registryUsername = $('jobScriptRegistryUsername')?.value || '';
+    buildConfig.registryPassword = $('jobScriptRegistryPassword')?.value || '';
+  }
+  if (selectedMethod === 'jsonfile') {
+    buildConfig.jsonPipelinePath = $('jobJsonPipelinePath')?.value || '';
+  }
   const payload = {
     id,
     name: $('jobName')?.value || '',
     description: $('jobDescription')?.value || '',
     enabled: !!$('jobEnabled')?.checked,
-    method: document.querySelector('input[name="jobBuildMethod"]:checked')?.value || 'dockerfile',
+    method: selectedMethod,
     git: {
       provider: $('jobGitProvider')?.value || 'gitlab',
       account: $('jobGitAccount')?.value || '',
@@ -190,6 +238,7 @@ export async function saveJob() {
       repoUrl: $('jobGitRepoUrl')?.value || '',
       // repoPath sẽ được xác định tự động dựa trên cấu hình contextInitPath (Context/Katalyst/repo)
     },
+    buildConfig,
     docker: {
       // Nếu để trống, backend sẽ tự áp dụng: context = Context/Katalyst/repo; docker build sẽ dùng Dockerfile mặc định trong repo
       dockerfilePath: $('jobDockerfilePath')?.value || '',

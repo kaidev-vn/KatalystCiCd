@@ -133,16 +133,24 @@ class JobController {
 
     // Normalize build config
     const legacyBuild = d.build || {};
+    const dockerUI = d.docker || {};
+    const scriptUI = d.script || {};
     // docker config might be nested or flat in legacy
     const legacyDockerConfig = legacyBuild.dockerConfig || {
-      dockerfilePath: legacyBuild.dockerfilePath || d.dockerfilePath || '',
-      contextPath: legacyBuild.contextPath || d.contextPath || '',
-      imageName: legacyBuild.imageName || d.imageName || '',
-      imageTag: legacyBuild.imageTag || d.imageTag || '',
-      autoTagIncrement: !!(legacyBuild.autoTagIncrement || d.autoTagIncrement),
-      registryUrl: legacyBuild.registryUrl || d.registryUrl || '',
-      registryUsername: legacyBuild.registryUsername || d.registryUsername || '',
-      registryPassword: legacyBuild.registryPassword || d.registryPassword || ''
+      dockerfilePath: legacyBuild.dockerfilePath || dockerUI.dockerfilePath || d.dockerfilePath || '',
+      contextPath: legacyBuild.contextPath || dockerUI.contextPath || d.contextPath || '',
+      imageName: legacyBuild.imageName || dockerUI.imageName || d.imageName || '',
+      imageTag: (function() {
+        if (legacyBuild.imageTag) return legacyBuild.imageTag;
+        const num = dockerUI.tag?.number || '';
+        const txt = dockerUI.tag?.text || '';
+        if (!num && !txt) return d.imageTag || '';
+        return txt ? `${num}-${txt}` : num;
+      })(),
+      autoTagIncrement: !!(legacyBuild.autoTagIncrement || dockerUI.tag?.autoIncrement || d.autoTagIncrement),
+      registryUrl: legacyBuild.registryUrl || dockerUI.registry?.url || d.registryUrl || '',
+      registryUsername: legacyBuild.registryUsername || dockerUI.registry?.username || d.registryUsername || '',
+      registryPassword: legacyBuild.registryPassword || dockerUI.registry?.password || d.registryPassword || ''
     };
 
     // Build config: preserve script-specific fields sent from UI
@@ -155,13 +163,18 @@ class JobController {
     };
     // If method is script, ensure we keep script tag/registry fields
     if (buildMethod === 'script') {
-      buildConfig.imageName = d.buildConfig?.imageName || legacyBuild.imageName || d.imageName || '';
-      buildConfig.imageTagNumber = d.buildConfig?.imageTagNumber || legacyBuild.imageTagNumber || d.imageTagNumber || '';
-      buildConfig.imageTagText = d.buildConfig?.imageTagText || legacyBuild.imageTagText || d.imageTagText || '';
-      buildConfig.autoTagIncrement = !!(d.buildConfig?.autoTagIncrement || legacyBuild.autoTagIncrement || d.autoTagIncrement);
-      buildConfig.registryUrl = d.buildConfig?.registryUrl || legacyBuild.registryUrl || d.registryUrl || '';
-      buildConfig.registryUsername = d.buildConfig?.registryUsername || legacyBuild.registryUsername || d.registryUsername || '';
-      buildConfig.registryPassword = d.buildConfig?.registryPassword || legacyBuild.registryPassword || d.registryPassword || '';
+      buildConfig.imageName = d.buildConfig?.imageName || legacyBuild.imageName || scriptUI.imageName || d.imageName || '';
+      buildConfig.imageTagNumber = d.buildConfig?.imageTagNumber || legacyBuild.imageTagNumber || scriptUI.tag?.number || d.imageTagNumber || '';
+      buildConfig.imageTagText = d.buildConfig?.imageTagText || legacyBuild.imageTagText || scriptUI.tag?.text || d.imageTagText || '';
+      buildConfig.autoTagIncrement = !!(d.buildConfig?.autoTagIncrement || legacyBuild.autoTagIncrement || scriptUI.tag?.autoIncrement || d.autoTagIncrement);
+      buildConfig.registryUrl = d.buildConfig?.registryUrl || legacyBuild.registryUrl || scriptUI.registry?.url || d.registryUrl || '';
+      buildConfig.registryUsername = d.buildConfig?.registryUsername || legacyBuild.registryUsername || scriptUI.registry?.username || d.registryUsername || '';
+      buildConfig.registryPassword = d.buildConfig?.registryPassword || legacyBuild.registryPassword || scriptUI.registry?.password || d.registryPassword || '';
+    }
+
+    // If method is jsonfile, bring over jsonPipelinePath from various possible UI fields
+    if (buildMethod === 'jsonfile') {
+      buildConfig.jsonPipelinePath = d.buildConfig?.jsonPipelinePath || d.jsonPipelinePath || d.jobJsonPipelinePath || '';
     }
 
     // Normalize services
@@ -275,56 +288,62 @@ class JobController {
       // Kiểm tra commit mới trước khi build để đáp ứng yêu cầu "phải có commit mới thì mới build"
       const gc = job.gitConfig || {};
       const cfg = this.configService.getConfig();
-      // Xác định base context theo cấu hình: <contextInitPath>/Katalyst
-      let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
-      if (!baseContext) {
-        // Fallback: nếu chưa cấu hình, suy ra từ repoPath cũ hoặc dùng cwd
-        const legacyRepoPath = cfg.repoPath || gc.repoPath || '';
-        baseContext = legacyRepoPath ? path.dirname(legacyRepoPath) : process.cwd();
-        this.logger?.send?.(`[JOB][WARN] Chưa cấu hình contextInitPath. Fallback baseContext=${baseContext}`);
-      }
-      const katalystRoot = path.join(baseContext, 'Katalyst');
-      const repoPath = path.join(katalystRoot, 'repo');
-      const builderRoot = path.join(katalystRoot, 'builder');
-      try {
-        fs.mkdirSync(repoPath, { recursive: true });
-        fs.mkdirSync(builderRoot, { recursive: true });
-      } catch (e) {
-        this.logger?.send?.(`[JOB][ERROR] Không thể tạo thư mục context tại ${katalystRoot}: ${e.message}`);
-        throw e;
-      }
-      const branch = gc.branch || 'main';
-      const repoUrl = gc.repoUrl;
-      const token = gc.token;
-      const provider = gc.provider || 'gitlab';
-
-      // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
-      await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
-
-      if (this.gitService && repoPath) {
-        const check = await this.gitService.checkNewCommitAndPull({
-          repoPath,
-          branch,
-          repoUrl,
-          token,
-          provider,
-          doPull: true
-        });
-        if (!check.ok) {
-          throw new Error(`Kiểm tra/pull commit thất bại: ${check.error || 'unknown'}`);
+      // Nếu phương thức là jsonfile, bỏ qua chuẩn bị repo & kiểm tra commit (pipeline tự xử lý)
+      // Ngược lại, chuẩn bị context và repo như bình thường
+      let repoPath = '';
+      let builderRoot = '';
+      if ((job.buildConfig?.method || 'dockerfile') !== 'jsonfile') {
+        // Xác định base context theo cấu hình: <contextInitPath>/Katalyst
+        let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
+        if (!baseContext) {
+          // Fallback: nếu chưa cấu hình, suy ra từ repoPath cũ hoặc dùng cwd
+          const legacyRepoPath = cfg.repoPath || gc.repoPath || '';
+          baseContext = legacyRepoPath ? path.dirname(legacyRepoPath) : process.cwd();
+          this.logger?.send?.(`[JOB][WARN] Chưa cấu hình contextInitPath. Fallback baseContext=${baseContext}`);
         }
-        if (!check.hasNew) {
-          this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} (${branch}). Bỏ qua build.`);
-          return {
-            success: true,
-            buildId: `skip-${Date.now()}`,
-            status: 'skipped',
-            message: 'No new commit, build skipped'
-          };
+        const katalystRoot = path.join(baseContext, 'Katalyst');
+        repoPath = path.join(katalystRoot, 'repo');
+        builderRoot = path.join(katalystRoot, 'builder');
+        try {
+          fs.mkdirSync(repoPath, { recursive: true });
+          fs.mkdirSync(builderRoot, { recursive: true });
+        } catch (e) {
+          this.logger?.send?.(`[JOB][ERROR] Không thể tạo thư mục context tại ${katalystRoot}: ${e.message}`);
+          throw e;
         }
-        this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
-        // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
-        this.lastCommitHash = check.remoteHash;
+        const branch = gc.branch || 'main';
+        const repoUrl = gc.repoUrl;
+        const token = gc.token;
+        const provider = gc.provider || 'gitlab';
+
+        // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
+        await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
+
+        if (this.gitService && repoPath) {
+          const check = await this.gitService.checkNewCommitAndPull({
+            repoPath,
+            branch,
+            repoUrl,
+            token,
+            provider,
+            doPull: true
+          });
+          if (!check.ok) {
+            throw new Error(`Kiểm tra/pull commit thất bại: ${check.error || 'unknown'}`);
+          }
+          if (!check.hasNew) {
+            this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} (${branch}). Bỏ qua build.`);
+            return {
+              success: true,
+              buildId: `skip-${Date.now()}`,
+              status: 'skipped',
+              message: 'No new commit, build skipped'
+            };
+          }
+          this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
+          // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
+          this.lastCommitHash = check.remoteHash;
+        }
       }
       
       // Determine build method and execute
@@ -396,6 +415,17 @@ class JobController {
       } else if (job.buildConfig.method === 'dockerfile') {
         // For dockerfile builds, we'll need to implement docker build logic
         buildResult = await this.executeDockerBuild(job, (this.lastCommitHash || null));
+      } else if (job.buildConfig.method === 'jsonfile') {
+        // Chạy pipeline theo JSON, bỏ qua quy trình git ở trên
+        const pipelinePath = job.buildConfig?.jsonPipelinePath || '';
+        if (!pipelinePath) throw new Error('jsonPipelinePath is required for jsonfile build method');
+        const envOverrides = {}; // có thể truyền thêm env từ job nếu cần
+        const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides);
+        buildResult = {
+          buildId: r?.buildId || `json-${Date.now()}`,
+          status: r?.ok ? 'completed' : 'failed',
+          message: r?.ok ? 'JSON pipeline completed' : 'JSON pipeline failed'
+        };
       } else {
         throw new Error(`Unsupported build method: ${job.buildConfig.method}`);
       }
