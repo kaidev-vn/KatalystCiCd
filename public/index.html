@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CI/CD Config Panel</title>
+    <title>Katalyst</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
     <link rel="shortcut icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
@@ -13,8 +13,8 @@
       <div class="brand">
         <div class="logo"><img src="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" alt="Logo" /></div>
         <div>
-          <h1>CI/CD Control Center</h1>
-          <p class="muted">Quản lý cấu hình, build, deploy và theo dõi realtime.</p>
+          <h1>K-Talyst</h1>
+          <p class="muted brand-subtitle">Quản lý cấu hình, build, deploy và theo dõi realtime.</p>
         </div>
       </div>
       <div class="header-actions">
@@ -348,7 +348,7 @@
       <!-- Tab 4: Quản lý Builds -->
       <div id="builds-tab" class="tab-content">
         <!-- Build Actions Section -->
-        <section class="card">
+        <!-- <section class="card">
           <h2>🚀 Thao tác Build</h2>
           <div class="build-actions-grid">
             <button id="startPull" class="action-card">
@@ -383,7 +383,7 @@
           <div class="build-status">
             <p class="muted">Commit đã build gần nhất: <span id="lastBuiltCommit" class="tag">(chưa có)</span></p>
           </div>
-        </section>
+        </section> -->
 
         <!-- Build History Section -->
         <section class="card full">
@@ -750,6 +750,7 @@
       </div>
     </div>
 
-    <script src="/main.js"></script>
+    <!-- Refactored modular frontend -->
+    <script type="module" src="/js/app.js"></script>
   </body>
   </html>
