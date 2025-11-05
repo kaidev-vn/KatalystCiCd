@@ -94,7 +94,15 @@ function registerDeployController(app, { logger, configService }) {
     const dcfg = cfg?.docker || {};
     if (dockerfilePath) env.DOCKERFILE_PATH = toPosix(dockerfilePath); else if (dcfg.dockerfilePath) env.DOCKERFILE_PATH = toPosix(dcfg.dockerfilePath);
     if (contextPath) env.CONTEXT_PATH = toPosix(contextPath); else if (dcfg.contextPath) env.CONTEXT_PATH = toPosix(dcfg.contextPath);
-    if (repoPath) env.REPO_PATH = toPosix(repoPath); else if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
+    // Prefer explicit repoPath, then legacy cfg.repoPath, then derive from contextInitPath
+    if (repoPath) {
+      env.REPO_PATH = toPosix(repoPath);
+    } else if (cfg.repoPath) {
+      env.REPO_PATH = toPosix(cfg.repoPath);
+    } else {
+      const base = (cfg.contextInitPath || cfg.deployContextCustomPath || '');
+      if (base) env.REPO_PATH = toPosix(path.join(base, 'Katalyst', 'repo'));
+    }
 
     // Ưu tiên CONFIG_JSON_PATH truyền vào, nếu không dùng file config.json của project
     const cfgPath = toPosix(configJsonPath || path.join(projectRoot, 'config.json'));

@@ -2,6 +2,24 @@ const { runSeries, resolveShell } = require('../utils/exec');
 const fs = require('fs');
 const path = require('path');
 
+// Helper: derive repo path from contextInitPath
+function deriveRepoPath(cfg) {
+  try {
+    const base = (cfg?.contextInitPath || cfg?.deployContextCustomPath || '');
+    if (base) return path.join(base, 'Katalyst', 'repo');
+    return cfg?.repoPath || null; // legacy fallback
+  } catch (_) {
+    return cfg?.repoPath || null;
+  }
+}
+
+function toPosix(p) {
+  if (!p) return p;
+  let s = String(p).replace(/\\/g, '/');
+  if (/^[A-Za-z]:\//.test(s)) { const drive = s[0].toLowerCase(); s = `/${drive}${s.slice(2)}`; }
+  return s;
+}
+
 class BuildService {
   constructor({ logger, configService }) {
     this.logger = logger;
@@ -164,7 +182,7 @@ class BuildService {
     
     try {
       // Determine working directory (ensure it exists to avoid ENOENT from spawn)
-      let cwd = workingDir || config.repoPath || path.dirname(scriptPath) || process.cwd();
+      let cwd = workingDir || deriveRepoPath(config) || path.dirname(scriptPath) || process.cwd();
       if (!cwd || !fs.existsSync(cwd)) {
         const scriptDir = path.dirname(scriptPath);
         if (scriptDir && fs.existsSync(scriptDir)) {
@@ -294,7 +312,7 @@ class BuildService {
       try { spec = JSON.parse(raw); } catch (e) { throw new Error(`Lỗi parse JSON: ${e.message}`); }
 
       const pipelineName = spec.pipeline_name || path.basename(filePath);
-      const workingDir = spec.working_directory || process.cwd();
+      const workingDir = spec.working_directory || deriveRepoPath(this.configService.getConfig()) || process.cwd();
       const envMap = spec.environment_vars || {};
       const steps = Array.isArray(spec.steps) ? spec.steps.slice() : [];
       // Sort by step_order if provided
@@ -303,6 +321,11 @@ class BuildService {
       // Prepare environment: merge process.env, overrides, and pipeline env
       // Also resolve simple ${VAR} templates within envMap using current env values
       const baseEnv = { ...process.env, ...(envOverrides || {}) };
+      // If REPO_PATH not provided, inject derived path for convenience in scripts
+      const derivedRepo = deriveRepoPath(this.configService.getConfig());
+      if (derivedRepo && !('REPO_PATH' in baseEnv)) {
+        baseEnv.REPO_PATH = toPosix(derivedRepo);
+      }
       const resolvedEnv = { ...baseEnv };
       for (const [k, v] of Object.entries(envMap)) {
         let val = String(v);

@@ -6,12 +6,15 @@
   "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
   "repoPath": "/opt/run_java/docker-build-app/system/",
   "branch": "developer_2",
+  "contextInitPath": "/opt/",
   "email": {
     "smtpHost": "smtp.gmail.com",
     "smtpPort": 587,
-    "emailUser": "",
-    "emailPassword": "",
-    "notifyEmails": [],
+    "emailUser": "jenkins119vn@gmail.com",
+    "emailPassword": "uwzwzzonsyrocqwz",
+    "notifyEmails": [
+      "khanhdev2901@gmail.com"
+    ],
     "enableEmailNotify": false
   },
   "system": {
