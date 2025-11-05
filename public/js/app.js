@@ -6,7 +6,7 @@ import { loadConfig, loadDeployChoices, saveConfig } from './config.js';
 import { loadRawConfigEditor, formatConfigJson, validateConfigJson, saveRawConfigJson, loadConfigVersions } from './raw-config.js';
 import { loadSchedulerStatus, toggleScheduler, restartScheduler } from './scheduler.js';
 import { openLogStream, appendLog } from './logs.js';
-import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig } from './jobs.js';
+import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig, useCommonConfig } from './jobs.js';
 import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue } from './queue.js';
 import { toggleAdvancedTaggingSection, toggleScriptAdvancedTaggingSection, updateTagPreview, updateScriptTagPreview, updateJobTagPreview, updateJobScriptTagPreview } from './tags.js';
 import { selectAllServices, deselectAllServices } from './services.js';
@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('jobSearch') && ($('jobSearch').oninput = searchJobs);
   $('selectAllServices') && ($('selectAllServices').onclick = selectAllServices);
   $('deselectAllServices') && ($('deselectAllServices').onclick = deselectAllServices);
+  $('useCommonConfigBtn') && ($('useCommonConfigBtn').onclick = useCommonConfig);
   const jobAutoCheckbox = $('jobAutoCheck');
   if (jobAutoCheckbox) jobAutoCheckbox.addEventListener('change', (e) => toggleScheduleConfig(e.target.checked));
   document.querySelectorAll('input[name="jobBuildMethod"]').forEach(radio => {

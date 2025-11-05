@@ -1,6 +1,69 @@
 import { $, fetchJSON } from './utils.js';
 import { state } from './state.js';
 import { loadServicesForSelection, selectAllServices, deselectAllServices } from './services.js';
+import { updateJobTagPreview, updateJobScriptTagPreview } from './tags.js';
+
+// Helper to split a tag like "1.0.75-BETA" into number/text parts
+function splitTagLocal(tag) {
+  const parts = String(tag || '').split('-');
+  const number = parts[0] || '';
+  const text = parts.slice(1).join('-') || '';
+  return { number, text };
+}
+
+// Apply common config from global state to the Job form
+export function useCommonConfig() {
+  const cfg = state.CURRENT_CFG;
+  if (!cfg) {
+    alert('Không có cấu hình chung để sử dụng. Vui lòng vào tab Cấu hình chung để lưu cấu hình trước.');
+    return;
+  }
+
+  // Git
+  $('jobGitProvider') && ($('jobGitProvider').value = cfg.provider || 'gitlab');
+  $('jobGitAccount') && ($('jobGitAccount').value = cfg.account || '');
+  $('jobGitToken') && ($('jobGitToken').value = cfg.token || '');
+  $('jobGitBranch') && ($('jobGitBranch').value = cfg.branch || 'main');
+  $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = cfg.repoUrl || '');
+
+  // Build method
+  const buildMethod = cfg.buildMethod || 'dockerfile';
+  const jobMethodScript = document.getElementById('jobMethodScript');
+  const jobMethodDocker = document.getElementById('jobMethodDocker');
+  const jobMethodJson = document.getElementById('jobMethodJson');
+  if (jobMethodScript) jobMethodScript.checked = buildMethod === 'script';
+  if (jobMethodDocker) jobMethodDocker.checked = buildMethod === 'dockerfile';
+  if (jobMethodJson) jobMethodJson.checked = buildMethod === 'jsonfile';
+  toggleBuildMethodConfig(buildMethod);
+
+  // Docker config
+  const d = cfg.docker || {};
+  $('jobDockerfilePath') && ($('jobDockerfilePath').value = d.dockerfilePath || '');
+  $('jobContextPath') && ($('jobContextPath').value = d.contextPath || '');
+  $('jobImageName') && ($('jobImageName').value = d.imageName || '');
+  const parts = splitTagLocal(d.imageTag || '');
+  $('jobImageTagNumber') && ($('jobImageTagNumber').value = parts.number || '');
+  $('jobImageTagText') && ($('jobImageTagText').value = parts.text || '');
+  const autoIncEl = $('jobAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!d.autoTagIncrement;
+  $('jobRegistryUrl') && ($('jobRegistryUrl').value = d.registryUrl || '');
+  $('jobRegistryUsername') && ($('jobRegistryUsername').value = d.registryUsername || '');
+  $('jobRegistryPassword') && ($('jobRegistryPassword').value = d.registryPassword || '');
+
+  // Script config mirrors Docker fields for image/tag/registry
+  $('jobScriptImageName') && ($('jobScriptImageName').value = d.imageName || '');
+  $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = parts.number || '');
+  $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = parts.text || '');
+  const autoIncScriptEl = $('jobScriptAutoTagIncrement'); if (autoIncScriptEl) autoIncScriptEl.checked = !!d.autoTagIncrement;
+  $('jobScriptRegistryUrl') && ($('jobScriptRegistryUrl').value = d.registryUrl || '');
+  $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = d.registryUsername || '');
+  $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = d.registryPassword || '');
+
+  // Update tag previews
+  updateJobTagPreview();
+  updateJobScriptTagPreview();
+
+  alert('Đã áp dụng cấu hình chung vào form Job.');
+}
 
 export async function loadJobs() {
   try {
