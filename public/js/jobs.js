@@ -163,11 +163,12 @@ export function populateJobForm(job) {
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = !!job.enabled;
 
   // Git
-  $('jobGitProvider') && ($('jobGitProvider').value = job.git?.provider || 'gitlab');
-  $('jobGitAccount') && ($('jobGitAccount').value = job.git?.account || '');
-  $('jobGitToken') && ($('jobGitToken').value = job.git?.token || '');
-  $('jobGitBranch') && ($('jobGitBranch').value = job.git?.branch || '');
-  $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = job.git?.repoUrl || '');
+  const gc = job.gitConfig || job.git || {};
+  $('jobGitProvider') && ($('jobGitProvider').value = gc.provider || 'gitlab');
+  $('jobGitAccount') && ($('jobGitAccount').value = gc.account || '');
+  $('jobGitToken') && ($('jobGitToken').value = gc.token || '');
+  $('jobGitBranch') && ($('jobGitBranch').value = gc.branch || '');
+  $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = gc.repoUrl || '');
 
   // Method
   const method = job.method || job.buildConfig?.method || 'dockerfile';
@@ -356,10 +357,14 @@ export async function saveJob() {
   };
   const url = id ? `/api/jobs/${id}` : '/api/jobs';
   const method = id ? 'PUT' : 'POST';
-  const { ok } = await fetchJSON(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  if (ok) {
+  const res = await fetchJSON(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (res.ok) {
     hideJobModal();
     await loadJobs();
+  } else {
+    // Show validation errors from server to help user adjust inputs
+    const msg = res?.data?.error || 'Không thể lưu Job. Vui lòng kiểm tra lại các trường bắt buộc.';
+    alert(msg + (res?.data?.details ? `\n- ${res.data.details.join('\n- ')}` : ''));
   }
 }
 

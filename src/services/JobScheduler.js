@@ -48,7 +48,15 @@ class JobScheduler {
     const intervalId = setInterval(async () => {
       try {
         // Fetch latest job definition each tick to respect updates
-        const latestJob = this.jobService.getJobById(jobId) || job;
+        const latestJob = this.jobService.getJobById(jobId);
+        // If job has been deleted, stop timer
+        if (!latestJob) {
+          this.logger?.send?.(`[JOB-SCHEDULER] Job ${job.name} (${jobId}) đã bị xoá. Dừng timer.`);
+          clearInterval(intervalId);
+          this._timers.delete(jobId);
+          return;
+        }
+
         if (!latestJob.enabled || !latestJob.schedule?.autoCheck) {
           this.logger?.send(`[JOB-SCHEDULER] Job ${latestJob.name} (${jobId}) đã tắt autoCheck, dừng timer.`);
           clearInterval(intervalId);

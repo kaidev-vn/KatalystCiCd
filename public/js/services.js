@@ -2,8 +2,12 @@ import { $, fetchJSON } from './utils.js';
 
 export async function loadServicesForSelection() {
   const { ok, data } = await fetchJSON('/api/config');
-  const services = data?.deploy?.services || [];
-  if (ok) renderServicesCheckboxes(services);
+  if (!ok) return;
+  // Backend ConfigService exposes services under top-level key `deployServices`
+  const services = Array.isArray(data?.deployServices)
+    ? data.deployServices
+    : (Array.isArray(data?.deploy?.services) ? data.deploy.services : []);
+  renderServicesCheckboxes(services);
 }
 
 export function renderServicesCheckboxes(services) {
@@ -11,12 +15,14 @@ export function renderServicesCheckboxes(services) {
   if (!container) return;
   container.innerHTML = '';
   services.forEach(service => {
-    const id = `svc_${service.name}`;
+    const name = service?.name || '';
+    if (!name) return;
+    const id = `svc_${name.replace(/[^a-z0-9_-]+/gi, '_')}`;
     const wrapper = document.createElement('div');
     wrapper.className = 'service-item';
     wrapper.innerHTML = `
-      <input type="checkbox" id="${id}" data-service="${service.name}" />
-      <label for="${id}">${service.name}</label>
+      <input type="checkbox" id="${id}" data-service="${name}" />
+      <label for="${id}">${name}</label>
     `;
     container.appendChild(wrapper);
   });
