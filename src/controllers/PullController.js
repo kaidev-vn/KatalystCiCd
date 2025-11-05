@@ -1,15 +1,11 @@
 const { run } = require('../utils/exec');
-const path = require('path');
 
 function registerPullController(app, { configService, logger }) {
   app.post('/api/pull/start', async (req, res) => {
     const cfg = configService.getConfig();
     logger?.send('[PULL] Bắt đầu pull code...');
-    // Derive repoPath from contextInitPath (Context/Katalyst/repo)
-    const base = String(cfg.contextInitPath || cfg.deployContextCustomPath || '').trim();
-    const repoPath = base ? path.join(base, 'Katalyst', 'repo') : (cfg.repoPath || '');
-    if (repoPath) {
-      const command = `git -C "${repoPath}" pull`;
+    if (cfg.repoPath) {
+      const command = `git -C "${cfg.repoPath}" pull`;
       logger?.send(`[PULL] Chạy lệnh: ${command}`);
       await run(command, logger);
       logger?.send('[PULL] Hoàn tất.');

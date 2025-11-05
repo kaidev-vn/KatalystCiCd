@@ -1,16 +1,3 @@
-const path = require('path');
-
-function resolveRepoPath(cfg) {
-  try {
-    const base = String(cfg.contextInitPath || cfg.deployContextCustomPath || '').trim();
-    if (base) return path.join(base, 'Katalyst', 'repo');
-    // Fallback to legacy config or cwd/repo
-    return cfg.repoPath || path.join(process.cwd(), 'repo');
-  } catch (_) {
-    return cfg.repoPath || path.join(process.cwd(), 'repo');
-  }
-}
-
 function registerGitController(app, { gitService }) {
   app.post('/api/git/check-connection', async (_req, res) => {
     try {
@@ -24,7 +11,7 @@ function registerGitController(app, { gitService }) {
     try {
       const branch = String(req.body?.branch || 'main');
       const cfg = gitService.configService.getConfig();
-      const repoPath = resolveRepoPath(cfg);
+      const repoPath = cfg.repoPath || '';
       const result = await gitService.checkAndBuild({ repoPath, branch });
       res.json({ ok: true, result });
     } catch (e) {

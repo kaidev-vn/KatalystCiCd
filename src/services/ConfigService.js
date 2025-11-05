@@ -22,8 +22,6 @@ class ConfigService {
       repoUrl: '',
       repoPath: '',
       branch: 'main',
-      // Lưu đường dẫn cơ sở để khởi tạo cấu trúc Context/Katalyst
-      contextInitPath: '',
       deployScriptPath: '',
       buildMethod: 'dockerfile',
       // Lựa chọn cho deploy.sh (hỗ trợ nhiều lựa chọn)
@@ -175,8 +173,6 @@ class ConfigService {
     cfg.repoUrl = String(cfg.repoUrl || '');
     cfg.repoPath = String(cfg.repoPath || '');
     cfg.branch = String(cfg.branch || 'main');
-    // Persist đường dẫn khởi tạo context nếu được cung cấp
-    cfg.contextInitPath = String(cfg.contextInitPath || '');
     cfg.deployScriptPath = String(cfg.deployScriptPath || '');
     const bm = String(cfg.buildMethod || 'dockerfile').toLowerCase();
     cfg.buildMethod = ['dockerfile', 'script'].includes(bm) ? bm : 'dockerfile';

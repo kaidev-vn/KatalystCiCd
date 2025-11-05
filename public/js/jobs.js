@@ -100,12 +100,11 @@ export function populateJobForm(job) {
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = !!job.enabled;
 
   // Git
-  const gc = job.gitConfig || job.git || {};
-  $('jobGitProvider') && ($('jobGitProvider').value = gc.provider || 'gitlab');
-  $('jobGitAccount') && ($('jobGitAccount').value = gc.account || '');
-  $('jobGitToken') && ($('jobGitToken').value = gc.token || '');
-  $('jobGitBranch') && ($('jobGitBranch').value = gc.branch || '');
-  $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = gc.repoUrl || '');
+  $('jobGitProvider') && ($('jobGitProvider').value = job.git?.provider || 'gitlab');
+  $('jobGitAccount') && ($('jobGitAccount').value = job.git?.account || '');
+  $('jobGitToken') && ($('jobGitToken').value = job.git?.token || '');
+  $('jobGitBranch') && ($('jobGitBranch').value = job.git?.branch || '');
+  $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = job.git?.repoUrl || '');
 
   // Method
   const method = job.method || job.buildConfig?.method || 'dockerfile';
@@ -119,35 +118,26 @@ export function populateJobForm(job) {
 
   // Docker config
   // Nếu để trống, backend sẽ tự dùng Context/Katalyst/repo làm context và Dockerfile mặc định trong repo
-  const dc = (job.buildConfig && job.buildConfig.dockerConfig) ? job.buildConfig.dockerConfig : (job.docker || {});
-  $('jobDockerfilePath') && ($('jobDockerfilePath').value = dc.dockerfilePath || '');
-  $('jobContextPath') && ($('jobContextPath').value = dc.contextPath || '');
-  $('jobImageName') && ($('jobImageName').value = dc.imageName || '');
+  $('jobDockerfilePath') && ($('jobDockerfilePath').value = job.docker?.dockerfilePath || '');
+  $('jobContextPath') && ($('jobContextPath').value = job.docker?.contextPath || '');
+  $('jobImageName') && ($('jobImageName').value = job.docker?.imageName || '');
 
-  // imageTag có thể là một chuỗi đầy đủ; nếu có, tách về number/text để hiển thị
-  let tagNumber = job.buildConfig?.imageTagNumber || '';
-  let tagText = job.buildConfig?.imageTagText || '';
-  if ((!tagNumber && !tagText) && dc.imageTag) {
-    const parts = String(dc.imageTag).split('-');
-    tagNumber = parts[0] || '';
-    tagText = parts.slice(1).join('-') || '';
-  }
-  $('jobImageTagNumber') && ($('jobImageTagNumber').value = tagNumber);
-  $('jobImageTagText') && ($('jobImageTagText').value = tagText);
-  const autoIncEl = $('jobAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!(dc.autoTagIncrement || job.buildConfig?.autoTagIncrement);
+  $('jobImageTagNumber') && ($('jobImageTagNumber').value = job.docker?.tag?.number || '');
+  $('jobImageTagText') && ($('jobImageTagText').value = job.docker?.tag?.text || '');
+  const autoIncEl = $('jobAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!job.docker?.tag?.autoIncrement;
 
-  $('jobRegistryUrl') && ($('jobRegistryUrl').value = dc.registryUrl || '');
-  $('jobRegistryUsername') && ($('jobRegistryUsername').value = dc.registryUsername || '');
-  $('jobRegistryPassword') && ($('jobRegistryPassword').value = dc.registryPassword || '');
+  $('jobRegistryUrl') && ($('jobRegistryUrl').value = job.docker?.registry?.url || '');
+  $('jobRegistryUsername') && ($('jobRegistryUsername').value = job.docker?.registry?.username || '');
+  $('jobRegistryPassword') && ($('jobRegistryPassword').value = job.docker?.registry?.password || '');
 
   // Script config (không còn nhập thủ công script path)
-  $('jobScriptImageName') && ($('jobScriptImageName').value = job.buildConfig?.imageName || '');
-  $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = job.buildConfig?.imageTagNumber || '');
-  $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = job.buildConfig?.imageTagText || '');
-  const autoIncScriptEl = $('jobScriptAutoTagIncrement'); if (autoIncScriptEl) autoIncScriptEl.checked = !!job.buildConfig?.autoTagIncrement;
-  $('jobScriptRegistryUrl') && ($('jobScriptRegistryUrl').value = job.buildConfig?.registryUrl || '');
-  $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = job.buildConfig?.registryUsername || '');
-  $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = job.buildConfig?.registryPassword || '');
+  $('jobScriptImageName') && ($('jobScriptImageName').value = job.script?.imageName || '');
+  $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = job.script?.tag?.number || '');
+  $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = job.script?.tag?.text || '');
+  const autoIncScriptEl = $('jobScriptAutoTagIncrement'); if (autoIncScriptEl) autoIncScriptEl.checked = !!job.script?.tag?.autoIncrement;
+  $('jobScriptRegistryUrl') && ($('jobScriptRegistryUrl').value = job.script?.registry?.url || '');
+  $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = job.script?.registry?.username || '');
+  $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = job.script?.registry?.password || '');
 
   // JSON Pipeline config
   $('jobJsonPipelinePath') && ($('jobJsonPipelinePath').value = job.buildConfig?.jsonPipelinePath || job.jsonPipelinePath || '');
@@ -328,62 +318,3 @@ export function searchJobs() {
 window.runJob = runJob;
 window.editJob = editJob;
 window.deleteJob = deleteJob;
-
-// Điền nhanh form Job từ cấu hình chung hiện tại
-export function useCommonConfig() {
-  const cfg = state.CURRENT_CFG || {};
-  const selectedMethod = document.querySelector('input[name="jobBuildMethod"]:checked')?.value || 'dockerfile';
-
-  // Git (nếu người dùng đang tạo job mới, có thể dùng provider/account/token/branch/repoUrl chung)
-  $('jobGitProvider') && ($('jobGitProvider').value = cfg.provider || 'gitlab');
-  $('jobGitAccount') && ($('jobGitAccount').value = cfg.account || '');
-  $('jobGitToken') && ($('jobGitToken').value = cfg.token || '');
-  $('jobGitBranch') && ($('jobGitBranch').value = cfg.branch || 'main');
-  $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = cfg.repoUrl || '');
-
-  // Docker common config
-  const dc = cfg.docker || {};
-  $('jobDockerfilePath') && ($('jobDockerfilePath').value = dc.dockerfilePath || '');
-  $('jobContextPath') && ($('jobContextPath').value = dc.contextPath || '');
-  // Image name: ưu tiên điền nếu có
-  if (selectedMethod === 'dockerfile') {
-    $('jobImageName') && ($('jobImageName').value = dc.imageName || '');
-    // Tag: tách number/text nếu là chuỗi đầy đủ
-    const tag = dc.imageTag || '';
-    let num = '', txt = '';
-    if (tag) {
-      const parts = String(tag).split('-');
-      num = parts[0] || '';
-      txt = parts.slice(1).join('-') || '';
-    }
-    $('jobImageTagNumber') && ($('jobImageTagNumber').value = num);
-    $('jobImageTagText') && ($('jobImageTagText').value = txt);
-    const autoIncEl = $('jobAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!dc.autoTagIncrement;
-    $('jobRegistryUrl') && ($('jobRegistryUrl').value = dc.registryUrl || '');
-    $('jobRegistryUsername') && ($('jobRegistryUsername').value = dc.registryUsername || '');
-    $('jobRegistryPassword') && ($('jobRegistryPassword').value = dc.registryPassword || '');
-    // Cập nhật hiển thị tag preview nếu hàm global có
-    try { window.updateJobTagPreview && window.updateJobTagPreview(); } catch (_) {}
-  }
-
-  if (selectedMethod === 'script') {
-    // Dùng chung imageName/tag/registry từ cấu hình docker
-    $('jobScriptImageName') && ($('jobScriptImageName').value = dc.imageName || '');
-    const tag = dc.imageTag || '';
-    let num = '', txt = '';
-    if (tag) {
-      const parts = String(tag).split('-');
-      num = parts[0] || '';
-      txt = parts.slice(1).join('-') || '';
-    }
-    $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = num);
-    $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = txt);
-    const autoIncEl = $('jobScriptAutoTagIncrement'); if (autoIncEl) autoIncEl.checked = !!dc.autoTagIncrement;
-    $('jobScriptRegistryUrl') && ($('jobScriptRegistryUrl').value = dc.registryUrl || '');
-    $('jobScriptRegistryUsername') && ($('jobScriptRegistryUsername').value = dc.registryUsername || '');
-    $('jobScriptRegistryPassword') && ($('jobScriptRegistryPassword').value = dc.registryPassword || '');
-    try { window.updateJobScriptTagPreview && window.updateJobScriptTagPreview(); } catch (_) {}
-  }
-
-  // JSON pipeline: không có cấu hình chung để auto điền. Người dùng nhập đường dẫn file thủ công.
-}

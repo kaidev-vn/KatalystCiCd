@@ -1,24 +1,6 @@
 const { run } = require('../utils/exec');
 const { nextTag, nextTagWithConfig,nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 
-function deriveRepoPath(cfg) {
-  try {
-    const pathLib = require('path');
-    const base = (cfg?.contextInitPath || cfg?.deployContextCustomPath || '');
-    if (base) return pathLib.join(base, 'Katalyst', 'repo');
-    return cfg?.repoPath || null; // legacy fallback
-  } catch (_) {
-    return cfg?.repoPath || null;
-  }
-}
-
-function toPosix(p) {
-  if (!p) return p;
-  let s = String(p).replace(/\\/g, '/');
-  if (/^[A-Za-z]:\//.test(s)) { const drive = s[0].toLowerCase(); s = `/${drive}${s.slice(2)}`; }
-  return s;
-}
-
 class GitService {
   constructor({ logger, dockerService, configService }) {
     this.logger = logger;
@@ -210,12 +192,7 @@ class GitService {
         if (scriptImageTag) env.DOCKER_IMAGE_TAG = scriptImageTag;
         if (effectiveDockerfile) env.DOCKERFILE_PATH = toPosix(effectiveDockerfile);
         if (effectiveContext) env.CONTEXT_PATH = toPosix(effectiveContext);
-        // Provide REPO_PATH to legacy scripts: prefer configured value, else derive from contextInitPath
         if (cfg.repoPath) env.REPO_PATH = toPosix(cfg.repoPath);
-        else {
-          const derived = deriveRepoPath(cfg);
-          if (derived) env.REPO_PATH = toPosix(derived);
-        }
         env.CONFIG_JSON_PATH = toPosix(pathLib.join(projectRoot, 'config.json'));
 
         this.logger?.send(`[DEPLOY] 🚀 Chuẩn bị chạy deploy.sh`);

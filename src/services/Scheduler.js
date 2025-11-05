@@ -1,12 +1,3 @@
-const path = require('path');
-const fs = require('fs');
-
-function deriveRepoPath(cfg) {
-  const base = String(cfg.contextInitPath || cfg.deployContextCustomPath || '').trim();
-  if (base) return path.join(base, 'Katalyst', 'repo');
-  return cfg.repoPath || null;
-}
-
 class Scheduler {
   constructor({ logger, configService, gitService }) {
     this.logger = logger;
@@ -29,8 +20,8 @@ class Scheduler {
     const polling = Number(cfg.polling || 30);
     const buildMethod = cfg.buildMethod || 'dockerfile';
     const branch = cfg.branch || 'main';
-    const repoPath = deriveRepoPath(cfg) || 'chưa cấu hình';
-    const contextPath = cfg.docker?.contextPath || deriveRepoPath(cfg) || 'chưa cấu hình';
+    const repoPath = cfg.repoPath || 'chưa cấu hình';
+    const contextPath = cfg.docker?.contextPath || cfg.repoPath || 'chưa cấu hình';
     
     // Log chi tiết cấu hình scheduler
     this.logger?.send(`[SCHEDULER] ✅ Bạn đã cấu hình Nhánh Build: ${branch}, Thời gian check commit: ${polling}s tại context path: ${contextPath}, Phương thức build: ${buildMethod} (tại repo path: ${repoPath})`);
@@ -45,14 +36,14 @@ class Scheduler {
           this.stop();
           return;
         }
-        const rp = deriveRepoPath(current);
-        if (!rp) {
-          this.logger?.send('[SCHEDULER][WARN] Chưa xác định được repoPath (hãy cấu hình contextInitPath). Bỏ qua lần check này.');
+        if (!current.repoPath) {
+          this.logger?.send('[SCHEDULER][WARN] Không có repoPath, bỏ qua lần check này.');
           return;
         }
-        this.logger?.send(`[SCHEDULER] 🔍 Đang thực hiện check commit cho nhánh: ${current.branch || 'main'} tại repo: ${rp} với phương thức build: ${current.buildMethod || 'dockerfile'}`);
+        
+        this.logger?.send(`[SCHEDULER] 🔍 Đang thực hiện check commit cho nhánh: ${current.branch || 'main'} tại repo: ${current.repoPath} với phương thức build: ${current.buildMethod || 'dockerfile'}`);
         await this.gitService.checkAndBuild({ 
-          repoPath: rp, 
+          repoPath: current.repoPath, 
           branch: current.branch || 'main' 
         });
       } catch (e) {
@@ -83,7 +74,7 @@ class Scheduler {
       autoCheck: cfg.autoCheck || false,
       polling: cfg.polling || 30,
       buildMethod: cfg.buildMethod || 'dockerfile',
-      repoPath: deriveRepoPath(cfg) || null
+      repoPath: cfg.repoPath || null
     };
   }
 }

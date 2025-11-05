@@ -32,19 +32,16 @@ export async function loadConfig() {
     $('account')?.setAttribute('value', data.account || ''); const accountEl = $('account'); if (accountEl) accountEl.value = data.account || '';
     const tokenEl = $('token'); if (tokenEl) tokenEl.value = data.token || '';
     const repoUrlEl = $('repoUrl'); if (repoUrlEl) repoUrlEl.value = data.repoUrl || '';
-    // Repo Path đã loại bỏ khỏi cấu hình chung: hệ thống tự xác định từ contextInitPath (Context/Katalyst/repo)
+    const repoPathEl = $('repoPath'); if (repoPathEl) repoPathEl.value = data.repoPath || '';
     const branchEl = $('branch'); if (branchEl) branchEl.value = data.branch || '';
 
-    // Context init path (persisted)
-    const ctxInitEl = $('contextInitPath'); if (ctxInitEl) ctxInitEl.value = data.contextInitPath || '';
-
-    // Email config (align keys with backend ConfigService/EmailService)
+    // Email config
     $('smtpHost') && ($('smtpHost').value = data.email?.smtpHost || '');
     $('smtpPort') && ($('smtpPort').value = data.email?.smtpPort || '');
-    $('emailUser') && ($('emailUser').value = data.email?.emailUser || '');
-    $('emailPassword') && ($('emailPassword').value = data.email?.emailPassword || '');
-    $('notifyEmails') && ($('notifyEmails').value = (data.email?.notifyEmails || []).join(', '));
-    const enableEmailEl = $('enableEmailNotify'); if (enableEmailEl) enableEmailEl.checked = !!data.email?.enableEmailNotify;
+    $('emailUser') && ($('emailUser').value = data.email?.user || '');
+    $('emailPassword') && ($('emailPassword').value = data.email?.password || '');
+    $('notifyEmails') && ($('notifyEmails').value = (data.email?.notifyList || []).join(', '));
+    const enableEmailEl = $('enableEmailNotify'); if (enableEmailEl) enableEmailEl.checked = !!data.email?.enabled;
 
     // System config
     $('maxConcurrentBuilds') && ($('maxConcurrentBuilds').value = data.system?.maxConcurrentBuilds || '1');
@@ -64,16 +61,15 @@ export async function saveConfig() {
       account: $('account')?.value || '',
       token: $('token')?.value || '',
       repoUrl: $('repoUrl')?.value || '',
-      // repoPath: ĐÃ LOẠI BỎ - hệ thống tự xác định từ contextInitPath
+      repoPath: $('repoPath')?.value || '',
       branch: $('branch')?.value || '',
-      contextInitPath: $('contextInitPath')?.value || '',
       email: {
         smtpHost: $('smtpHost')?.value || '',
         smtpPort: Number($('smtpPort')?.value || 0) || undefined,
-        emailUser: $('emailUser')?.value || '',
-        emailPassword: $('emailPassword')?.value || '',
-        enableEmailNotify: !!$('enableEmailNotify')?.checked,
-        notifyEmails: ($('notifyEmails')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+        user: $('emailUser')?.value || '',
+        password: $('emailPassword')?.value || '',
+        enabled: !!$('enableEmailNotify')?.checked,
+        notifyList: ($('notifyEmails')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
       },
       system: {
         maxConcurrentBuilds: Number($('maxConcurrentBuilds')?.value || 1),
