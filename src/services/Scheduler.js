@@ -23,7 +23,7 @@ class Scheduler {
     const repoPath = cfg.repoPath || 'chưa cấu hình';
     const contextPath = cfg.docker?.contextPath || cfg.repoPath || 'chưa cấu hình';
     
-    // Log chi tiết cấu hình scheduler
+    
     this.logger?.send(`[SCHEDULER] ✅ Bạn đã cấu hình Nhánh Build: ${branch}, Thời gian check commit: ${polling}s tại context path: ${contextPath}, Phương thức build: ${buildMethod} (tại repo path: ${repoPath})`);
     this.logger?.send(`[SCHEDULER] 🚀 Scheduler đã được khởi động và sẽ tự động kiểm tra commit mới mỗi ${polling} giây.`);
     
