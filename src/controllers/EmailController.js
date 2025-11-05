@@ -1,4 +1,17 @@
+/**
+ * Đăng ký Email Controller routes
+ * @param {Object} app - Express app instance
+ * @param {Object} deps - Dependencies
+ * @param {Object} deps.emailService - EmailService instance
+ * @param {Object} deps.logger - Logger instance
+ * @returns {void}
+ */
 function registerEmailController(app, { emailService, logger }) {
+  /**
+   * API Endpoint: Test SMTP connection
+   * POST /api/email/test
+   * Gửi test email để kiểm tra cấu hình SMTP
+   */
   app.post('/api/email/test', async (req, res) => {
     try {
       const { to, subject, text } = req.body || {};

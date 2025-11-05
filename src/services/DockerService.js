@@ -1,7 +1,19 @@
 const { run, runSeries } = require('../utils/exec');
 const { nextTag, nextTagWithConfig, nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 
+/**
+ * DockerService - Service quản lý Docker operations
+ * Hỗ trợ build images, push to registry, và tag management
+ * @class
+ */
 class DockerService {
+  /**
+   * Tạo DockerService instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.logger - Logger instance
+   * @param {Object} deps.configService - ConfigService instance
+   */
   constructor({ logger, configService }) {
     this.logger = logger;
     this.configService = configService;

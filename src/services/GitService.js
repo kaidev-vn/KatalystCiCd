@@ -1,7 +1,20 @@
 const { run } = require('../utils/exec');
 const { nextTag, nextTagWithConfig,nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 
+/**
+ * GitService - Service quản lý Git operations
+ * Hỗ trợ check connection, fetch, pull, và trigger build khi có commit mới
+ * @class
+ */
 class GitService {
+  /**
+   * Tạo GitService instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.logger - Logger instance
+   * @param {Object} deps.dockerService - DockerService instance
+   * @param {Object} deps.configService - ConfigService instance
+   */
   constructor({ logger, dockerService, configService }) {
     this.logger = logger;
     this.dockerService = dockerService;
@@ -10,6 +23,14 @@ class GitService {
     this._currentBranch = null; // Branch đang được build
   }
 
+  /**
+   * Kiểm tra kết nối Git repository
+   * @async
+   * @returns {Promise<Object>} Kết quả kiểm tra
+   * @returns {boolean} return.ok - True nếu kết nối thành công
+   * @returns {string} return.hash - Commit hash của HEAD
+   * @throws {Error} Nếu kết nối thất bại
+   */
   async checkConnection() {
     const cfg = this.configService.getConfig();
     const repoUrl = String(cfg.repoUrl || '');
@@ -35,6 +56,17 @@ class GitService {
     return { ok: true, hash };
   }
 
+  /**
+   * Kiểm tra commit mới và build nếu có update
+   * @async
+   * @param {Object} params - Parameters
+   * @param {string} params.repoPath - Đường dẫn repo local
+   * @param {string} params.branch - Branch name
+   * @returns {Promise<Object>} Kết quả build
+   * @returns {boolean} return.ok - True nếu thành công
+   * @returns {boolean} return.updated - True nếu có commit mới và đã build
+   * @returns {string} [return.reason] - Lý do không build (nếu có)
+   */
   async checkAndBuild({ repoPath, branch }) {
     if (!repoPath) throw new Error('Chưa cấu hình repoPath');
     
@@ -61,6 +93,15 @@ class GitService {
     }
   }
 
+  /**
+   * Thực thi build (internal method)
+   * @async
+   * @private
+   * @param {Object} params - Parameters
+   * @param {string} params.repoPath - Đường dẫn repo local
+   * @param {string} params.branch - Branch name
+   * @returns {Promise<Object>} Kết quả build
+   */
   async _executeBuild({ repoPath, branch }) {
     const cfg = this.configService.getConfig();
     const token = cfg?.token;

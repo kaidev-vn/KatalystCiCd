@@ -1,16 +1,24 @@
 /**
- * Tăng tag theo quy tắc mới với hỗ trợ prefix và suffix:
- * - Hỗ trợ cấu hình tag với format: {prefix}{version}{suffix}
- * - Ví dụ: 1.0.75-DAIHY-BETA -> prefix: "1.0.", version: "75", suffix: "-DAIHY-BETA"
- * - Tự động tăng phần version (số) và giữ nguyên prefix + suffix
- * - Bảo toàn số lượng chữ số (leading zeros) nếu có
+ * Tag Utility Functions - Quản lý Docker image tags với auto-increment
+ * 
+ * Hỗ trợ nhiều format tags:
+ * - Simple: "75" -> "76"
+ * - Semantic: "1.0.75" -> "1.0.76"
+ * - With suffix: "1.0.75-DAIHY-BETA" -> "1.0.76-DAIHY-BETA"
+ * - Leading zeros: "build-009" -> "build-010"
+ * - Custom prefix/suffix với config
+ * 
+ * @module utils/tag
  */
 
 /**
  * Tăng tag với hệ thống chia 2 phần (số và chữ)
  * @param {string} numberPart - Phần số (vd: "1.0.75")
  * @param {string} textPart - Phần chữ (vd: "DAIHY-BETA")
- * @param {boolean} autoIncrement - Có tự động tăng phần số không
+ * @param {boolean} [autoIncrement=false] - Có tự động tăng phần số không
+ * @returns {string} Tag mới (vd: "1.0.76-DAIHY-BETA")
+ * @example
+ * nextSplitTag("1.0.75", "BETA", true) // "1.0.76-BETA"
  */
 function nextSplitTag(numberPart, textPart, autoIncrement = false) {
   let newNumberPart = numberPart || '1.0.75';
@@ -36,7 +44,12 @@ function nextSplitTag(numberPart, textPart, autoIncrement = false) {
 
 /**
  * Tách tag thành 2 phần (số và chữ)
- * @param {string} tag - Tag cần tách
+ * @param {string} tag - Tag cần tách (vd: "1.0.75-BETA")
+ * @returns {Object} Object chứa numberPart và textPart
+ * @returns {string} return.numberPart - Phần số
+ * @returns {string} return.textPart - Phần chữ
+ * @example
+ * splitTagIntoParts("1.0.75-BETA") // { numberPart: "1.0.75", textPart: "BETA" }
  */
 function splitTagIntoParts(tag) {
   if (!tag || tag === 'latest') {
@@ -58,12 +71,15 @@ function splitTagIntoParts(tag) {
 
 /**
  * Tăng tag với cấu hình prefix và suffix
- * @param {string} current - Tag hiện tại
- * @param {object} options - Cấu hình tag
- * @param {string} options.prefix - Phần prefix (vd: "1.0.")
- * @param {string} options.suffix - Phần suffix (vd: "-DAIHY-BETA")
- * @param {number} options.startVersion - Số version bắt đầu nếu không tìm thấy
- * @param {number} options.versionWidth - Độ rộng của version (padding zeros)
+ * @param {string} current - Tag hiện tại (vd: "v1.0.75-beta")
+ * @param {Object} [options={}] - Cấu hình tag
+ * @param {string} [options.prefix=''] - Phần prefix (vd: "v1.0.")
+ * @param {string} [options.suffix=''] - Phần suffix (vd: "-beta")
+ * @param {number} [options.startVersion=1] - Số version bắt đầu nếu không tìm thấy
+ * @param {number} [options.versionWidth=0] - Độ rộng của version (padding zeros)
+ * @returns {string} Tag mới
+ * @example
+ * nextTagWithConfig("v1.0.5-beta", {prefix: "v1.0.", suffix: "-beta"}) // "v1.0.6-beta"
  */
 function nextTagWithConfig(current, options = {}) {
   const { prefix = '', suffix = '', startVersion = 1, versionWidth = 0 } = options;
@@ -89,10 +105,15 @@ function nextTagWithConfig(current, options = {}) {
 }
 
 /**
- * Parse tag thành prefix, version, suffix
+ * Parse tag thành các thành phần prefix, version, suffix
  * @param {string} tag - Tag cần parse
- * @param {string} expectedPrefix - Prefix mong đợi
- * @param {string} expectedSuffix - Suffix mong đợi
+ * @param {string} [expectedPrefix=''] - Prefix mong đợi
+ * @param {string} [expectedSuffix=''] - Suffix mong đợi
+ * @returns {Object} Parsed tag components
+ * @returns {string} return.prefix - Prefix phần
+ * @returns {number|null} return.version - Version number (null nếu không parse được)
+ * @returns {string} return.suffix - Suffix phần
+ * @returns {number} [return.versionWidth] - Độ rộng của version string
  */
 function parseTag(tag, expectedPrefix = '', expectedSuffix = '') {
   if (!tag) return { prefix: '', version: null, suffix: '' };
@@ -142,9 +163,14 @@ function parseTag(tag, expectedPrefix = '', expectedSuffix = '') {
 
 /**
  * Tăng tag theo quy tắc cũ (backward compatibility):
- * - Nếu tìm thấy chuỗi số cuối cùng trong tag (vd: 1.0.76-DAIHY-BETA -> tăng 76 thành 77), giữ nguyên phần chữ.
- * - Bảo toàn số lượng chữ số (leading zeros) nếu có (vd: build-009 -> build-010).
- * - Nếu không có số nào trong tag hiện tại, fallback: thêm hậu tố thời gian.
+ * - Tìm số cuối cùng trong tag và tăng lên 1
+ * - Bảo toàn leading zeros (vd: build-009 -> build-010)
+ * - Giữ nguyên tất cả ký tự khác
+ * @param {string} current - Tag hiện tại
+ * @returns {string} Tag mới
+ * @example
+ * nextTag("1.0.75-BETA") // "1.0.76-BETA"
+ * nextTag("build-009") // "build-010"
  */
 function nextTag(current) {
   const s = String(current || 'latest');
@@ -166,8 +192,13 @@ function nextTag(current) {
 }
 
 /**
- * Tạo tag config từ tag hiện tại
+ * Tạo tag config từ tag hiện tại (auto-detect format)
  * @param {string} currentTag - Tag hiện tại để phân tích
+ * @returns {Object} Tag config object
+ * @returns {string} return.prefix - Auto-detected prefix
+ * @returns {string} return.suffix - Auto-detected suffix
+ * @returns {number} return.startVersion - Detected version number
+ * @returns {number} return.versionWidth - Detected version width
  */
 function createTagConfigFromCurrent(currentTag) {
   if (!currentTag || currentTag === 'latest') {

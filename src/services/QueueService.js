@@ -4,11 +4,27 @@ const EventEmitter = require('events');
  * QueueService - Quản lý hàng đợi build jobs để tối ưu hóa tài nguyên
  * Hỗ trợ:
  * - Giới hạn số job chạy đồng thời
- * - Ưu tiên job theo priority
- * - Resource monitoring
+ * - Ưu tiên job theo priority (high/medium/low)
+ * - Resource monitoring (CPU/Memory)
  * - Sequential/Parallel build modes
+ * - Auto retry cho failed jobs
+ * @class
+ * @extends EventEmitter
+ * @fires QueueService#jobQueued
+ * @fires QueueService#jobStarted
+ * @fires QueueService#jobCompleted
+ * @fires QueueService#jobFailed
+ * @fires QueueService#jobRetry
  */
 class QueueService extends EventEmitter {
+  /**
+   * Tạo QueueService instance
+   * @constructor
+   * @param {Object} options - Configuration options
+   * @param {Object} options.logger - Logger instance
+   * @param {number} [options.maxConcurrentJobs=2] - Số job tối đa chạy đồng thời
+   * @param {number} [options.resourceThreshold=80] - Ngưỡng tài nguyên CPU/Memory (%)
+   */
   constructor({ logger, maxConcurrentJobs = 2, resourceThreshold = 80 }) {
     super();
     this.logger = logger;
@@ -33,7 +49,14 @@ class QueueService extends EventEmitter {
   }
 
   /**
-   * Thêm job vào hàng đợi
+   * Thêm job vào hàng đợi theo priority
+   * @param {Object} job - Job object
+   * @param {string} [job.id] - Job ID (auto-generated nếu không có)
+   * @param {string} job.name - Tên job
+   * @param {string} [job.priority='medium'] - Priority: 'high', 'medium', hoặc 'low'
+   * @param {number} [job.maxRetries=3] - Số lần retry tối đa khi failed
+   * @returns {string} Queue job ID
+   * @fires QueueService#jobQueued
    */
   addJob(job) {
     const queuedJob = {
@@ -57,7 +80,11 @@ class QueueService extends EventEmitter {
   }
 
   /**
-   * Chèn job vào queue theo priority
+   * Chèn job vào queue theo thứ tự priority
+   * Priority order: high (3) > medium (2) > low (1)
+   * @private
+   * @param {Object} job - Job object với priority
+   * @returns {void}
    */
   insertByPriority(job) {
     const priorityOrder = { high: 3, medium: 2, low: 1 };
@@ -76,7 +103,8 @@ class QueueService extends EventEmitter {
   }
 
   /**
-   * Bắt đầu xử lý queue
+   * Bắt đầu xử lý queue (kiểm tra mỗi 5 giây)
+   * @returns {void}
    */
   startProcessing() {
     if (this.isProcessing) return;
@@ -92,6 +120,7 @@ class QueueService extends EventEmitter {
 
   /**
    * Dừng xử lý queue
+   * @returns {void}
    */
   stopProcessing() {
     this.isProcessing = false;
@@ -102,7 +131,10 @@ class QueueService extends EventEmitter {
   }
 
   /**
-   * Xử lý queue
+   * Xử lý queue - lấy job tiếp theo và thực thi
+   * @async
+   * @private
+   * @returns {Promise<void>}
    */
   async processQueue() {
     if (!this.isProcessing || this.queue.length === 0) return;
@@ -129,6 +161,14 @@ class QueueService extends EventEmitter {
 
   /**
    * Thực thi job
+   * @async
+   * @private
+   * @param {Object} job - Queue job object
+   * @fires QueueService#jobStarted
+   * @fires QueueService#jobCompleted
+   * @fires QueueService#jobFailed
+   * @fires QueueService#jobRetry
+   * @returns {Promise<void>}
    */
   async executeJob(job) {
     job.status = 'running';

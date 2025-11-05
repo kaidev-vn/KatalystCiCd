@@ -1,6 +1,11 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 
+/**
+ * Resolve shell executable path cho cross-platform support
+ * Tìm shell phù hợp cho Windows (cmd.exe/powershell) hoặc Unix (/bin/sh, /bin/bash)
+ * @returns {string|undefined} Shell path hoặc undefined để dùng default
+ */
 function resolveShell() {
   // Cross-platform shell resolution to avoid ENOENT (/bin/sh not found)
   if (process.platform === 'win32') {
@@ -24,6 +29,20 @@ function resolveShell() {
   return undefined;
 }
 
+/**
+ * Chạy một command và stream output qua logger
+ * @param {string} command - Command cần chạy
+ * @param {Object} [logger] - Logger instance với method send()
+ * @param {Object} [options={}] - Execution options
+ * @param {Object} [options.env] - Environment variables override
+ * @param {string} [options.cwd] - Working directory
+ * @param {string} [options.shell] - Shell executable path
+ * @param {number} [options.timeout] - Timeout in milliseconds
+ * @returns {Promise<Object>} Execution result
+ * @returns {Error|null} return.error - Error object nếu có lỗi
+ * @returns {string} return.stdout - Standard output
+ * @returns {string} return.stderr - Standard error output
+ */
 function run(command, logger, options = {}) {
   return new Promise((resolve) => {
     const child = exec(command, {
@@ -46,6 +65,16 @@ function run(command, logger, options = {}) {
   });
 }
 
+/**
+ * Chạy nhiều commands tuần tự (serial execution)
+ * Dừng ngay khi có command failed
+ * @async
+ * @param {Array<string>} commands - Danh sách commands
+ * @param {Object} [logger] - Logger instance
+ * @param {Object} [options={}] - Execution options (same as run())
+ * @returns {Promise<Object>} Execution result
+ * @returns {boolean} return.hadError - True nếu có command nào failed
+ */
 async function runSeries(commands, logger, options = {}) {
   let hadError = false;
   for (const cmd of commands) {

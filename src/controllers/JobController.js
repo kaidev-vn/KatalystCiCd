@@ -4,7 +4,24 @@ const path = require('path');
 const fs = require('fs');
 const { run } = require('../utils/exec');
 
+/**
+ * JobController - Controller quản lý jobs (CI/CD jobs)
+ * Xử lý CRUD operations, job execution, và script generation
+ * @class
+ */
 class JobController {
+  /**
+   * Tạo JobController instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.buildService - BuildService instance
+   * @param {Object} deps.logger - Logger instance
+   * @param {Object} deps.configService - ConfigService instance
+   * @param {Object} [deps.jobScheduler] - JobScheduler instance (optional)
+   * @param {Object} deps.gitService - GitService instance
+   * @param {Object} [deps.queueService] - QueueService instance (optional, sẽ được gán sau)
+   * @param {Object} [deps.emailService] - EmailService instance (optional)
+   */
   constructor({ buildService, logger, configService, jobScheduler, gitService, queueService, emailService }) {
     this.jobService = new JobService(logger);
     this.buildService = buildService;
@@ -16,7 +33,14 @@ class JobController {
     this.emailService = emailService; // Optional: gửi email khi build xong
   }
 
-  // GET /api/jobs - Get all jobs
+  /**
+   * API Endpoint: Lấy tất cả jobs
+   * GET /api/jobs
+   * @async
+   * @param {Object} req - Express request
+   * @param {Object} res - Express response
+   * @returns {Promise<void>}
+   */
   async getAllJobs(req, res) {
     try {
       const jobs = this.jobService.getAllJobs();
@@ -27,7 +51,16 @@ class JobController {
     }
   }
 
-  // GET /api/jobs/:id - Get job by ID
+  /**
+   * API Endpoint: Lấy job theo ID
+   * GET /api/jobs/:id
+   * @async
+   * @param {Object} req - Express request
+   * @param {Object} req.params - URL parameters
+   * @param {string} req.params.id - Job ID
+   * @param {Object} res - Express response
+   * @returns {Promise<void>}
+   */
   async getJobById(req, res) {
     try {
       const { id } = req.params;
@@ -44,7 +77,15 @@ class JobController {
     }
   }
 
-  // POST /api/jobs - Create new job
+  /**
+   * API Endpoint: Tạo job mới
+   * POST /api/jobs
+   * @async
+   * @param {Object} req - Express request
+   * @param {Object} req.body - Job data
+   * @param {Object} res - Express response
+   * @returns {Promise<void>}
+   */
   async createJob(req, res) {
     try {
       const jobData = req.body;
@@ -83,7 +124,17 @@ class JobController {
     }
   }
 
-  // PUT /api/jobs/:id - Update job
+  /**
+   * API Endpoint: Cập nhật job
+   * PUT /api/jobs/:id
+   * @async
+   * @param {Object} req - Express request
+   * @param {Object} req.params - URL parameters
+   * @param {string} req.params.id - Job ID
+   * @param {Object} req.body - Update data
+   * @param {Object} res - Express response
+   * @returns {Promise<void>}
+   */
   async updateJob(req, res) {
     try {
       const { id } = req.params;
@@ -124,7 +175,12 @@ class JobController {
     }
   }
 
-  // Convert legacy payload shape to new standardized shape
+  /**
+   * Normalize job payload từ UI về schema chuẩn
+   * Hỗ trợ cả legacy (git/build) và new (gitConfig/buildConfig) schemas
+   * @param {Object} data - Raw job data từ UI
+   * @returns {Object} Normalized job object
+   */
   normalizeJobPayload(data) {
     const d = { ...(data || {}) };
 
@@ -194,6 +250,7 @@ class JobController {
 
     // Normalize schedule
     const schedule = d.schedule || {
+      triggerMethod: d.triggerMethod || d.schedule?.triggerMethod || 'polling', // 'polling', 'webhook', 'hybrid'
       autoCheck: !!d.autoCheck,
       polling: typeof d.polling === 'number' ? d.polling : 30,
       cron: d.cron || ''

@@ -1,4 +1,17 @@
+/**
+ * Scheduler - Main scheduler cho auto-check Git repository
+ * Polling repository theo chu kỳ để kiểm tra commit mới
+ * @class
+ */
 class Scheduler {
+  /**
+   * Tạo Scheduler instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.logger - Logger instance
+   * @param {Object} deps.configService - ConfigService instance
+   * @param {Object} deps.gitService - GitService instance
+   */
   constructor({ logger, configService, gitService }) {
     this.logger = logger;
     this.configService = configService;
@@ -7,6 +20,74 @@ class Scheduler {
     this._isRunning = false;
   }
 
+  /**
+   * Khởi động scheduler với config hiện tại
+   * @returns {void}
+   */
+  start() {
+    try { if (this._timer) clearInterval(this._timer); } catch (_) {}
+    this._isRunning = false;
+    
+    const cfg = this.configService.getConfig();
+    if (!cfg.autoCheck) {
+      this.logger?.send('[SCHEDULER] autoCheck đang tắt.');
+      return;
+    }
+    
+    const polling = Number(cfg.polling || 30);
+    const buildMethod = cfg.buildMethod || 'dockerfile';
+    const branch = cfg.branch || 'main';
+    const repoPath = cfg.repoPath || 'chưa cấu hình';
+    const contextPath = cfg.docker?.contextPath || cfg.repoPath || 'chưa cấu hình';
+    
+    
+    this.logger?.send(`[SCHEDULER] ✅ Bạn đã cấu hình Nhánh Build: ${branch}, Thời gian check commit: ${polling}s tại context path: ${contextPath}, Phương thức build: ${buildMethod} (tại repo path: ${repoPath})`);
+    this.logger?.send(`[SCHEDULER] 🚀 Scheduler đã được khởi động và sẽ tự động kiểm tra commit mới mỗi ${polling} giây.`);
+    
+    this._isRunning = true;
+    this._timer = setInterval(async () => {
+      try {
+        const current = this.configService.getConfig();
+        if (!current.autoCheck) {
+          this.logger?.send('[SCHEDULER] autoCheck đã bị tắt, dừng scheduler.');
+          this.stop();
+          return;
+        }
+        if (!current.repoPath) {
+          this.logger?.send('[SCHEDULER][WARN] Không có repoPath, bỏ qua lần check này.');
+          return;
+        }
+        
+        this.logger?.send(`[SCHEDULER] 🔍 Đang thực hiện check commit cho nhánh: ${current.branch || 'main'} tại repo: ${current.repoPath} với phương thức build: ${current.buildMethod || 'dockerfile'}`);
+        await this.gitService.checkAndBuild({ 
+          repoPath: current.repoPath, 
+          branch: current.branch || 'main' 
+        });
+      } catch (e) {
+        this.logger?.send(`[SCHEDULER][ERROR] ${e.message}`);
+      }
+    }, Math.max(5, polling) * 1000);
+  }
+
+  /**
+   * Dừng scheduler
+   * @returns {void}
+   */
+  stop() {
+    try { 
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
+    } catch (_) {}
+    this._isRunning = false;
+    this.logger?.send('[SCHEDULER] Đã dừng scheduler.');
+  }
+
+  /**
+   * Restart scheduler (stop và start lại)
+   * @returns {void}
+   */
   restart() {
     try { if (this._timer) clearInterval(this._timer); } catch (_) {}
     this._isRunning = false;
@@ -52,22 +133,22 @@ class Scheduler {
     }, Math.max(5, polling) * 1000);
   }
 
-  stop() {
-    try { 
-      if (this._timer) {
-        clearInterval(this._timer);
-        this._timer = null;
-      }
-    } catch (_) {}
-    this._isRunning = false;
-    this.logger?.send('[SCHEDULER] Đã dừng scheduler.');
-  }
-
+  /**
+   * Kiểm tra scheduler có đang chạy không
+   * @returns {boolean} True nếu đang chạy
+   */
   isRunning() {
     return this._isRunning;
   }
 
-  getStatus() {
+  /**
+   * Lấy cấu hình hiện tại của scheduler
+   * @returns {Object} Scheduler config
+   * @returns {boolean} return.isRunning - Scheduler có đang chạy không
+   * @returns {number} return.polling - Polling interval (seconds)
+   * @returns {boolean} return.autoCheck - AutoCheck có enabled không
+   */
+  getConfig() {
     const cfg = this.configService.getConfig();
     return {
       isRunning: this._isRunning,
@@ -76,6 +157,14 @@ class Scheduler {
       buildMethod: cfg.buildMethod || 'dockerfile',
       repoPath: cfg.repoPath || null
     };
+  }
+
+  /**
+   * Alias for getConfig() - used by SchedulerController
+   * @returns {Object} Current scheduler status
+   */
+  getStatus() {
+    return this.getConfig();
   }
 }
 

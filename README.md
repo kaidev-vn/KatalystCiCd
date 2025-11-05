@@ -12,7 +12,7 @@ Tài liệu này hướng dẫn cách cấu hình và vận hành hệ thống C
 
 ## 1) Yêu cầu hệ thống
 
-- Node.js 16+ (đã cài đặt)
+- Node.js 20+ (đã cài đặt)
 - Git (có sẵn trong PATH)
 - Docker (có sẵn trong PATH)
 - Quyền truy cập registry (nếu muốn push image)

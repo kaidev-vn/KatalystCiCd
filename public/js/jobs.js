@@ -148,6 +148,8 @@ export function showJobModal(jobId = null) {
     if (job) populateJobForm(job);
   } else {
     resetJobForm();
+    // Set default trigger method to 'polling' with visual state
+    setTimeout(() => toggleTriggerMethodConfig('polling'), 50);
   }
   loadServicesForSelection();
 }
@@ -221,7 +223,18 @@ export function populateJobForm(job) {
   // JSON Pipeline config
   $('jobJsonPipelinePath') && ($('jobJsonPipelinePath').value = job.buildConfig?.jsonPipelinePath || job.jsonPipelinePath || '');
 
-  // Schedule
+  // Schedule - Trigger Method
+  const triggerMethod = job.schedule?.triggerMethod || 'polling';
+  const pollingRadio = document.getElementById('jobTriggerPolling');
+  const webhookRadio = document.getElementById('jobTriggerWebhook');
+  const hybridRadio = document.getElementById('jobTriggerHybrid');
+  if (pollingRadio) pollingRadio.checked = triggerMethod === 'polling';
+  if (webhookRadio) webhookRadio.checked = triggerMethod === 'webhook';
+  if (hybridRadio) hybridRadio.checked = triggerMethod === 'hybrid';
+  
+  // Set initial 'selected' state for trigger method labels
+  setTimeout(() => toggleTriggerMethodConfig(triggerMethod), 50);
+
   const autoCheckEl = $('jobAutoCheck'); if (autoCheckEl) autoCheckEl.checked = !!job.schedule?.autoCheck;
   toggleScheduleConfig(!!job.schedule?.autoCheck);
   $('jobPolling') && ($('jobPolling').value = job.schedule?.polling || '30');
@@ -240,6 +253,12 @@ export function resetJobForm() {
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = true;
   const dockerRadio = document.getElementById('jobMethodDocker'); if (dockerRadio) dockerRadio.checked = true;
   toggleBuildMethodConfig('dockerfile');
+  
+  // Reset trigger method to polling
+  const pollingRadio = document.getElementById('jobTriggerPolling');
+  if (pollingRadio) pollingRadio.checked = true;
+  toggleTriggerMethodConfig('polling');
+  
   document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]').forEach(cb => { cb.checked = false; });
 }
 
@@ -264,6 +283,123 @@ export function toggleBuildMethodConfig(method) {
 export function toggleScheduleConfig(show) {
   const sec = $('scheduleConfig');
   if (sec) sec.style.display = show ? 'block' : 'none';
+}
+
+export function toggleTriggerMethodConfig(method) {
+  const autoCheckGroup = $('autoCheckGroup');
+  const autoCheckEl = $('jobAutoCheck');
+  const scheduleConfig = $('scheduleConfig');
+  const hint = $('triggerMethodHint');
+  const webhookConfigInfo = $('webhookConfigInfo');
+  
+  // Update visual state of trigger method options
+  const pollingLabel = $('triggerPollingLabel');
+  const webhookLabel = $('triggerWebhookLabel');
+  const hybridLabel = $('triggerHybridLabel');
+  
+  // Remove 'selected' class from all
+  if (pollingLabel) pollingLabel.classList.remove('selected');
+  if (webhookLabel) webhookLabel.classList.remove('selected');
+  if (hybridLabel) hybridLabel.classList.remove('selected');
+  
+  // Add 'selected' class to active option
+  if (method === 'webhook') {
+    if (webhookLabel) webhookLabel.classList.add('selected');
+    // Webhook: Không cần polling
+    if (autoCheckGroup) autoCheckGroup.style.display = 'none';
+    if (scheduleConfig) scheduleConfig.style.display = 'none';
+    if (autoCheckEl) autoCheckEl.checked = false;
+    if (hint) hint.textContent = '⚡ Webhook mode: Nhận events trực tiếp từ GitLab/GitHub. Zero overhead, instant builds!';
+    if (webhookConfigInfo) webhookConfigInfo.style.display = 'block';
+    updateWebhookUrl();
+  } else if (method === 'hybrid') {
+    if (hybridLabel) hybridLabel.classList.add('selected');
+    // Hybrid: Webhook primary + Polling fallback
+    if (autoCheckGroup) autoCheckGroup.style.display = 'block';
+    if (hint) hint.textContent = '🛡️ Hybrid mode: Webhook (instant) + Polling fallback. Khuyến nghị polling 300-600s.';
+    if (webhookConfigInfo) webhookConfigInfo.style.display = 'block';
+    updateWebhookUrl();
+    // Show schedule config if autoCheck is checked
+    if (autoCheckEl && autoCheckEl.checked) {
+      if (scheduleConfig) scheduleConfig.style.display = 'block';
+    }
+  } else {
+    if (pollingLabel) pollingLabel.classList.add('selected');
+    // Polling: Traditional mode
+    if (autoCheckGroup) autoCheckGroup.style.display = 'block';
+    if (hint) hint.textContent = '📡 Polling mode: Check Git repository theo chu kỳ. Simple nhưng tốn tài nguyên.';
+    if (webhookConfigInfo) webhookConfigInfo.style.display = 'none';
+    // Show schedule config if autoCheck is checked
+    if (autoCheckEl && autoCheckEl.checked) {
+      if (scheduleConfig) scheduleConfig.style.display = 'block';
+    }
+  }
+}
+
+// Update webhook URL based on selected Git provider
+export function updateWebhookUrl() {
+  const gitProvider = $('jobGitProvider')?.value || 'gitlab';
+  const webhookUrlDisplay = $('webhookUrlDisplay');
+  const gitlabInstructions = $('gitlabInstructions');
+  const githubInstructions = $('githubInstructions');
+  
+  // Get current server URL (in production, this should be your public domain)
+  const serverUrl = window.location.origin;
+  const webhookPath = gitProvider === 'github' ? '/webhook/github' : '/webhook/gitlab';
+  const fullWebhookUrl = `${serverUrl}${webhookPath}`;
+  
+  if (webhookUrlDisplay) {
+    webhookUrlDisplay.value = fullWebhookUrl;
+  }
+  
+  // Show appropriate instructions
+  if (gitlabInstructions && githubInstructions) {
+    if (gitProvider === 'github') {
+      gitlabInstructions.style.display = 'none';
+      githubInstructions.style.display = 'block';
+    } else {
+      gitlabInstructions.style.display = 'block';
+      githubInstructions.style.display = 'none';
+    }
+  }
+}
+
+// Copy webhook URL to clipboard
+export function copyWebhookUrl() {
+  const webhookUrlDisplay = $('webhookUrlDisplay');
+  if (webhookUrlDisplay) {
+    webhookUrlDisplay.select();
+    document.execCommand('copy');
+    alert('✅ Webhook URL đã được copy vào clipboard!');
+  }
+}
+
+// Show webhook secret (fetch from API)
+export async function showWebhookSecret() {
+  const webhookSecretDisplay = $('webhookSecretDisplay');
+  if (webhookSecretDisplay) {
+    try {
+      const { ok, data } = await fetchJSON('/api/webhook/config');
+      if (ok && data?.secret) {
+        webhookSecretDisplay.value = data.secret;
+        webhookSecretDisplay.type = 'text';
+        setTimeout(() => {
+          if (confirm('⚠️ Secret token đang hiển thị!\n\nẤn OK để copy vào clipboard, Cancel để ẩn lại.')) {
+            webhookSecretDisplay.select();
+            document.execCommand('copy');
+            alert('✅ Secret token đã được copy!');
+          }
+          webhookSecretDisplay.type = 'password';
+          webhookSecretDisplay.value = '••••••••••••••••';
+        }, 100);
+      } else {
+        alert('❌ Không thể lấy webhook secret. Vui lòng kiểm tra file .env hoặc app.js');
+      }
+    } catch (error) {
+      console.error('Error fetching webhook config:', error);
+      alert('❌ Lỗi khi lấy webhook config: ' + error.message);
+    }
+  }
 }
 
 export async function saveJob() {
@@ -349,6 +485,7 @@ export async function saveJob() {
       },
     },
     schedule: {
+      triggerMethod: document.querySelector('input[name="jobTriggerMethod"]:checked')?.value || 'polling',
       autoCheck: !!$('jobAutoCheck')?.checked,
       polling: Number($('jobPolling')?.value || 30),
       cron: $('jobCron')?.value || '',
@@ -397,7 +534,12 @@ export function searchJobs() {
   });
 }
 
-// Expose for inline onclick in generated rows
+// Expose for inline onclick/onchange in generated rows and form
 window.runJob = runJob;
 window.editJob = editJob;
 window.deleteJob = deleteJob;
+window.toggleTriggerMethodConfig = toggleTriggerMethodConfig;
+window.toggleScheduleConfig = toggleScheduleConfig;
+window.updateWebhookUrl = updateWebhookUrl;
+window.copyWebhookUrl = copyWebhookUrl;
+window.showWebhookSecret = showWebhookSecret;

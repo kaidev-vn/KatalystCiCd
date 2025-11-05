@@ -530,7 +530,7 @@
             <div class="row">
               <div>
                 <label for="jobGitProvider">Provider</label>
-                <select id="jobGitProvider">
+                <select id="jobGitProvider" onchange="updateWebhookUrl()">
                   <option value="gitlab">GitLab</option>
                   <option value="github">GitHub</option>
                 </select>
@@ -747,16 +747,87 @@
           <!-- Schedule Configuration -->
           <div class="form-section">
             <h3>⏰ Cấu hình Lịch trình</h3>
-            <div class="checkbox-group">
-              <input type="checkbox" id="jobAutoCheck" />
-              <label for="jobAutoCheck">Tự động kiểm tra commit mới</label>
+            
+            <!-- Trigger Method Selection -->
+            <div class="form-group">
+              <label>🎯 Phương thức Trigger</label>
+              <div class="trigger-method-group">
+                <label class="trigger-method-option" id="triggerPollingLabel">
+                  <input type="radio" name="jobTriggerMethod" id="jobTriggerPolling" value="polling" checked onchange="toggleTriggerMethodConfig(this.value)" />
+                  <span>📡 Polling (Default)</span>
+                </label>
+                <label class="trigger-method-option" id="triggerWebhookLabel">
+                  <input type="radio" name="jobTriggerMethod" id="jobTriggerWebhook" value="webhook" onchange="toggleTriggerMethodConfig(this.value)" />
+                  <span>⚡ Webhook (Recommended)</span>
+                </label>
+                <label class="trigger-method-option" id="triggerHybridLabel">
+                  <input type="radio" name="jobTriggerMethod" id="jobTriggerHybrid" value="hybrid" onchange="toggleTriggerMethodConfig(this.value)" />
+                  <span>🛡️ Hybrid (Safest)</span>
+                </label>
+              </div>
+              <small class="trigger-method-hint" id="triggerMethodHint">
+                Polling: Check Git theo chu kỳ | Webhook: Nhận events từ GitLab/GitHub | Hybrid: Webhook + Polling fallback
+              </small>
+            </div>
+
+            <!-- Webhook Configuration Info (shown when webhook/hybrid selected) -->
+            <div id="webhookConfigInfo" class="webhook-config-box" style="display: none;">
+              <h4>⚙️ Cấu hình Webhook</h4>
+              
+              <div class="webhook-config-item">
+                <label>Webhook URL:</label>
+                <div class="webhook-url-group">
+                  <input type="text" id="webhookUrlDisplay" readonly onclick="this.select()" />
+                  <button type="button" class="btn small primary" onclick="copyWebhookUrl()">📋 Copy</button>
+                </div>
+              </div>
+
+              <div class="webhook-config-item">
+                <label>Secret Token:</label>
+                <div class="webhook-url-group">
+                  <input type="password" id="webhookSecretDisplay" readonly value="••••••••••••••••" />
+                  <button type="button" class="btn small outline" onclick="showWebhookSecret()">👁️ Show & Copy</button>
+                </div>
+                <small>Set trong file .env: WEBHOOK_SECRET=your-secret-token</small>
+              </div>
+
+              <div id="webhookInstructions" class="webhook-instructions">
+                <strong>📖 Hướng dẫn setup:</strong>
+                <div id="gitlabInstructions" style="display: none; margin-top: 8px;">
+                  <p style="margin: 4px 0;"><strong>GitLab:</strong></p>
+                  <ol>
+                    <li>Vào <code>Settings → Webhooks</code> trong GitLab repo</li>
+                    <li>Paste <strong>Webhook URL</strong> ở trên</li>
+                    <li>Nhập <strong>Secret Token</strong></li>
+                    <li>Check <strong>"Push events"</strong> và chọn branch</li>
+                    <li>Click <strong>"Add webhook"</strong></li>
+                  </ol>
+                </div>
+                <div id="githubInstructions" style="display: none; margin-top: 8px;">
+                  <p style="margin: 4px 0;"><strong>GitHub:</strong></p>
+                  <ol>
+                    <li>Vào <code>Settings → Webhooks → Add webhook</code></li>
+                    <li>Paste <strong>Webhook URL</strong> ở trên</li>
+                    <li>Nhập <strong>Secret Token</strong></li>
+                    <li>Content type: <strong>application/json</strong></li>
+                    <li>Chọn <strong>"Just the push event"</strong></li>
+                    <li>Click <strong>"Add webhook"</strong></li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            
+            <div class="checkbox-group" id="autoCheckGroup">
+              <input type="checkbox" id="jobAutoCheck" onchange="toggleScheduleConfig(this.checked)" />
+              <label for="jobAutoCheck">Bật Auto-Check (cho Polling/Hybrid)</label>
             </div>
             
             <div id="scheduleConfig" style="display: none;">
               <div class="row">
                 <div>
                   <label for="jobPolling">Chu kỳ kiểm tra (giây)</label>
-                  <input id="jobPolling" type="number" value="30" min="10" />
+                  <input id="jobPolling" type="number" value="30" min="5" />
+                  <small style="color: #666;">Minimum: 5s (Dev: 30-60s, Hybrid: 300-600s)</small>
                 </div>
                 <div>
                   <label for="jobCron">Cron Expression (tùy chọn)</label>

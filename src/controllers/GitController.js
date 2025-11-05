@@ -1,5 +1,17 @@
+/**
+ * Đăng ký Git Controller routes
+ * @param {Object} app - Express app instance
+ * @param {Object} deps - Dependencies
+ * @param {Object} deps.gitService - GitService instance
+ * @returns {void}
+ */
 function registerGitController(app, { gitService }) {
-  app.post('/api/git/check-connection', async (_req, res) => {
+  /**
+   * API Endpoint: Test Git connection
+   * POST /api/git/test
+   * Kiểm tra kết nối tới Git repository
+   */
+  app.post('/api/git/test', async (req, res) => {
     try {
       const result = await gitService.checkConnection();
       res.json({ ok: true, result });

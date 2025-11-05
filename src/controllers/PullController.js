@@ -1,7 +1,20 @@
 const { run } = require('../utils/exec');
 
+/**
+ * Đăng ký Pull Controller routes
+ * @param {Object} app - Express app instance
+ * @param {Object} deps - Dependencies
+ * @param {Object} deps.configService - ConfigService instance
+ * @param {Object} deps.logger - Logger instance
+ * @returns {void}
+ */
 function registerPullController(app, { configService, logger }) {
-  app.post('/api/pull/start', async (req, res) => {
+  /**
+   * API Endpoint: Manual pull từ Git repository
+   * POST /api/pull
+   * Thực hiện git pull thủ công từ cấu hình
+   */
+  app.post('/api/pull', async (req, res) => {
     const cfg = configService.getConfig();
     logger?.send('[PULL] Bắt đầu pull code...');
     if (cfg.repoPath) {

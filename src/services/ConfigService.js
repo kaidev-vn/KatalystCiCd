@@ -1,7 +1,19 @@
 const path = require('path');
 const { readJson, writeJson } = require('../utils/file');
 
+/**
+ * ConfigService - Service quản lý cấu hình hệ thống
+ * Lưu trữ và quản lý config, builds, history với versioning
+ * @class
+ */
 class ConfigService {
+  /**
+   * Tạo ConfigService instance
+   * @constructor
+   * @param {Object} options - Options
+   * @param {string} options.dataDir - Data directory path
+   * @param {Object} options.logger - Logger instance
+   */
   constructor({ dataDir, logger }) {
     this.logger = logger;
     this.paths = {
@@ -13,6 +25,10 @@ class ConfigService {
     };
   }
 
+  /**
+   * Lấy default config
+   * @returns {Object} Default configuration object
+   */
   getDefaultConfig() {
     return {
       provider: 'gitlab',
@@ -155,16 +171,30 @@ class ConfigService {
     };
   }
 
+  /**
+   * Lấy config hiện tại
+   * @returns {Object} Config object
+   */
   getConfig() {
     return readJson(this.paths.CONFIG_PATH, this.getDefaultConfig());
   }
 
+  /**
+   * Cập nhật config (merge với config hiện tại)
+   * @param {Object} updates - Config updates
+   * @returns {Object} Updated config object
+   */
   updateConfig(updates) {
     const currentConfig = this.getConfig();
     const updatedConfig = { ...currentConfig, ...updates };
     return this.setConfig(updatedConfig);
   }
 
+  /**
+   * Set config (replace toàn bộ config)
+   * @param {Object} cfg - New config object
+   * @returns {Object} Normalized config object
+   */
   setConfig(cfg) {
     // normalize
     const provider = String(cfg.provider || 'gitlab').toLowerCase();

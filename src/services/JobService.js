@@ -3,7 +3,17 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { QueueService } = require('./QueueService');
 
+/**
+ * JobService - Service quản lý jobs (CRUD operations)
+ * Lưu trữ jobs vào file JSON và cung cấp các phương thức để tạo, đọc, cập nhật, xóa jobs
+ * @class
+ */
 class JobService {
+  /**
+   * Tạo JobService instance
+   * @constructor
+   * @param {Object} logger - Logger instance
+   */
   constructor(logger) {
     this.logger = logger;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
@@ -17,13 +27,21 @@ class JobService {
     });
   }
 
+  /**
+   * Đảm bảo file jobs.json tồn tại
+   * @private
+   * @returns {void}
+   */
   ensureJobsFile() {
     if (!fs.existsSync(this.jobsFile)) {
       fs.writeFileSync(this.jobsFile, JSON.stringify([], null, 2));
     }
   }
 
-  // Get all jobs
+  /**
+   * Lấy tất cả jobs
+   * @returns {Array<Object>} Danh sách jobs
+   */
   getAllJobs() {
     try {
       const data = fs.readFileSync(this.jobsFile, 'utf8');
@@ -34,13 +52,32 @@ class JobService {
     }
   }
 
-  // Get job by ID
+  /**
+   * Lấy job theo ID
+   * @param {string} jobId - Job ID
+   * @returns {Object|undefined} Job object hoặc undefined nếu không tìm thấy
+   */
   getJobById(jobId) {
     const jobs = this.getAllJobs();
     return jobs.find(job => job.id === jobId);
   }
 
-  // Create new job
+  /**
+   * Tạo job mới
+   * @param {Object} jobData - Job data
+   * @param {string} jobData.name - Tên job
+   * @param {string} [jobData.description] - Mô tả job
+   * @param {boolean} [jobData.enabled=true] - Job có enabled không
+   * @param {Object} jobData.gitConfig - Cấu hình Git
+   * @param {string} jobData.gitConfig.provider - Git provider (gitlab/github)
+   * @param {string} jobData.gitConfig.repoUrl - Repository URL
+   * @param {string} jobData.gitConfig.branch - Branch name
+   * @param {Object} jobData.buildConfig - Cấu hình build
+   * @param {string} jobData.buildConfig.method - Build method (dockerfile/script/jsonfile)
+   * @param {Array<Object>} [jobData.services] - Danh sách services cần build
+   * @param {Object} [jobData.schedule] - Cấu hình schedule
+   * @returns {Object} Job object đã tạo
+   */
   createJob(jobData) {
     const jobs = this.getAllJobs();
     
@@ -97,8 +134,10 @@ class JobService {
       // Services to build
       services: jobData.services || [],
       
-      // Scheduling
+      // Scheduling with flexible trigger method
       schedule: {
+        // Trigger method: 'polling', 'webhook', hoặc 'hybrid'
+        triggerMethod: jobData.schedule?.triggerMethod || 'polling',
         autoCheck: jobData.schedule?.autoCheck || false,
         polling: jobData.schedule?.polling || 30,
         cron: jobData.schedule?.cron || ''
@@ -110,7 +149,8 @@ class JobService {
         successfulBuilds: 0,
         failedBuilds: 0,
         lastBuildAt: null,
-        lastBuildStatus: null
+        lastBuildStatus: null,
+        triggeredBy: null // 'polling', 'webhook', 'manual'
       }
     };
 
@@ -120,7 +160,13 @@ class JobService {
     return newJob;
   }
 
-  // Update job
+  /**
+   * Cập nhật job
+   * @param {string} jobId - Job ID
+   * @param {Object} updateData - Data cần update
+   * @returns {Object} Job object đã cập nhật
+   * @throws {Error} Nếu job không tồn tại
+   */
   updateJob(jobId, updateData) {
     const jobs = this.getAllJobs();
     const jobIndex = jobs.findIndex(job => job.id === jobId);
@@ -141,7 +187,12 @@ class JobService {
     return jobs[jobIndex];
   }
 
-  // Delete job
+  /**
+   * Xóa job
+   * @param {string} jobId - Job ID
+   * @returns {boolean} True nếu xóa thành công
+   * @throws {Error} Nếu job không tồn tại
+   */
   deleteJob(jobId) {
     const jobs = this.getAllJobs();
     const filteredJobs = jobs.filter(job => job.id !== jobId);
@@ -154,7 +205,12 @@ class JobService {
     return true;
   }
 
-  // Toggle job enabled status
+  /**
+   * Toggle job enabled status
+   * @param {string} jobId - Job ID
+   * @returns {Object} Job object đã cập nhật
+   * @throws {Error} Nếu job không tồn tại
+   */
   toggleJob(jobId) {
     const job = this.getJobById(jobId);
     if (!job) {
@@ -164,7 +220,14 @@ class JobService {
     return this.updateJob(jobId, { enabled: !job.enabled });
   }
 
-  // Update job statistics
+  /**
+   * Cập nhật thống kê job sau khi build
+   * @param {string} jobId - Job ID
+   * @param {Object} buildResult - Kết quả build
+   * @param {boolean} buildResult.success - Build có thành công không
+   * @returns {Object} Job object đã cập nhật
+   * @throws {Error} Nếu job không tồn tại
+   */
   updateJobStats(jobId, buildResult) {
     const job = this.getJobById(jobId);
     if (!job) {
@@ -182,12 +245,21 @@ class JobService {
     return this.updateJob(jobId, { stats });
   }
 
-  // Get enabled jobs for scheduler
+  /**
+   * Lấy danh sách jobs đã enabled và có autoCheck
+   * @returns {Array<Object>} Danh sách enabled jobs
+   */
   getEnabledJobs() {
     return this.getAllJobs().filter(job => job.enabled && job.schedule.autoCheck);
   }
 
-  // Save jobs to file
+  /**
+   * Lưu danh sách jobs vào file
+   * @private
+   * @param {Array<Object>} jobs - Danh sách jobs
+   * @returns {void}
+   * @throws {Error} Nếu không thể ghi file
+   */
   saveJobs(jobs) {
     try {
       fs.writeFileSync(this.jobsFile, JSON.stringify(jobs, null, 2));
@@ -197,12 +269,33 @@ class JobService {
     }
   }
 
-  // Validate job data
+  /**
+   * Validate job data trước khi tạo/cập nhật
+   * @param {Object} jobData - Job data cần validate
+   * @returns {Array<string>} Danh sách lỗi validation (rỗng nếu valid)
+   */
   validateJobData(jobData) {
     const errors = [];
 
     if (!jobData.name || jobData.name.trim() === '') {
       errors.push('Job name is required');
+    }
+
+    // Validate trigger method
+    const triggerMethod = jobData.schedule?.triggerMethod || 'polling';
+    const validTriggerMethods = ['polling', 'webhook', 'hybrid'];
+    if (!validTriggerMethods.includes(triggerMethod)) {
+      errors.push(`Invalid trigger method. Must be one of: ${validTriggerMethods.join(', ')}`);
+    }
+
+    // Validate polling config nếu dùng polling hoặc hybrid
+    if (triggerMethod === 'polling' || triggerMethod === 'hybrid') {
+      if (jobData.schedule?.autoCheck) {
+        const polling = Number(jobData.schedule?.polling || 30);
+        if (polling < 5) {
+          errors.push('Polling interval must be at least 5 seconds');
+        }
+      }
     }
 
     // Với phương thức jsonfile, cho phép bỏ qua git repo/branch vì pipeline tự xử lý checkout
@@ -234,6 +327,36 @@ class JobService {
     }
 
     return errors;
+  }
+  
+  /**
+   * Lấy trigger method của job
+   * @param {string} jobId - Job ID
+   * @returns {string} Trigger method ('polling', 'webhook', 'hybrid')
+   */
+  getTriggerMethod(jobId) {
+    const job = this.getJobById(jobId);
+    return job?.schedule?.triggerMethod || 'polling';
+  }
+  
+  /**
+   * Check xem job có accept polling trigger không
+   * @param {string} jobId - Job ID
+   * @returns {boolean} True nếu accept polling
+   */
+  acceptsPolling(jobId) {
+    const method = this.getTriggerMethod(jobId);
+    return method === 'polling' || method === 'hybrid';
+  }
+  
+  /**
+   * Check xem job có accept webhook trigger không
+   * @param {string} jobId - Job ID
+   * @returns {boolean} True nếu accept webhook
+   */
+  acceptsWebhook(jobId) {
+    const method = this.getTriggerMethod(jobId);
+    return method === 'webhook' || method === 'hybrid';
   }
 }
 
