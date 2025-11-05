@@ -5,7 +5,7 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-05T07:17:23.137Z",
-    "updatedAt": "2025-11-05T08:01:23.547Z",
+    "updatedAt": "2025-11-05T08:50:28.743Z",
     "gitConfig": {
       "provider": "gitlab",
       "account": "khanhnq",
@@ -29,9 +29,9 @@
       },
       "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\builder\\ffffff-838c7848-5a1b-4cd0-a59c-3424fd9499f3\\build-script.sh",
       "imageName": "",
-      "imageTagNumber": "latest",
+      "imageTagNumber": "111111",
       "imageTagText": "",
-      "autoTagIncrement": false,
+      "autoTagIncrement": true,
       "registryUrl": "harbor.techres.vn",
       "registryUsername": "nghiant",
       "registryPassword": "szHnUmesLtV2GNUKfoEt"

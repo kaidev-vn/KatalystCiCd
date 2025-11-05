@@ -255,8 +255,6 @@ class JobController {
       const tagText = bc.imageTagText || '';
       const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
       const registryUrl = bc.registryUrl || dc.registryUrl || '';
-      const registryUsername = bc.registryUsername || dc.registryUsername || '';
-      const registryPassword = bc.registryPassword || dc.registryPassword || '';
       const dockerfilePath = dc.dockerfilePath || '';
       // contextPath ưu tiên theo cấu hình docker, nếu không có thì dùng repoPath mặc định
       const contextPath = dc.contextPath || repoPath;
@@ -286,9 +284,7 @@ class JobController {
         `IMAGE_TAG_TEXT="${tagText}"\n` +
         `IMAGE_TAG="${imageTag}"\n` +
         `AUTO_TAG_INCREMENT="${autoInc ? 'true' : 'false'}"\n` +
-        `REGISTRY_URL="${registryUrl}"\n` +
-        `REGISTRY_USERNAME="${registryUsername}"\n` +
-        `REGISTRY_PASSWORD="${registryPassword}"\n\n` +
+        `REGISTRY_URL="${registryUrl}"\n\n` +
         `# Job Info\n` +
         `JOB_ID="${job.id}"\n` +
         `JOB_NAME="${job.name}"\n` +
@@ -302,7 +298,9 @@ class JobController {
         `# TODO: Add your build commands below\n` +
         `# Example:\n` +
         `# docker build -f "$DOCKERFILE_PATH" -t "$IMAGE_NAME:$IMAGE_TAG" "$CONTEXT_PATH"\n` +
-        `# echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin\n` +
+        `# # For docker registry login, export REGISTRY_USERNAME and REGISTRY_PASSWORD in your environment or use a credential store.\n` +
+        `# # Example (avoid committing secrets to files):\n` +
+        `# # echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin\n` +
         `# docker push "$IMAGE_NAME:$IMAGE_TAG"\n`;
 
       // Ghi file script nếu chưa tồn tại; nếu đã tồn tại, cập nhật nội dung để phản ánh thay đổi cấu hình
@@ -526,7 +524,7 @@ class JobController {
           jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
           try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
         }
-        const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build.sh');
+        const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build-script.sh');
 
         const r = await this.buildService.runScript(
           scriptPath,

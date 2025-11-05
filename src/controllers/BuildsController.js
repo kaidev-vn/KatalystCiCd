@@ -48,7 +48,7 @@ function registerBuildsController(app, { configService, buildService, emailServi
           const lines = [
             `Build ID: ${r.buildId}`,
             `Trạng thái: ${statusLabel}`,
-            `Thời gian: ${new Date().toLocaleString()}`
+            `Thời gian: ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
           ];
           const text = lines.join('\n');
           const html = `<div style="font-family:Arial,sans-serif;line-height:1.6">${lines.map(l => `<div>${l}</div>`).join('')}<hr/><div>CI/CD System</div></div>`;
@@ -127,7 +127,7 @@ function registerBuildsController(app, { configService, buildService, emailServi
             `Script: ${scriptPath}`,
             `Build ID: ${result.buildId}`,
             `Trạng thái: ${statusLabel}`,
-            `Thời gian: ${new Date().toLocaleString()}`
+            `Thời gian: ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
           ];
           const text = lines.join('\n');
           const html = `<div style="font-family:Arial,sans-serif;line-height:1.6">${lines.map(l => `<div>${l}</div>`).join('')}<hr/><div>CI/CD System</div></div>`;
