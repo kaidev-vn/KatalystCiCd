@@ -35,13 +35,13 @@ export async function loadConfig() {
     const repoPathEl = $('repoPath'); if (repoPathEl) repoPathEl.value = data.repoPath || '';
     const branchEl = $('branch'); if (branchEl) branchEl.value = data.branch || '';
 
-    // Email config
+    // Email config (align keys with backend ConfigService)
     $('smtpHost') && ($('smtpHost').value = data.email?.smtpHost || '');
     $('smtpPort') && ($('smtpPort').value = data.email?.smtpPort || '');
-    $('emailUser') && ($('emailUser').value = data.email?.user || '');
-    $('emailPassword') && ($('emailPassword').value = data.email?.password || '');
-    $('notifyEmails') && ($('notifyEmails').value = (data.email?.notifyList || []).join(', '));
-    const enableEmailEl = $('enableEmailNotify'); if (enableEmailEl) enableEmailEl.checked = !!data.email?.enabled;
+    $('emailUser') && ($('emailUser').value = data.email?.emailUser || '');
+    $('emailPassword') && ($('emailPassword').value = data.email?.emailPassword || '');
+    $('notifyEmails') && ($('notifyEmails').value = (data.email?.notifyEmails || []).join(', '));
+    const enableEmailEl = $('enableEmailNotify'); if (enableEmailEl) enableEmailEl.checked = !!data.email?.enableEmailNotify;
 
     // System config
     $('maxConcurrentBuilds') && ($('maxConcurrentBuilds').value = data.system?.maxConcurrentBuilds || '1');
@@ -63,13 +63,14 @@ export async function saveConfig() {
       repoUrl: $('repoUrl')?.value || '',
       repoPath: $('repoPath')?.value || '',
       branch: $('branch')?.value || '',
+      // Email config payload must match backend keys
       email: {
         smtpHost: $('smtpHost')?.value || '',
         smtpPort: Number($('smtpPort')?.value || 0) || undefined,
-        user: $('emailUser')?.value || '',
-        password: $('emailPassword')?.value || '',
-        enabled: !!$('enableEmailNotify')?.checked,
-        notifyList: ($('notifyEmails')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
+        emailUser: $('emailUser')?.value || '',
+        emailPassword: $('emailPassword')?.value || '',
+        enableEmailNotify: !!$('enableEmailNotify')?.checked,
+        notifyEmails: ($('notifyEmails')?.value || '').split(',').map(s => s.trim()).filter(Boolean),
       },
       system: {
         maxConcurrentBuilds: Number($('maxConcurrentBuilds')?.value || 1),
