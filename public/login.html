@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - K-Talyst CI/CD</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="shortcut icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
+
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+</head>
+<body class="login-page">
+  <!-- Theme toggle button -->
+  <button id="loginThemeToggle" class="login-theme-toggle btn secondary" title="Chuyển đổi theme">
+    <span class="theme-icon">🌙</span>
+  </button>
+
+  <div class="login-container">
+    <div class="login-card card">
+      <div class="login-header">
+        <div class="logo">
+          <img src="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" alt="K-Talyst Logo" class="login-logo-img" />
+        </div>
+        <h1>K-Talyst</h1>
+        <p class="muted">CI/CD Automation Platform</p>
+      </div>
+      
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input 
+            type="text" 
+            id="username" 
+            placeholder="Nhập username của bạn" 
+            autocomplete="username"
+            required 
+            autofocus
+          >
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input 
+            type="password" 
+            id="password" 
+            placeholder="Nhập password"
+            autocomplete="current-password" 
+            required
+          >
+        </div>
+        
+        <button type="submit" class="btn primary btn-block" id="loginBtn">
+          <span id="btnText">Đăng nhập</span>
+          <span id="btnLoader" style="display:none;">🔄 Đang đăng nhập...</span>
+        </button>
+        
+        <div id="loginError" class="alert alert-danger" style="display:none;"></div>
+      </form>
+    </div>
+    
+    <div class="login-footer">
+      <p class="muted">© 2025 K-Talyst CI/CD Automation System</p>
+    </div>
+  </div>
+  
+  <!-- Theme toggle script -->
+  <script>
+    const themeToggle = document.getElementById('loginThemeToggle');
+    const themeIcon = themeToggle.querySelector('.theme-icon');
+    
+    function updateThemeIcon() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      themeIcon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+    }
+    
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      updateThemeIcon();
+    });
+    
+    updateThemeIcon();
+  </script>
+  
+  <script src="js/login.js" type="module"></script>
+</body>
+</html>
