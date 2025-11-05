@@ -1,6 +1,18 @@
 const nodemailer = require('nodemailer');
 
+/**
+ * EmailService - Service gửi email notifications
+ * Hỗ trợ gửi email thông báo build success/failure qua SMTP
+ * @class
+ */
 class EmailService {
+  /**
+   * Tạo EmailService instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.configService - ConfigService instance
+   * @param {Object} deps.logger - Logger instance
+   */
   constructor({ configService, logger }) {
     this.configService = configService;
     this.logger = logger;

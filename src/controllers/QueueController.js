@@ -2,8 +2,19 @@ const { QueueService } = require('../services/QueueService');
 
 /**
  * QueueController - API endpoints cho quản lý queue system
+ * Quản lý hàng đợi build jobs, giới hạn concurrent builds, và resource monitoring
+ * @class
  */
 class QueueController {
+  /**
+   * Tạo QueueController instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.logger - Logger instance để log events
+   * @param {Object} deps.buildService - Service quản lý build operations
+   * @param {Object} deps.jobService - Service quản lý jobs
+   * @param {Object} deps.jobController - Controller xử lý job execution
+   */
   constructor({ logger, buildService, jobService, jobController }) {
     this.logger = logger;
     this.buildService = buildService;
@@ -25,7 +36,9 @@ class QueueController {
   }
 
   /**
-   * Thiết lập event listeners cho queue
+   * Thiết lập event listeners cho queue để log các sự kiện
+   * @private
+   * @returns {void}
    */
   setupQueueEventListeners() {
     this.queueService.on('jobStarted', (job) => {
@@ -46,7 +59,17 @@ class QueueController {
   }
 
   /**
-   * Thực thi job logic
+   * Thực thi job logic - lấy job từ JobService và chạy build
+   * @async
+   * @param {Object} queueJob - Queue job object
+   * @param {string} queueJob.jobId - ID của job cần thực thi
+   * @param {string} queueJob.name - Tên của job
+   * @returns {Promise<Object>} Kết quả execution
+   * @returns {boolean} return.success - True nếu thành công
+   * @returns {string} return.jobId - ID của job đã thực thi
+   * @returns {Object} return.buildResult - Chi tiết kết quả build
+   * @returns {string} return.message - Thông báo kết quả
+   * @throws {Error} Nếu job không tồn tại hoặc execution failed
    */
   async executeJob(queueJob) {
     try {
@@ -73,7 +96,12 @@ class QueueController {
   }
 
   /**
-   * Thực hiện build cho job
+   * Thực hiện build cho job (deprecated - kept for backward compatibility)
+   * @deprecated Sử dụng jobController.executeJobBuild() thay thế
+   * @async
+   * @param {Object} job - Job object
+   * @param {Object} queueJob - Queue job object
+   * @returns {Promise<Array>} Danh sách kết quả build
    */
   async runJobBuild(job, queueJob) {
     // Delegate to jobController for unified logic (kept for backward compatibility)
@@ -115,7 +143,12 @@ class QueueController {
   }
 
   /**
-   * Build một service đơn lẻ
+   * Build một service đơn lẻ (deprecated)
+   * @deprecated Logic đã chuyển sang JobController.executeJobBuild
+   * @async
+   * @param {Object} job - Job object
+   * @param {Object} service - Service object
+   * @returns {Promise<Object>} Kết quả build
    */
   async buildSingleService(job, service) {
     // Deprecated: logic moved to JobController.executeJobBuild
@@ -123,7 +156,12 @@ class QueueController {
   }
 
   /**
-   * Build Docker image (placeholder - cần inject DockerService)
+   * Build Docker image (placeholder)
+   * @async
+   * @param {Object} config - Docker build configuration
+   * @param {string} config.imageName - Tên Docker image
+   * @param {string} config.tag - Tag của image
+   * @returns {Promise<Object>} Kết quả build
    */
   async buildDockerImage(config) {
     // Placeholder - sẽ được thay thế bằng DockerService thực tế
@@ -135,7 +173,19 @@ class QueueController {
   }
 
   /**
-   * API: Thêm job vào queue
+   * API Endpoint: Thêm job vào queue
+   * POST /api/queue/add
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} req.body - Request body
+   * @param {string} req.body.jobId - ID của job cần thêm vào queue
+   * @param {string} [req.body.priority='medium'] - Priority (high/medium/low)
+   * @param {number} [req.body.estimatedTime] - Thời gian ước tính (ms)
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
+   * @example
+   * POST /api/queue/add
+   * Body: { "jobId": "abc-123", "priority": "high", "estimatedTime": 300000 }
    */
   async addJobToQueue(req, res) {
     try {
@@ -172,7 +222,15 @@ class QueueController {
   }
 
   /**
-   * API: Lấy trạng thái queue
+   * API Endpoint: Lấy trạng thái queue
+   * GET /api/queue/status
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
+   * @example
+   * GET /api/queue/status
+   * Response: { "success": true, "status": {...}, "stats": {...} }
    */
   async getQueueStatus(req, res) {
     try {
@@ -190,7 +248,12 @@ class QueueController {
   }
 
   /**
-   * API: Lấy thống kê queue
+   * API Endpoint: Lấy thống kê queue
+   * GET /api/queue/stats
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
    */
   async getQueueStats(req, res) {
     try {
@@ -202,7 +265,14 @@ class QueueController {
   }
 
   /**
-   * API: Hủy job trong queue
+   * API Endpoint: Hủy job trong queue
+   * DELETE /api/queue/:jobId
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} req.params - URL parameters
+   * @param {string} req.params.jobId - ID của job cần hủy
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
    */
   async cancelJob(req, res) {
     try {
@@ -220,7 +290,15 @@ class QueueController {
   }
 
   /**
-   * API: Cập nhật cấu hình queue
+   * API Endpoint: Cập nhật cấu hình queue
+   * PUT /api/queue/config
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} req.body - Request body
+   * @param {number} [req.body.maxConcurrentJobs] - Số job tối đa chạy đồng thời
+   * @param {number} [req.body.resourceThreshold] - Ngưỡng tài nguyên (%)
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
    */
   async updateQueueConfig(req, res) {
     try {
@@ -241,7 +319,14 @@ class QueueController {
   }
 
   /**
-   * API: Dừng/Khởi động queue processing
+   * API Endpoint: Dừng/Khởi động queue processing
+   * POST /api/queue/toggle
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} req.body - Request body
+   * @param {string} req.body.action - Action cần thực hiện ('start' hoặc 'stop')
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
    */
   async toggleQueueProcessing(req, res) {
     try {
@@ -262,7 +347,14 @@ class QueueController {
   }
 
   /**
-   * API: Chạy job ngay lập tức (bypass queue)
+   * API Endpoint: Chạy job ngay lập tức (bypass queue)
+   * POST /api/jobs/:jobId/run-immediate
+   * @async
+   * @param {Object} req - Express request object
+   * @param {Object} req.params - URL parameters
+   * @param {string} req.params.jobId - ID của job cần chạy
+   * @param {Object} res - Express response object
+   * @returns {Promise<void>}
    */
   async runJobImmediate(req, res) {
     try {

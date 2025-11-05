@@ -213,7 +213,7 @@ export async function loadBuilds() {
 }
 
 export async function loadVersions() {
-  const { ok, data } = await fetchJSON('/api/versions');
+  const { ok, data } = await fetchJSON('/api/config/versions');
   if (ok) {
     const lastBuiltCommitEl = $('lastBuiltCommit');
     if (lastBuiltCommitEl) lastBuiltCommitEl.textContent = data?.lastBuiltCommit || '(chưa có)';

@@ -1,12 +1,20 @@
 {
   "name": "ci-cd",
   "version": "1.0.0",
-  "main": "index.js",
-  "desciption": "app for ci/cd",
+  "main": "app.js",
+  "description": "CI/CD automation system with Docker build, Git polling, queue management",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "docs": "jsdoc -c jsdoc.json",
+    "docs:serve": "npm run docs && npx http-server docs/ -p 8080"
   },
-  "keywords": [],
+  "keywords": [
+    "ci-cd",
+    "docker",
+    "automation",
+    "build",
+    "deployment"
+  ],
   "author": "KhanhNguyen",
   "license": "MIT",
   "dependencies": {
@@ -18,5 +26,8 @@
     "morgan": "^1.10.1",
     "nodemailer": "^7.0.10",
     "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "jsdoc": "^4.0.5"
   }
 }

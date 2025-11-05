@@ -1,8 +1,22 @@
+/**
+ * Logger - SSE (Server-Sent Events) logger cho realtime log streaming
+ * Broadcast logs tới tất cả connected clients qua HTTP SSE endpoint
+ * @class
+ */
 class Logger {
+  /**
+   * Tạo Logger instance
+   * @constructor
+   */
   constructor() {
     this.clients = new Set();
   }
 
+  /**
+   * Đăng ký SSE endpoint vào Express app
+   * @param {Object} app - Express app instance
+   * @returns {void}
+   */
   register(app) {
     app.get('/api/logs/stream', (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
@@ -18,6 +32,11 @@ class Logger {
     });
   }
 
+  /**
+   * Gửi log message tới tất cả connected clients
+   * @param {string} text - Log message
+   * @returns {void}
+   */
   send(text) {
     const data = String(text).replace(/\r?\n/g, ' ');
     for (const client of this.clients) {

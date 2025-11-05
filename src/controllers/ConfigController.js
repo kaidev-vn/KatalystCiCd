@@ -1,7 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * Đăng ký Config Controller routes
+ * @param {Object} app - Express app instance
+ * @param {Object} deps - Dependencies
+ * @param {Object} deps.configService - ConfigService instance
+ * @param {Object} deps.scheduler - Scheduler instance
+ * @param {Object} deps.logger - Logger instance
+ * @returns {void}
+ */
 function registerConfigController(app, { configService, scheduler, logger }) {
+  /**
+   * API Endpoint: Lấy cấu hình hiện tại
+   * GET /api/config
+   */
   app.get('/api/config', (req, res) => {
     try {
       const cfg = configService.getConfig();

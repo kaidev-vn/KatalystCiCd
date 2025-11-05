@@ -13,6 +13,14 @@ function toPosix(p) {
   return s;
 }
 
+/**
+ * Đăng ký Deploy Controller routes
+ * @param {Object} app - Express app instance
+ * @param {Object} deps - Dependencies
+ * @param {Object} deps.logger - Logger instance
+ * @param {Object} deps.configService - ConfigService instance
+ * @returns {void}
+ */
 function registerDeployController(app, { logger, configService }) {
   // Liệt kê các lựa chọn (CHOICE) dựa theo nội dung deploy.sh
   app.get('/api/deploy/choices', (req, res) => {
@@ -55,8 +63,12 @@ function registerDeployController(app, { logger, configService }) {
     }
   });
 
-  // Chạy deploy.sh với tham số truyền vào từ frontend
-  app.post('/api/deploy/run', async (req, res) => {
+  /**
+   * API Endpoint: Chạy deploy script
+   * POST /api/deploy
+   * Thực thi deploy.sh với các CHOICE được cấu hình
+   */
+  app.post('/api/deploy', async (req, res) => {
     const {
       choice,
       imageTag,

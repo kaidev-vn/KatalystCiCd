@@ -2,7 +2,15 @@ const { runSeries, resolveShell } = require('../utils/exec');
 const fs = require('fs');
 const path = require('path');
 
-// Helper: derive repo path from contextInitPath
+/**
+ * Derive repo path từ contextInitPath
+ * @private
+ * @param {Object} cfg - Config object
+ * @param {string} [cfg.contextInitPath] - Context init path
+ * @param {string} [cfg.deployContextCustomPath] - Custom context path
+ * @param {string} [cfg.repoPath] - Legacy repo path
+ * @returns {string|null} Repo path hoặc null
+ */
 function deriveRepoPath(cfg) {
   try {
     const base = (cfg?.contextInitPath || cfg?.deployContextCustomPath || '');
@@ -13,31 +21,63 @@ function deriveRepoPath(cfg) {
   }
 }
 
+/**
+ * Convert Windows path sang POSIX path (for Git Bash/WSL)
+ * @private
+ * @param {string} p - Windows path (e.g. D:\path\to\file)
+ * @returns {string} POSIX path (e.g. /d/path/to/file)
+ */
 function toPosix(p) {
   if (!p) return p;
   let s = String(p).replace(/\\/g, '/');
-  if (/^[A-Za-z]:\//.test(s)) { const drive = s[0].toLowerCase(); s = `/${drive}${s.slice(2)}`; }
+  if (/^[A-Za-z]:\//.test(s)) {
+    const drive = s[0].toLowerCase(); s = `/${drive}${s.slice(2)}`;
+  }
   return s;
 }
 
+/**
+ * BuildService - Service quản lý build operations
+ * Hỗ trợ nhiều build methods: custom build steps, script execution, JSON pipeline
+ * @class
+ */
 class BuildService {
+  /**
+   * Tạo BuildService instance
+   * @constructor
+   * @param {Object} deps - Dependencies
+   * @param {Object} deps.logger - Logger instance
+   * @param {Object} deps.configService - ConfigService instance
+   */
   constructor({ logger, configService }) {
     this.logger = logger;
     this.configService = configService;
     this.buildHistoryFile = path.join(process.cwd(), 'build-history.json');
     this.buildLogsDir = path.join(process.cwd(), 'build-logs');
-    
+
     // Ensure build logs directory exists
     if (!fs.existsSync(this.buildLogsDir)) {
       fs.mkdirSync(this.buildLogsDir, { recursive: true });
     }
   }
 
+  /**
+   * Lấy danh sách builds
+   * @returns {Array<Object>} Danh sách builds
+   */
   list() {
     const builds = this.configService.getBuilds();
     return Array.isArray(builds) ? builds : [];
   }
 
+  /**
+   * Thêm build mới
+   * @param {Object} params - Build parameters
+   * @param {string} [params.name] - Tên build
+   * @param {Object} [params.env] - Environment variables
+   * @param {Array<string>} [params.steps] - Danh sách commands
+   * @returns {Object} Build object đã tạo
+   */
   add({ name, env, steps }) {
     const list = this.list();
     const id = (() => {
@@ -57,6 +97,16 @@ class BuildService {
     return item;
   }
 
+  /**
+   * Cập nhật build
+   * @param {string} id - Build ID
+   * @param {Object} params - Build parameters cần update
+   * @param {string} [params.name] - Tên build
+   * @param {Object} [params.env] - Environment variables
+   * @param {Array<string>} [params.steps] - Danh sách commands
+   * @returns {Object} Build object đã cập nhật
+   * @throws {Error} Nếu build không tìm thấy
+   */
   update(id, { name, env, steps }) {
     const list = this.list();
     const idx = list.findIndex(b => b.id === id);
@@ -70,6 +120,11 @@ class BuildService {
     return it;
   }
 
+  /**
+   * Xóa build
+   * @param {string} id - Build ID
+   * @returns {boolean} True nếu xóa thành công
+   */
   remove(id) {
     const list = this.list();
     const idx = list.findIndex(b => b.id === id);
@@ -80,14 +135,23 @@ class BuildService {
     return true;
   }
 
+  /**
+   * Chạy build
+   * @async
+   * @param {string} id - Build ID
+   * @returns {Promise<Object>} Kết quả build
+   * @returns {boolean} return.ok - True nếu không có lỗi
+   * @returns {string} return.buildId - Build instance ID
+   * @throws {Error} Nếu build không tìm thấy hoặc thực thi failed
+   */
   async run(id) {
     const list = this.list();
     const it = list.find(b => b.id === id);
     if (!it) throw new Error('Không tìm thấy build');
-    
+
     const buildId = `build-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
-    
+
     // Record build start in history
     this.addBuildHistory({
       id: buildId,
@@ -96,13 +160,13 @@ class BuildService {
       status: 'running',
       startTime: startTime
     });
-    
+
     this.logger?.send(`[BUILD] Chạy build: ${it.name} (ID: ${buildId})`);
-    
+
     // Create log file for this build
     const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
-    
+
     // Custom logger for this build
     const buildLogger = {
       send: (message) => {
@@ -112,48 +176,59 @@ class BuildService {
         this.logger?.send(message); // Also send to main logger
       }
     };
-    
+
     try {
       const cmds = Array.isArray(it.steps) ? it.steps : [];
       const { hadError } = await runSeries(cmds, buildLogger, { env: it.env });
-      
+
       const endTime = new Date().toISOString();
       const duration = this.calculateDuration(startTime, endTime);
-      
+
       // Update build history with result
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime: endTime,
         duration: duration
       });
-      
+
       buildLogger.send(`[BUILD] Hoàn tất: ${it.name} (hadError=${hadError})`);
       logStream.end();
-      
+
       return { ok: !hadError, buildId };
     } catch (error) {
       const endTime = new Date().toISOString();
       const duration = this.calculateDuration(startTime, endTime);
-      
+
       this.updateBuildHistory(buildId, {
         status: 'failed',
         endTime: endTime,
         duration: duration,
         error: error.message
       });
-      
+
       buildLogger.send(`[BUILD] Lỗi: ${error.message}`);
       logStream.end();
-      
+
       throw error;
     }
   }
 
+  /**
+   * Chạy build script
+   * @async
+   * @param {string} scriptPath - Đường dẫn tới script file
+   * @param {string|null} [workingDir=null] - Working directory
+   * @param {Object} [envOverrides={}] - Environment variables override
+   * @returns {Promise<Object>} Kết quả build
+   * @returns {boolean} return.ok - True nếu không có lỗi
+   * @returns {string} return.buildId - Build instance ID
+   * @throws {Error} Nếu script failed
+   */
   async runScript(scriptPath, workingDir = null, envOverrides = {}) {
     const config = this.configService.getConfig();
     const buildId = `script-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
-    
+
     // Record script build start in history
     this.addBuildHistory({
       id: buildId,
@@ -163,13 +238,13 @@ class BuildService {
       startTime: startTime,
       scriptPath: scriptPath
     });
-    
+
     this.logger?.send(`[SCRIPT BUILD] Chạy script: ${scriptPath} (ID: ${buildId})`);
-    
+
     // Create log file for this build
     const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
-    
+
     // Custom logger for this build
     const buildLogger = {
       send: (message) => {
@@ -179,7 +254,7 @@ class BuildService {
         this.logger?.send(message); // Also send to main logger
       }
     };
-    
+
     try {
       // Determine working directory (ensure it exists to avoid ENOENT from spawn)
       let cwd = workingDir || deriveRepoPath(config) || path.dirname(scriptPath) || process.cwd();
@@ -193,10 +268,10 @@ class BuildService {
           cwd = process.cwd();
         }
       }
-      
+
       // Make script executable (for Unix-like systems)
       const makeExecutableCmd = process.platform === 'win32' ? null : `chmod +x "${scriptPath}"`;
-      
+
       // Execute script (detect script type on Windows)
       let scriptCmd;
       if (process.platform === 'win32') {
@@ -212,46 +287,46 @@ class BuildService {
       } else {
         scriptCmd = `"${scriptPath}"`;
       }
-      
+
       const commands = makeExecutableCmd ? [makeExecutableCmd, scriptCmd] : [scriptCmd];
-      
+
       buildLogger.send(`[SCRIPT BUILD] Thực thi script tại: ${cwd}`);
       buildLogger.send(`[SCRIPT BUILD] Lệnh: ${scriptCmd}`);
-      
-      const { hadError } = await runSeries(commands, buildLogger, { 
+
+      const { hadError } = await runSeries(commands, buildLogger, {
         env: { ...process.env, ...(envOverrides || {}) },
         cwd: cwd,
         shell: resolveShell()
       });
-      
+
       const endTime = new Date().toISOString();
       const duration = this.calculateDuration(startTime, endTime);
-      
+
       // Update build history with result
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime: endTime,
         duration: duration
       });
-      
+
       buildLogger.send(`[SCRIPT BUILD] Hoàn tất: ${scriptPath} (hadError=${hadError})`);
       logStream.end();
-      
+
       return { ok: !hadError, buildId };
     } catch (error) {
       const endTime = new Date().toISOString();
       const duration = this.calculateDuration(startTime, endTime);
-      
+
       this.updateBuildHistory(buildId, {
         status: 'failed',
         endTime: endTime,
         duration: duration,
         error: error.message
       });
-      
+
       buildLogger.send(`[SCRIPT BUILD] Lỗi: ${error.message}`);
       logStream.end();
-      
+
       throw error;
     }
   }
@@ -423,19 +498,19 @@ class BuildService {
   addBuildHistory(buildRecord) {
     const history = this.getBuildHistory();
     history.unshift(buildRecord); // Add to beginning
-    
+
     // Keep only last 100 builds
     if (history.length > 100) {
       history.splice(100);
     }
-    
+
     this.saveBuildHistory(history);
   }
 
   updateBuildHistory(buildId, updates) {
     const history = this.getBuildHistory();
     const index = history.findIndex(build => build.id === buildId);
-    
+
     if (index !== -1) {
       history[index] = { ...history[index], ...updates };
       this.saveBuildHistory(history);
@@ -454,7 +529,7 @@ class BuildService {
     try {
       // Clear the history array and save empty array to file
       this.saveBuildHistory([]);
-      
+
       // Optionally, also clear all log files
       if (fs.existsSync(this.buildLogsDir)) {
         const logFiles = fs.readdirSync(this.buildLogsDir);
@@ -465,7 +540,7 @@ class BuildService {
           }
         });
       }
-      
+
       console.log('Build history and logs cleared successfully');
     } catch (error) {
       console.error('Error clearing build history:', error);
@@ -476,11 +551,11 @@ class BuildService {
   // Build Logs Management
   getBuildLogs(buildId) {
     const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
-    
+
     if (fs.existsSync(logFile)) {
       return fs.readFileSync(logFile, 'utf8');
     }
-    
+
     throw new Error(`Build logs not found for ID: ${buildId}`);
   }
 
@@ -488,11 +563,11 @@ class BuildService {
     const start = new Date(startTime);
     const end = new Date(endTime);
     const diffMs = end - start;
-    
+
     const seconds = Math.floor(diffMs / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
     } else if (minutes > 0) {

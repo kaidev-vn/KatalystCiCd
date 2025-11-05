@@ -1,4 +1,17 @@
+/**
+ * Đăng ký Builds Controller routes
+ * @param {Object} app - Express app instance
+ * @param {Object} deps - Dependencies
+ * @param {Object} deps.configService - ConfigService instance
+ * @param {Object} deps.buildService - BuildService instance
+ * @param {Object} [deps.emailService] - EmailService instance (optional)
+ * @returns {void}
+ */
 function registerBuildsController(app, { configService, buildService, emailService }) {
+  /**
+   * API Endpoint: Lấy danh sách builds
+   * GET /api/builds
+   */
   app.get('/api/builds', (req, res) => {
     try { res.json(buildService.list()); } catch (e) { res.json([]); }
   });

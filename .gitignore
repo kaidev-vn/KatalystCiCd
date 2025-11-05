@@ -11,3 +11,6 @@ builds_versions/
 
 # Logs
 *.log
+.DS_Store
+Thumbs.db
+docs/

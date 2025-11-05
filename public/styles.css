@@ -995,6 +995,159 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
   gap: 8px;
 }
 
+/* Trigger Method Radio Group */
+.trigger-method-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.trigger-method-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 150px;
+}
+
+.trigger-method-option:hover {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 4%, var(--card-bg));
+}
+
+.trigger-method-option input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
+.trigger-method-option input[type="radio"]:checked {
+  accent-color: var(--primary);
+}
+
+.trigger-method-option.selected {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 8%, var(--card-bg));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 15%, transparent);
+}
+
+.trigger-method-hint {
+  color: var(--muted);
+  font-size: 12px;
+  display: block;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Webhook Configuration Box */
+.webhook-config-box {
+  margin-top: 16px;
+  padding: 16px;
+  background: color-mix(in oklab, var(--primary) 4%, var(--card-bg));
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.webhook-config-box h4 {
+  margin: 0 0 12px 0;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.webhook-config-item {
+  margin-bottom: 12px;
+}
+
+.webhook-config-item:last-child {
+  margin-bottom: 0;
+}
+
+.webhook-config-item label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.webhook-config-item small {
+  color: var(--muted);
+  font-size: 12px;
+  display: block;
+  margin-top: 4px;
+}
+
+.webhook-url-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.webhook-url-group input {
+  flex: 1;
+  background: var(--card-bg);
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.webhook-instructions {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.webhook-instructions strong {
+  color: var(--primary);
+  font-size: 13px;
+}
+
+.webhook-instructions ol {
+  margin: 8px 0 0 20px;
+  padding: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.webhook-instructions li {
+  margin: 4px 0;
+}
+
+.webhook-instructions code {
+  background: color-mix(in oklab, var(--primary) 8%, var(--card-bg));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--primary);
+}
+
 /* Row Layout */
 .row {
   display: grid;
