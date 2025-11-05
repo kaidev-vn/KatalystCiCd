@@ -45,6 +45,26 @@ function registerConfigController(app, { configService, scheduler, logger }) {
     }
   });
 
+  // Initialize context directory structure: Katalyst/{repo,builder}
+  app.post('/api/config/init-context', (req, res) => {
+    try {
+      const basePath = String(
+        req.body?.basePath || req.body?.path || req.body?.contextInitPath || ''
+      ).trim();
+      if (!basePath) return res.status(400).json({ ok: false, error: 'Thiếu tham số basePath/contextInitPath' });
+      const katalystDir = path.resolve(basePath, 'Katalyst');
+      const repoDir = path.join(katalystDir, 'repo');
+      const builderDir = path.join(katalystDir, 'builder');
+      fs.mkdirSync(katalystDir, { recursive: true });
+      fs.mkdirSync(repoDir, { recursive: true });
+      fs.mkdirSync(builderDir, { recursive: true });
+      logger?.send(`[CONFIG] Đã khởi tạo cấu trúc context tại ${katalystDir}`);
+      res.json({ ok: true, data: { katalystDir, repoDir, builderDir } });
+    } catch (e) {
+      res.status(400).json({ ok: false, error: e.message });
+    }
+  });
+
   app.get('/api/config/versions', (req, res) => {
     try {
       res.json(configService.listConfigVersions());

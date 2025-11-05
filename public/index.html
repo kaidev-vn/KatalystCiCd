@@ -25,11 +25,11 @@
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
         <nav class="side-nav">
-          <button class="tab-btn active" data-tab="config-tab">⚙️ Cấu hình chung</button>
           <button class="tab-btn" data-tab="jobs-tab">📋 Quản lý Jobs</button>
           <button class="tab-btn" data-tab="queue-tab">⏳ Hàng đợi Build</button>
           <button class="tab-btn" data-tab="builds-tab">🚀 Quản lý Builds</button>
           <button class="tab-btn" data-tab="raw-config-tab">📝 config.json</button>
+          <button class="tab-btn active" data-tab="config-tab">⚙️ Cấu hình chung</button>
         </nav>
       </aside>
 
@@ -76,6 +76,13 @@
             <div>
               <label for="branch">Branch</label>
               <input id="branch" type="text" placeholder="main" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="contextInitPath">Đường dẫn khởi tạo Context</label>
+              <input id="contextInitPath" type="text" placeholder="vd: D:/workspace" />
+              <p class="muted">Khi lưu cấu hình, hệ thống sẽ tạo thư mục <strong>Katalyst</strong> tại đường dẫn này, bao gồm <code>repo</code> và <code>builder</code>.</p>
             </div>
           </div>
           <div class="actions">
@@ -551,8 +558,7 @@
             <label for="jobGitRepoUrl">Repository URL *</label>
             <input id="jobGitRepoUrl" type="text" placeholder="https://gitlab.com/my-org/my-repo.git" required />
             
-            <label for="jobGitRepoPath">Local Repository Path *</label>
-            <input id="jobGitRepoPath" type="text" placeholder="D:/repos/my-repo" required />
+            <!-- Local Repository Path đã được loại bỏ: hệ thống sẽ tự động pull vào Context/Katalyst/repo -->
           </div>
 
           <!-- Build Configuration -->
@@ -589,8 +595,10 @@
 
             <!-- Script Build Config -->
             <div id="jobScriptConfig" class="method-config" style="display: none;">
-              <label for="jobScriptPath">Đường dẫn Script (.sh) *</label>
-              <input id="jobScriptPath" type="text" placeholder="D:/scripts/build.sh" />
+              <!-- Trường đường dẫn Script đã loại bỏ: hệ thống sẽ sử dụng script mặc định trong thư mục builder -->
+              <div class="info-box">
+                <small class="muted">Khi chọn phương thức Script, hệ thống sẽ tạo thư mục: <code>Context/Katalyst/builder/(tên-job + job_id)</code>. Vui lòng đặt file script mặc định <code>build.sh</code> trong thư mục này.</small>
+              </div>
               
               <!-- Script Docker Configuration -->
               <div class="row">
@@ -650,14 +658,15 @@
             <div id="jobDockerConfig" class="method-config">
               <div class="row">
                 <div>
-                  <label for="jobDockerfilePath">Dockerfile Path *</label>
-                  <input id="jobDockerfilePath" type="text" placeholder="./Dockerfile" />
+                  <label for="jobDockerfilePath">Dockerfile Path</label>
+                  <input id="jobDockerfilePath" type="text" placeholder="(để trống để dùng Dockerfile mặc định trong repo)" />
                 </div>
                 <div>
-                  <label for="jobContextPath">Context Path *</label>
-                  <input id="jobContextPath" type="text" placeholder="." />
+                  <label for="jobContextPath">Context Path</label>
+                  <input id="jobContextPath" type="text" placeholder="(để trống để dùng Context/Katalyst/repo)" />
                 </div>
               </div>
+              <small class="muted">Nếu để trống, hệ thống sẽ tự động pull repo vào Context/Katalyst/repo và dùng Dockerfile mặc định tại thư mục gốc của repo khi build.</small>
               
               <div class="row">
                 <div>

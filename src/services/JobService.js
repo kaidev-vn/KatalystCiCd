@@ -212,13 +212,11 @@ class JobService {
       errors.push('Branch is required');
     }
 
-    if (jobData.buildConfig?.method === 'script' && !jobData.buildConfig?.scriptPath) {
-      errors.push('Script path is required for script build method');
-    }
+    // Với phương thức build script, đường dẫn script có thể được tạo tự động trong thư mục builder.
+    // Không bắt buộc người dùng phải nhập scriptPath.
 
-    if (jobData.buildConfig?.method === 'dockerfile' && !jobData.buildConfig?.dockerConfig?.dockerfilePath) {
-      errors.push('Dockerfile path is required for dockerfile build method');
-    }
+    // Với phương thức dockerfile, Dockerfile có thể được dùng mặc định ở root của context.
+    // Không bắt buộc người dùng phải nhập dockerfilePath.
 
     // Services selection is only required for dockerfile builds.
     // For script builds, services are optional.

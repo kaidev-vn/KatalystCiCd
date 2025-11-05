@@ -103,7 +103,6 @@ export function populateJobForm(job) {
   $('jobGitToken') && ($('jobGitToken').value = job.git?.token || '');
   $('jobGitBranch') && ($('jobGitBranch').value = job.git?.branch || '');
   $('jobGitRepoUrl') && ($('jobGitRepoUrl').value = job.git?.repoUrl || '');
-  $('jobGitRepoPath') && ($('jobGitRepoPath').value = job.git?.repoPath || '');
 
   // Method
   const isScript = job.method === 'script';
@@ -114,8 +113,9 @@ export function populateJobForm(job) {
   toggleBuildMethodConfig(job.method);
 
   // Docker config
-  $('jobDockerfilePath') && ($('jobDockerfilePath').value = job.docker?.dockerfilePath || './Dockerfile');
-  $('jobContextPath') && ($('jobContextPath').value = job.docker?.contextPath || '.');
+  // Nếu để trống, backend sẽ tự dùng Context/Katalyst/repo làm context và Dockerfile mặc định trong repo
+  $('jobDockerfilePath') && ($('jobDockerfilePath').value = job.docker?.dockerfilePath || '');
+  $('jobContextPath') && ($('jobContextPath').value = job.docker?.contextPath || '');
   $('jobImageName') && ($('jobImageName').value = job.docker?.imageName || '');
 
   $('jobImageTagNumber') && ($('jobImageTagNumber').value = job.docker?.tag?.number || '');
@@ -126,8 +126,7 @@ export function populateJobForm(job) {
   $('jobRegistryUsername') && ($('jobRegistryUsername').value = job.docker?.registry?.username || '');
   $('jobRegistryPassword') && ($('jobRegistryPassword').value = job.docker?.registry?.password || '');
 
-  // Script config
-  $('jobScriptPath') && ($('jobScriptPath').value = job.script?.path || '');
+  // Script config (không còn nhập thủ công script path)
   $('jobScriptImageName') && ($('jobScriptImageName').value = job.script?.imageName || '');
   $('jobScriptImageTagNumber') && ($('jobScriptImageTagNumber').value = job.script?.tag?.number || '');
   $('jobScriptImageTagText') && ($('jobScriptImageTagText').value = job.script?.tag?.text || '');
@@ -151,7 +150,7 @@ export function populateJobForm(job) {
 }
 
 export function resetJobForm() {
-  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobGitRepoPath','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptPath','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobPolling','jobCron'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobPolling','jobCron'].forEach(id => { const el = $(id); if (el) el.value = ''; });
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = true;
   const dockerRadio = document.getElementById('jobMethodDocker'); if (dockerRadio) dockerRadio.checked = true;
   toggleBuildMethodConfig('dockerfile');
@@ -189,11 +188,12 @@ export async function saveJob() {
       token: $('jobGitToken')?.value || '',
       branch: $('jobGitBranch')?.value || 'main',
       repoUrl: $('jobGitRepoUrl')?.value || '',
-      repoPath: $('jobGitRepoPath')?.value || '',
+      // repoPath sẽ được xác định tự động dựa trên cấu hình contextInitPath (Context/Katalyst/repo)
     },
     docker: {
-      dockerfilePath: $('jobDockerfilePath')?.value || './Dockerfile',
-      contextPath: $('jobContextPath')?.value || '.',
+      // Nếu để trống, backend sẽ tự áp dụng: context = Context/Katalyst/repo; docker build sẽ dùng Dockerfile mặc định trong repo
+      dockerfilePath: $('jobDockerfilePath')?.value || '',
+      contextPath: $('jobContextPath')?.value || '',
       imageName: $('jobImageName')?.value || '',
       tag: {
         number: $('jobImageTagNumber')?.value || '',
@@ -207,7 +207,7 @@ export async function saveJob() {
       },
     },
     script: {
-      path: $('jobScriptPath')?.value || '',
+      // path không còn nhập tay; hệ thống sẽ dùng build.sh trong thư mục builder theo tên job + job_id
       imageName: $('jobScriptImageName')?.value || '',
       tag: {
         number: $('jobScriptImageTagNumber')?.value || '',

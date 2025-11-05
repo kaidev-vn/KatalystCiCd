@@ -65,9 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     radio.addEventListener('change', (e) => toggleBuildMethodConfig(e.target.value));
   });
   const jobModal = $('jobModal');
-  if (jobModal) {
-    jobModal.addEventListener('click', (e) => { if (e.target === jobModal) hideJobModal(); });
-  }
+  // Không đóng popup khi bấm ra ngoài nữa; chỉ đóng bằng nút "X" hoặc các nút được chỉ định rõ.
+  // Nếu muốn khôi phục hành vi click ra ngoài để đóng, thêm lại handler cho jobModal tại đây.
 
   // General config and actions
   $('saveCfg') && ($('saveCfg').onclick = saveConfig);

@@ -6,45 +6,26 @@
   "repoUrl": "https://gitlab.techres.vn/outsource/haohoa/daihy/java/system.git",
   "repoPath": "/opt/run_java/docker-build-app/system/",
   "branch": "developer_2",
-  "deployScriptPath": "",
-  "buildMethod": "dockerfile",
-  "deployChoices": [],
-  "deployChoice": 0,
-  "deployContextSource": "repo",
-  "deployContextCustomPath": "",
-  "docker": {
-    "dockerfilePath": "",
-    "contextPath": "",
-    "imageName": "",
-    "imageTag": "1.0.75",
-    "autoTagIncrement": false,
-    "registryUrl": "",
-    "registryUsername": "",
-    "registryPassword": "",
-    "tagConfig": {
-      "useAdvancedTagging": false,
-      "prefix": "",
-      "suffix": "",
-      "startVersion": 1,
-      "versionWidth": 0
-    }
-  },
-  "scriptImageTag": "1.0.75",
-  "scriptAutoTagIncrement": false,
-  "maxConcurrentBuilds": 1,
-  "buildTimeout": 30,
-  "logRetentionDays": 30,
-  "diskSpaceThreshold": 80,
   "email": {
     "smtpHost": "smtp.gmail.com",
     "smtpPort": 587,
-    "emailUser": "jenkins119vn@gmail.com",
-    "emailPassword": "uwzwzzonsyrocqwz",
-    "notifyEmails": [
-      "khanhdev2901@gmail.com"
-    ],
-    "enableEmailNotify": true
+    "emailUser": "",
+    "emailPassword": "",
+    "notifyEmails": [],
+    "enableEmailNotify": false
   },
+  "system": {
+    "maxConcurrentBuilds": 1,
+    "buildTimeout": 30,
+    "logRetentionDays": 30,
+    "diskSpaceThreshold": 80
+  },
+  "deployScriptPath": "",
+  "buildMethod": "dockerfile",
+  "deployChoice": 0,
+  "deployChoices": [],
+  "deployContextSource": "repo",
+  "deployContextCustomPath": "",
   "deployServices": [
     {
       "name": "harbor.techres.vn/overatevntech/admin-schedule-service",
@@ -139,5 +120,26 @@
     }
   ],
   "lastBuiltCommit": "",
-  "autoCheck": false
+  "autoCheck": false,
+  "maxConcurrentBuilds": 1,
+  "buildTimeout": 30,
+  "logRetentionDays": 30,
+  "diskSpaceThreshold": 80,
+  "docker": {
+    "dockerfilePath": "",
+    "contextPath": "",
+    "imageName": "",
+    "imageTag": "latest",
+    "autoTagIncrement": false,
+    "registryUrl": "",
+    "registryUsername": "",
+    "registryPassword": "",
+    "tagConfig": {
+      "useAdvancedTagging": false,
+      "prefix": "",
+      "suffix": "",
+      "startVersion": 1,
+      "versionWidth": 0
+    }
+  }
 }

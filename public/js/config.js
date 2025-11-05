@@ -85,6 +85,22 @@ export async function saveConfig() {
     });
     const cfgStatusEl = $('cfgStatus');
     if (cfgStatusEl) cfgStatusEl.textContent = ok ? 'Đã lưu cấu hình' : `Lỗi lưu: ${data?.error || ''}`;
+    // After saving config, optionally initialize context directory structure
+    const basePath = $('contextInitPath')?.value?.trim();
+    if (ok && basePath) {
+      try {
+        const initRes = await fetchJSON('/api/config/init-context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ basePath }),
+        });
+        if (cfgStatusEl) cfgStatusEl.textContent = initRes.ok
+          ? 'Đã lưu cấu hình và khởi tạo Context (Katalyst/repo, Katalyst/builder)'
+          : `Đã lưu cấu hình, nhưng khởi tạo Context thất bại: ${initRes.data?.error || ''}`;
+      } catch (e) {
+        if (cfgStatusEl) cfgStatusEl.textContent = `Đã lưu cấu hình, nhưng khởi tạo Context thất bại: ${e.message || e}`;
+      }
+    }
     setTimeout(() => { if (cfgStatusEl) cfgStatusEl.textContent = ''; }, 3000);
   } catch (e) {
     const cfgStatusEl = $('cfgStatus');

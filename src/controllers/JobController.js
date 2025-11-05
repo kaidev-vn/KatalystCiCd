@@ -1,5 +1,8 @@
 const JobService = require('../services/JobService');
 const { BuildService } = require('../services/BuildService');
+const path = require('path');
+const fs = require('fs');
+const { run } = require('../utils/exec');
 
 class JobController {
   constructor({ buildService, logger, configService, jobScheduler, gitService, queueService, emailService }) {
@@ -271,11 +274,32 @@ class JobController {
       
       // Kiểm tra commit mới trước khi build để đáp ứng yêu cầu "phải có commit mới thì mới build"
       const gc = job.gitConfig || {};
-      const repoPath = gc.repoPath;
+      const cfg = this.configService.getConfig();
+      // Xác định base context theo cấu hình: <contextInitPath>/Katalyst
+      let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
+      if (!baseContext) {
+        // Fallback: nếu chưa cấu hình, suy ra từ repoPath cũ hoặc dùng cwd
+        const legacyRepoPath = cfg.repoPath || gc.repoPath || '';
+        baseContext = legacyRepoPath ? path.dirname(legacyRepoPath) : process.cwd();
+        this.logger?.send?.(`[JOB][WARN] Chưa cấu hình contextInitPath. Fallback baseContext=${baseContext}`);
+      }
+      const katalystRoot = path.join(baseContext, 'Katalyst');
+      const repoPath = path.join(katalystRoot, 'repo');
+      const builderRoot = path.join(katalystRoot, 'builder');
+      try {
+        fs.mkdirSync(repoPath, { recursive: true });
+        fs.mkdirSync(builderRoot, { recursive: true });
+      } catch (e) {
+        this.logger?.send?.(`[JOB][ERROR] Không thể tạo thư mục context tại ${katalystRoot}: ${e.message}`);
+        throw e;
+      }
       const branch = gc.branch || 'main';
       const repoUrl = gc.repoUrl;
       const token = gc.token;
       const provider = gc.provider || 'gitlab';
+
+      // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
+      await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
 
       if (this.gitService && repoPath) {
         const check = await this.gitService.checkNewCommitAndPull({
@@ -334,12 +358,17 @@ class JobController {
         // Compat variables expected by existing deploy.sh scripts
         env.DOCKER_IMAGE_TAG = env.IMAGE_TAG;
         env.DOCKERFILE_PATH = dc.dockerfilePath || '';
-        env.CONTEXT_PATH = dc.contextPath || job.gitConfig.repoPath || '';
+        env.CONTEXT_PATH = dc.contextPath || repoPath || '';
 
+        // Tạo thư mục builder cho job: <context>/Katalyst/builder/(ten-job + job_id)
+        const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+        const jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
+        try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
+        const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build.sh');
 
         const r = await this.buildService.runScript(
-          bc.scriptPath,
-          job.gitConfig.repoPath,
+          scriptPath,
+          repoPath,
           env
         );
 
@@ -453,7 +482,11 @@ class JobController {
     const dockerService = new DockerService({ logger: this.logger, configService: this.configService });
 
     const dc = (job.buildConfig && job.buildConfig.dockerConfig) ? job.buildConfig.dockerConfig : {};
-    const ctxPath = dc.contextPath || job.gitConfig?.repoPath || '.';
+    // Ưu tiên dùng Context/Katalyst/repo làm context mặc định nếu không cấu hình
+    const cfg = this.configService.getConfig();
+    const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
+    const repoPathDefault = baseContext ? path.join(baseContext, 'Katalyst', 'repo') : (job.gitConfig?.repoPath || '.');
+    const ctxPath = dc.contextPath || repoPathDefault;
     const params = {
       dockerfilePath: dc.dockerfilePath || '',
       contextPath: ctxPath,
@@ -492,6 +525,60 @@ class JobController {
     }
 
     return result;
+  }
+
+  /**
+   * Đảm bảo repo tại repoPath đã sẵn sàng (clone hoặc init nếu cần)
+   */
+  async _ensureRepoReady({ repoPath, branch, repoUrl, token, provider }) {
+    try {
+      const gitDir = path.join(repoPath, '.git');
+      const useHttpsAuth = !!token && /^https?:\/\//.test(String(repoUrl));
+      let authConfig = '';
+      if (useHttpsAuth) {
+        try {
+          const user = String(provider || 'gitlab').toLowerCase() === 'github' ? 'x-access-token' : 'oauth2';
+          const basic = Buffer.from(`${user}:${token}`).toString('base64');
+          authConfig = `-c http.extraHeader=\"Authorization: Basic ${basic}\"`;
+        } catch (e) {
+          this.logger?.send?.(`[GIT][WARN] Không tạo được header Authorization cho clone: ${e.message}`);
+        }
+      }
+
+      if (!fs.existsSync(gitDir)) {
+        // Nếu thư mục rỗng hoặc chưa là repo git, tiến hành clone/init
+        const exists = fs.existsSync(repoPath);
+        if (!exists) {
+          // Clone trực tiếp
+          const cmd = `git ${authConfig} clone ${repoUrl} "${repoPath}" -b ${branch}`;
+          this.logger?.send?.(`[GIT][CLONE] > ${cmd}`);
+          const r = await run(cmd, this.logger);
+          if (r.error) {
+            this.logger?.send?.(`[GIT][CLONE][ERROR] ${r.error.message}`);
+            throw new Error('git clone failed');
+          }
+          return;
+        }
+        // Nếu thư mục đã tồn tại nhưng không phải repo, init và fetch
+        const cmds = [
+          `git -C "${repoPath}" init`,
+          `git -C "${repoPath}" remote add origin ${repoUrl}`,
+          `git -C "${repoPath}" ${authConfig} fetch origin`,
+          `git -C "${repoPath}" checkout -b ${branch} || git -C "${repoPath}" checkout ${branch}`,
+          `git -C "${repoPath}" reset --hard origin/${branch}`,
+        ];
+        for (const c of cmds) {
+          this.logger?.send?.(`[GIT][INIT] > ${c}`);
+          const r = await run(c, this.logger);
+          if (r.error) {
+            this.logger?.send?.(`[GIT][INIT][ERROR] ${r.error.message}`);
+            throw new Error('git init/fetch/reset failed');
+          }
+        }
+      }
+    } catch (e) {
+      throw e;
+    }
   }
 
   // GET /api/jobs/enabled - Get enabled jobs for scheduler
