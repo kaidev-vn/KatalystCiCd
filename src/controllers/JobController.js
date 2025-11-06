@@ -521,11 +521,11 @@ class JobController {
         const provider = gc.provider || 'gitlab';
 
         // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
-        await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
+        const actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
 
-        if (this.gitService && repoPath) {
+        if (this.gitService && actualRepoPath) {
           const check = await this.gitService.checkNewCommitAndPull({
-            repoPath,
+            repoPath: actualRepoPath,
             branch,
             repoUrl,
             token,
@@ -594,7 +594,7 @@ class JobController {
 
         const r = await this.buildService.runScript(
           scriptPath,
-          repoPath,
+          actualRepoPath,
           env
         );
 
@@ -769,7 +769,11 @@ class JobController {
    */
   async _ensureRepoReady({ repoPath, branch, repoUrl, token, provider }) {
     try {
-      const gitDir = path.join(repoPath, '.git');
+      // Tạo thư mục con dựa trên tên repository từ URL
+      const repoName = this._extractRepoNameFromUrl(repoUrl);
+      const repoSubPath = path.join(repoPath, repoName);
+      const gitDir = path.join(repoSubPath, '.git');
+      
       const useHttpsAuth = !!token && /^https?:\/\//.test(String(repoUrl));
       let authConfig = '';
       if (useHttpsAuth) {
@@ -784,25 +788,26 @@ class JobController {
 
       if (!fs.existsSync(gitDir)) {
         // Nếu thư mục rỗng hoặc chưa là repo git, tiến hành clone/init
-        const exists = fs.existsSync(repoPath);
+        const exists = fs.existsSync(repoSubPath);
         if (!exists) {
-          // Clone trực tiếp
-          const cmd = `git ${authConfig} clone ${repoUrl} "${repoPath}" -b ${branch}`;
+          // Clone vào thư mục con
+          fs.mkdirSync(repoSubPath, { recursive: true });
+          const cmd = `git ${authConfig} clone ${repoUrl} "${repoSubPath}" -b ${branch}`;
           this.logger?.send?.(`[GIT][CLONE] > ${cmd}`);
           const r = await run(cmd, this.logger);
           if (r.error) {
             this.logger?.send?.(`[GIT][CLONE][ERROR] ${r.error.message}`);
             throw new Error('git clone failed');
           }
-          return;
+          return repoSubPath; // Trả về đường dẫn thực tế
         }
         // Nếu thư mục đã tồn tại nhưng không phải repo, init và fetch
         const cmds = [
-          `git -C "${repoPath}" init`,
-          `git -C "${repoPath}" remote add origin ${repoUrl}`,
-          `git -C "${repoPath}" ${authConfig} fetch origin`,
-          `git -C "${repoPath}" checkout -b ${branch} || git -C "${repoPath}" checkout ${branch}`,
-          `git -C "${repoPath}" reset --hard origin/${branch}`,
+          `git -C "${repoSubPath}" init`,
+          `git -C "${repoSubPath}" remote add origin ${repoUrl}`,
+          `git -C "${repoSubPath}" ${authConfig} fetch origin`,
+          `git -C "${repoSubPath}" checkout -b ${branch} || git -C "${repoSubPath}" checkout ${branch}`,
+          `git -C "${repoSubPath}" reset --hard origin/${branch}`,
         ];
         for (const c of cmds) {
           this.logger?.send?.(`[GIT][INIT] > ${c}`);
@@ -813,10 +818,32 @@ class JobController {
           }
         }
       }
+      
+      return repoSubPath; // Trả về đường dẫn thực tế
     } catch (e) {
       throw e;
     }
   }
+
+   /**
+    * Trích xuất tên repository từ URL Git
+    * Ví dụ: https://github.com/user/my-repo.git → my-repo
+    */
+   _extractRepoNameFromUrl(repoUrl) {
+     if (!repoUrl) return 'unknown-repo';
+     
+     // Loại bỏ .git ở cuối nếu có
+     let name = repoUrl.replace(/\.git$/, '');
+     
+     // Trích xuất phần cuối cùng của URL
+     const parts = name.split('/');
+     name = parts[parts.length - 1];
+     
+     // Loại bỏ các ký tự không hợp lệ cho tên thư mục
+     name = name.replace(/[^a-zA-Z0-9_-]/g, '-');
+     
+     return name || 'unknown-repo';
+   }
 
   // GET /api/jobs/enabled - Get enabled jobs for scheduler
   async getEnabledJobs(req, res) {
