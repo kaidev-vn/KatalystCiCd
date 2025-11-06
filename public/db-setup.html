@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Setup - K-Talyst CI/CD</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="shortcut icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
+  
+  <style>
+    .wizard-container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+
+    .wizard-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .wizard-steps::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    .wizard-step {
+      flex: 1;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+
+    .wizard-step.active .step-number {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .wizard-step.completed .step-number {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .wizard-step.completed .step-number::after {
+      content: '✓';
+    }
+
+    .step-label {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .wizard-step.active .step-label {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .wizard-content {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      min-height: 400px;
+    }
+
+    .step-content {
+      display: none;
+    }
+
+    .step-content.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .db-type-selector {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin: 30px 0;
+    }
+
+    .db-type-card {
+      padding: 30px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .db-type-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    .db-type-card.selected {
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 10%, transparent);
+    }
+
+    .db-type-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    .db-type-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .db-type-desc {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .data-summary {
+      background: color-mix(in srgb, var(--primary) 5%, transparent);
+      border-left: 4px solid var(--primary);
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+
+    .data-summary h4 {
+      margin-top: 0;
+      color: var(--primary);
+    }
+
+    .data-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+    }
+
+    .migration-progress {
+      margin: 20px 0;
+    }
+
+    .progress-item {
+      margin: 15px 0;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--success);
+      transition: width 0.5s;
+    }
+
+    .config-display {
+      background: color-mix(in srgb, var(--text) 5%, transparent);
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      margin: 20px 0;
+    }
+
+    .status-icon {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-icon.success {
+      background: var(--success);
+    }
+
+    .status-icon.error {
+      background: var(--danger);
+    }
+
+    .status-icon.pending {
+      background: var(--warning);
+    }
+  </style>
+</head>
+<body class="login-page">
+  <div class="wizard-container">
+    <div class="login-header" style="text-align: center; margin-bottom: 40px;">
+      <div class="logo" style="display: inline-block;">
+        <img src="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" alt="K-Talyst Logo" style="width: 80px; height: 80px;" />
+      </div>
+      <h1>K-Talyst CI/CD</h1>
+      <p class="muted">Database Setup Wizard</p>
+    </div>
+
+    <!-- Wizard Steps -->
+    <div class="wizard-steps">
+      <div class="wizard-step active" data-step="1">
+        <div class="step-number">1</div>
+        <div class="step-label">Chọn Database</div>
+      </div>
+      <div class="wizard-step" data-step="2">
+        <div class="step-number">2</div>
+        <div class="step-label">Cấu hình</div>
+      </div>
+      <div class="wizard-step" data-step="3">
+        <div class="step-number">3</div>
+        <div class="step-label">Migration</div>
+      </div>
+      <div class="wizard-step" data-step="4">
+        <div class="step-number">4</div>
+        <div class="step-label">Hoàn tất</div>
+      </div>
+    </div>
+
+    <!-- Wizard Content -->
+    <div class="wizard-content">
+      <!-- Step 1: Choose Database Type -->
+      <div class="step-content active" id="step1">
+        <h2>Chọn loại Database</h2>
+        <p class="muted">Chọn database phù hợp với nhu cầu của bạn</p>
+
+        <div class="db-type-selector">
+          <div class="db-type-card" data-type="sqlite">
+            <div class="db-type-icon">📦</div>
+            <div class="db-type-name">SQLite</div>
+            <div class="db-type-desc">
+              File-based, không cần cài đặt.<br>
+              Phù hợp cho small-medium scale.
+            </div>
+            <div class="db-type-desc" style="margin-top: 10px; font-size: 12px;">
+              ✅ Zero config<br>
+              ✅ Dễ backup<br>
+              ✅ Performance tốt
+            </div>
+          </div>
+
+          <div class="db-type-card" data-type="postgresql">
+            <div class="db-type-icon">🐘</div>
+            <div class="db-type-name">PostgreSQL</div>
+            <div class="db-type-desc">
+              Production-grade database.<br>
+              Phù hợp cho large scale.
+            </div>
+            <div class="db-type-desc" style="margin-top: 10px; font-size: 12px;">
+              ✅ Advanced features<br>
+              ✅ High performance<br>
+              ✅ Replication support
+            </div>
+          </div>
+        </div>
+
+        <div id="existingDataInfo" class="data-summary" style="display: none;">
+          <h4>📊 Dữ liệu hiện tại</h4>
+          <div class="data-item">
+            <span>Users:</span>
+            <strong id="existingUsers">0</strong>
+          </div>
+          <div class="data-item">
+            <span>Jobs:</span>
+            <strong id="existingJobs">0</strong>
+          </div>
+          <div class="data-item">
+            <span>Config:</span>
+            <strong id="existingConfig">No</strong>
+          </div>
+          <p style="margin-top: 15px; margin-bottom: 0; font-size: 14px;">
+            💡 Dữ liệu này sẽ được migrate vào database trong bước tiếp theo.
+          </p>
+        </div>
+      </div>
+
+      <!-- Step 2: Configuration -->
+      <div class="step-content" id="step2">
+        <h2 id="step2Title">Cấu hình Database</h2>
+        <p class="muted" id="step2Desc">Nhập thông tin kết nối database</p>
+
+        <!-- SQLite Config -->
+        <div id="sqliteConfig" style="display: none;">
+          <div class="form-group">
+            <label for="sqlitePath">Đường dẫn Database File</label>
+            <input 
+              type="text" 
+              id="sqlitePath" 
+              placeholder="vd: ./data/ci-cd.db"
+              value="./data/ci-cd.db"
+            >
+            <small class="muted">Database file sẽ được tạo tự động nếu chưa tồn tại</small>
+          </div>
+        </div>
+
+        <!-- PostgreSQL Config -->
+        <div id="postgresqlConfig" style="display: none;">
+          <div class="form-group">
+            <label for="pgHost">Host</label>
+            <input 
+              type="text" 
+              id="pgHost" 
+              placeholder="localhost"
+              value="localhost"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="pgPort">Port</label>
+            <input 
+              type="number" 
+              id="pgPort" 
+              placeholder="5432"
+              value="5432"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="pgDatabase">Database Name</label>
+            <input 
+              type="text" 
+              id="pgDatabase" 
+              placeholder="cicd_automation"
+              value="cicd_automation"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="pgUsername">Username</label>
+            <input 
+              type="text" 
+              id="pgUsername" 
+              placeholder="postgres"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="pgPassword">Password</label>
+            <input 
+              type="password" 
+              id="pgPassword" 
+              placeholder="Enter password"
+            >
+          </div>
+        </div>
+
+        <div id="connectionStatus" class="alert" style="display: none; margin-top: 20px;"></div>
+
+        <button id="testConnectionBtn" class="btn secondary" style="margin-top: 20px;">
+          🔍 Test Connection
+        </button>
+      </div>
+
+      <!-- Step 3: Migration -->
+      <div class="step-content" id="step3">
+        <h2>Data Migration</h2>
+        <p class="muted">Migrate dữ liệu từ JSON files vào database</p>
+
+        <div class="data-summary">
+          <h4>📦 Sẽ migrate:</h4>
+          <div class="data-item">
+            <span>Users:</span>
+            <strong id="migrateUsers">0</strong>
+          </div>
+          <div class="data-item">
+            <span>Jobs:</span>
+            <strong id="migrateJobs">0</strong>
+          </div>
+          <div class="data-item">
+            <span>Config:</span>
+            <strong id="migrateConfig">No</strong>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="migrateDataCheck" checked>
+            Migrate dữ liệu hiện tại vào database
+          </label>
+          <small class="muted">JSON files sẽ được backup trước khi migrate</small>
+        </div>
+
+        <div id="migrationProgress" class="migration-progress" style="display: none;">
+          <h4>🔄 Đang migrate...</h4>
+          
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>Users</span>
+              <span id="usersProgress">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="usersProgressBar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>Jobs</span>
+              <span id="jobsProgress">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="jobsProgressBar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>Config</span>
+              <span id="configProgress">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="configProgressBar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Complete -->
+      <div class="step-content" id="step4">
+        <div style="text-align: center;">
+          <div style="font-size: 72px; margin: 30px 0;">✅</div>
+          <h2>Setup Hoàn tất!</h2>
+          <p class="muted">Database đã được cấu hình thành công</p>
+
+          <div class="config-display" id="finalConfig"></div>
+
+          <div id="migrationSummary" style="margin: 30px 0;"></div>
+
+          <p style="margin-top: 30px;">
+            🎉 Hệ thống sẵn sàng sử dụng!
+          </p>
+
+          <button id="goToLoginBtn" class="btn primary" style="margin-top: 20px;">
+            Đến trang Login →
+          </button>
+        </div>
+      </div>
+
+      <!-- Wizard Actions -->
+      <div class="wizard-actions">
+        <button id="prevBtn" class="btn secondary" style="display: none;">
+          ← Quay lại
+        </button>
+        <div></div>
+        <button id="nextBtn" class="btn primary">
+          Tiếp theo →
+        </button>
+      </div>
+
+      <div id="errorMessage" class="alert alert-danger" style="display: none; margin-top: 20px;"></div>
+    </div>
+  </div>
+
+  <script src="js/db-setup.js"></script>
+</body>
+</html>

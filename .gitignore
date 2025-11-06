@@ -14,3 +14,6 @@ builds_versions/
 .DS_Store
 Thumbs.db
 docs/
+sumaries/
+*.db
+data/

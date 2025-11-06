@@ -53,6 +53,10 @@ const { EmailService } = require('./src/services/EmailService');
 const { registerEmailController } = require('./src/controllers/EmailController');
 const { WebhookService } = require('./src/services/WebhookService');
 
+// Database Manager
+const dbManager = require('./src/config/database');
+const { registerDatabaseController } = require('./src/controllers/DatabaseController');
+
 // Auth & User Management
 const { UserService } = require('./src/services/UserService');
 const { AuthService } = require('./src/services/AuthService');
@@ -131,6 +135,39 @@ registerPullController(app, { configService, logger });
 registerWebhookController(app, { logger, secret: WEBHOOK_SECRET, webhookService });
 registerDeployController(app, { logger, configService });
 registerEmailController(app, { emailService, logger });
+
+// ========================================
+// DATABASE SETUP ROUTES (Public - no auth required)
+// ========================================
+registerDatabaseController(app, dbManager);
+
+// Middleware: Check if database is setup (except for db-setup and api/database routes)
+app.use((req, res, next) => {
+  // Skip check for database API, setup page, and dashboard (which has database tab)
+  if (req.path.startsWith('/api/database') || 
+      req.path === '/db-setup.html' || 
+      req.path === '/js/db-setup.js' ||
+      req.path === '/js/database.js' ||
+      req.path === '/' ||
+      req.path === '/index.html' ||
+      req.path === '/login.html' ||
+      req.path.startsWith('/asset/') ||
+      req.path.startsWith('/js/') ||
+      req.path === '/styles.css') {
+    return next();
+  }
+
+  // Check if database is setup - only block non-database API calls
+  if (!dbManager.isSetup() && req.path.startsWith('/api/') && !req.path.startsWith('/api/database')) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database not initialized. Please setup database first.',
+      setupUrl: '/db-setup.html'
+    });
+  }
+
+  next();
+});
 
 // ========================================
 // AUTH & USER MANAGEMENT ROUTES

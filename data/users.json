@@ -3,11 +3,11 @@
     "id": "4ce1b107-9992-4fdf-a32e-c1831a7a494a",
     "username": "admin",
     "email": "admin@cicd.local",
-    "password": "$2b$10$nmofX0ZnBKC8XkVUPMX2PuI/K/.K1gKMq7OXYItC9Yj6xdDqIzn6W",
+    "password": "$2b$10$aoYaxWm.oW3r8eUuj1ncluL8HpJR8KwCK.FrKt1RdZX1i3OCRa9y2",
     "role": "admin",
-    "mustChangePassword": true,
+    "mustChangePassword": false,
     "createdAt": "2025-11-05T16:57:32.002Z",
-    "updatedAt": "2025-11-05T16:57:32.002Z",
-    "lastLogin": "2025-11-05T16:57:47.185Z"
+    "updatedAt": "2025-11-06T02:10:42.732Z",
+    "lastLogin": "2025-11-06T02:10:34.336Z"
   }
 ]

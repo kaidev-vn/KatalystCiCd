@@ -402,95 +402,168 @@ export async function showWebhookSecret() {
   }
 }
 
+/**
+ * Validate job form before saving
+ * @returns {Array<string>} Array of error messages (empty if valid)
+ */
+export function validateJobForm() {
+  const errors = [];
+  const method = document.querySelector('input[name="jobBuildMethod"]:checked')?.value || 'dockerfile';
+  const triggerMethod = document.querySelector('input[name="jobTriggerMethod"]:checked')?.value || 'polling';
+  
+  // 1. Job name (required)
+  const jobName = $('jobName')?.value?.trim();
+  if (!jobName) {
+    errors.push('❌ Tên job là bắt buộc');
+  }
+  
+  // 2. Git configuration (required except for jsonfile method)
+  if (method !== 'jsonfile') {
+    const repoUrl = $('jobGitRepoUrl')?.value?.trim();
+    const branch = $('jobGitBranch')?.value?.trim();
+    const token = $('jobGitToken')?.value?.trim();
+    
+    if (!repoUrl) {
+      errors.push('❌ Repository URL là bắt buộc');
+    }
+    if (!branch) {
+      errors.push('❌ Branch là bắt buộc');
+    }
+    if (!token) {
+      errors.push('⚠️ Access Token khuyến nghị để clone private repository');
+    }
+  }
+  
+  // 3. Build method specific validation
+  if (method === 'dockerfile') {
+    // Services selection (required)
+    const selectedServices = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked');
+    if (selectedServices.length === 0) {
+      errors.push('❌ Phải chọn ít nhất 1 service để build');
+    }
+    
+    // Image name (required)
+    const imageName = $('jobImageName')?.value?.trim();
+    if (!imageName) {
+      errors.push('❌ Image Name là bắt buộc cho Docker build');
+    }
+  } else if (method === 'script') {
+    // Image name (required for script builds)
+    const scriptImageName = $('jobScriptImageName')?.value?.trim();
+    if (!scriptImageName) {
+      errors.push('❌ Image Name là bắt buộc cho Script build');
+    }
+  } else if (method === 'jsonfile') {
+    // JSON Pipeline path (required)
+    const pipelinePath = $('jobJsonPipelinePath')?.value?.trim();
+    if (!pipelinePath) {
+      errors.push('❌ Đường dẫn Pipeline JSON file là bắt buộc');
+    }
+  }
+  
+  // 4. Trigger method validation
+  if ((triggerMethod === 'polling' || triggerMethod === 'hybrid') && $('jobAutoCheck')?.checked) {
+    const polling = Number($('jobPolling')?.value || 0);
+    
+    if (polling < 5) {
+      errors.push('❌ Polling interval phải >= 5 giây');
+    }
+    
+    if (triggerMethod === 'hybrid' && polling < 60) {
+      errors.push('⚠️ Hybrid mode khuyến nghị polling >= 60 giây (tốt nhất 300-600s)');
+    }
+    
+    if (triggerMethod === 'polling' && polling < 30) {
+      errors.push('⚠️ Polling mode khuyến nghị interval >= 30 giây để tránh rate limit');
+    }
+  }
+  
+  return errors;
+}
+
 export async function saveJob() {
+  // Validate form first
+  const validationErrors = validateJobForm();
+  
+  if (validationErrors.length > 0) {
+    const errorMessage = '❌ Lỗi validation:\n\n' + validationErrors.join('\n');
+    alert(errorMessage);
+    return;
+  }
+  
   const id = state.editingJobId;
   const selectedMethod = document.querySelector('input[name="jobBuildMethod"]:checked')?.value || 'dockerfile';
   const buildOrder = $('jobBuildOrder')?.value || 'parallel';
-  const dockerConfig = {
-    dockerfilePath: $('jobDockerfilePath')?.value || '',
-    contextPath: $('jobContextPath')?.value || '',
-    imageName: $('jobImageName')?.value || '',
-    imageTag: (function() {
-      const num = $('jobImageTagNumber')?.value || '';
-      const txt = $('jobImageTagText')?.value || '';
-      if (!num && !txt) return '';
-      return txt ? `${num}-${txt}` : num;
-    })(),
-    autoTagIncrement: !!$('jobAutoTagIncrement')?.checked,
-    registryUrl: $('jobRegistryUrl')?.value || '',
-    registryUsername: $('jobRegistryUsername')?.value || '',
-    registryPassword: $('jobRegistryPassword')?.value || ''
-  };
-  const buildConfig = {
-    method: selectedMethod,
-    buildOrder,
-    dockerConfig,
-    scriptPath: ''
-  };
-  if (selectedMethod === 'script') {
-    buildConfig.imageName = $('jobScriptImageName')?.value || '';
-    buildConfig.imageTagNumber = $('jobScriptImageTagNumber')?.value || '';
-    buildConfig.imageTagText = $('jobScriptImageTagText')?.value || '';
-    buildConfig.autoTagIncrement = !!$('jobScriptAutoTagIncrement')?.checked;
-    buildConfig.registryUrl = $('jobScriptRegistryUrl')?.value || '';
-    buildConfig.registryUsername = $('jobScriptRegistryUsername')?.value || '';
-    buildConfig.registryPassword = $('jobScriptRegistryPassword')?.value || '';
-  }
-  if (selectedMethod === 'jsonfile') {
-    buildConfig.jsonPipelinePath = $('jobJsonPipelinePath')?.value || '';
-  }
+  
+  // ✅ Clean payload structure - Only send gitConfig and buildConfig (no duplicates)
   const payload = {
-    id,
-    name: $('jobName')?.value || '',
-    description: $('jobDescription')?.value || '',
+    // ❌ Don't send id when creating new job (backend will generate)
+    ...(id ? { id } : {}),
+    
+    name: ($('jobName')?.value || '').trim(),
+    description: ($('jobDescription')?.value || '').trim(),
     enabled: !!$('jobEnabled')?.checked,
-    method: selectedMethod,
-    git: {
+    
+    // ✅ Use gitConfig (not git)
+    gitConfig: {
       provider: $('jobGitProvider')?.value || 'gitlab',
-      account: $('jobGitAccount')?.value || '',
-      token: $('jobGitToken')?.value || '',
-      branch: $('jobGitBranch')?.value || 'main',
-      repoUrl: $('jobGitRepoUrl')?.value || '',
-      // repoPath sẽ được xác định tự động dựa trên cấu hình contextInitPath (Context/Katalyst/repo)
+      account: ($('jobGitAccount')?.value || '').trim(),
+      token: ($('jobGitToken')?.value || '').trim(),
+      branch: ($('jobGitBranch')?.value || '').trim() || 'main',
+      repoUrl: ($('jobGitRepoUrl')?.value || '').trim()
+      // repoPath will be auto-generated: {contextInitPath}/Katalyst/repo
     },
-    buildConfig,
-    docker: {
-      // Nếu để trống, backend sẽ tự áp dụng: context = Context/Katalyst/repo; docker build sẽ dùng Dockerfile mặc định trong repo
-      dockerfilePath: $('jobDockerfilePath')?.value || '',
-      contextPath: $('jobContextPath')?.value || '',
-      imageName: $('jobImageName')?.value || '',
-      tag: {
-        number: $('jobImageTagNumber')?.value || '',
-        text: $('jobImageTagText')?.value || '',
-        autoIncrement: !!$('jobAutoTagIncrement')?.checked,
-      },
-      registry: {
-        url: $('jobRegistryUrl')?.value || '',
-        username: $('jobRegistryUsername')?.value || '',
-        password: $('jobRegistryPassword')?.value || '',
-      },
-    },
-    script: {
-      // path không còn nhập tay; hệ thống sẽ dùng build.sh trong thư mục builder theo tên job + job_id
-      imageName: $('jobScriptImageName')?.value || '',
-      tag: {
-        number: $('jobScriptImageTagNumber')?.value || '',
-        text: $('jobScriptImageTagText')?.value || '',
-        autoIncrement: !!$('jobScriptAutoTagIncrement')?.checked,
-      },
-      registry: {
-        url: $('jobScriptRegistryUrl')?.value || '',
-        username: $('jobScriptRegistryUsername')?.value || '',
-        password: $('jobScriptRegistryPassword')?.value || '',
-      },
-    },
+    
+    // ✅ Use buildConfig only (no separate docker/script objects)
+    buildConfig: (() => {
+      const config = {
+        method: selectedMethod,
+        buildOrder: buildOrder
+      };
+      
+      // Add method-specific configuration
+      if (selectedMethod === 'dockerfile') {
+        config.dockerConfig = {
+          dockerfilePath: ($('jobDockerfilePath')?.value || '').trim(),
+          contextPath: ($('jobContextPath')?.value || '').trim(),
+          imageName: ($('jobImageName')?.value || '').trim(),
+          imageTag: (() => {
+            const num = ($('jobImageTagNumber')?.value || '').trim();
+            const txt = ($('jobImageTagText')?.value || '').trim();
+            return txt ? `${num}-${txt}` : num;
+          })(),
+          autoTagIncrement: !!$('jobAutoTagIncrement')?.checked,
+          registryUrl: ($('jobRegistryUrl')?.value || '').trim(),
+          registryUsername: ($('jobRegistryUsername')?.value || '').trim(),
+          registryPassword: $('jobRegistryPassword')?.value || ''
+        };
+      } else if (selectedMethod === 'script') {
+        // Script-specific fields in buildConfig (not separate script object)
+        config.imageName = ($('jobScriptImageName')?.value || '').trim();
+        config.imageTagNumber = ($('jobScriptImageTagNumber')?.value || '').trim();
+        config.imageTagText = ($('jobScriptImageTagText')?.value || '').trim();
+        config.autoTagIncrement = !!$('jobScriptAutoTagIncrement')?.checked;
+        config.registryUrl = ($('jobScriptRegistryUrl')?.value || '').trim();
+        config.registryUsername = ($('jobScriptRegistryUsername')?.value || '').trim();
+        config.registryPassword = $('jobScriptRegistryPassword')?.value || '';
+        // scriptPath will be auto-generated by backend
+      } else if (selectedMethod === 'jsonfile') {
+        config.jsonPipelinePath = ($('jobJsonPipelinePath')?.value || '').trim();
+      }
+      
+      return config;
+    })(),
+    
     schedule: {
       triggerMethod: document.querySelector('input[name="jobTriggerMethod"]:checked')?.value || 'polling',
       autoCheck: !!$('jobAutoCheck')?.checked,
       polling: Number($('jobPolling')?.value || 30),
-      cron: $('jobCron')?.value || '',
+      cron: ($('jobCron')?.value || '').trim()
     },
-    services: Array.from(document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked')).map(cb => cb.getAttribute('data-service')),
+    
+    services: Array.from(
+      document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked')
+    ).map(cb => cb.getAttribute('data-service'))
   };
   const url = id ? `/api/jobs/${id}` : '/api/jobs';
   const method = id ? 'PUT' : 'POST';
