@@ -360,11 +360,31 @@ class JobController {
         `# # echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin\n` +
         `# docker push "$IMAGE_NAME:$IMAGE_TAG"\n`;
 
-      // Ghi file script nếu chưa tồn tại; nếu đã tồn tại, cập nhật nội dung để phản ánh thay đổi cấu hình
+      // Chỉ ghi file script nếu chưa tồn tại; nếu đã tồn tại, giữ nguyên nội dung và chỉ cập nhật các biến môi trường
       try {
-        fs.writeFileSync(defaultScriptPath, scriptContent, { encoding: 'utf8' });
+        if (!fs.existsSync(defaultScriptPath)) {
+          // File chưa tồn tại, tạo mới với nội dung mẫu
+          fs.writeFileSync(defaultScriptPath, scriptContent, { encoding: 'utf8' });
+        } else {
+          // File đã tồn tại, chỉ cập nhật các biến môi trường ở phần đầu nếu cần
+          // (giữ nguyên các logic build custom của người dùng)
+          const existingContent = fs.readFileSync(defaultScriptPath, 'utf8');
+          
+          // Kiểm tra nếu file đã có các biến môi trường cơ bản
+          const hasEnvVars = existingContent.includes('IMAGE_NAME=') || 
+                            existingContent.includes('IMAGE_TAG=') ||
+                            existingContent.includes('REGISTRY_URL=');
+          
+          if (!hasEnvVars) {
+            // Thêm các biến môi trường vào đầu file nếu chưa có
+            const envSection = scriptContent.split('# TODO: Add your build commands below')[0];
+            const updatedContent = envSection + '\n\n' + existingContent;
+            fs.writeFileSync(defaultScriptPath, updatedContent, { encoding: 'utf8' });
+          }
+          // Nếu đã có biến môi trường, giữ nguyên toàn bộ file
+        }
       } catch (e) {
-        throw new Error(`Không thể ghi file script: ${defaultScriptPath}: ${e.message}`);
+        throw new Error(`Không thể xử lý file script: ${defaultScriptPath}: ${e.message}`);
       }
 
       // Cập nhật đường dẫn script trong job nếu chưa có hoặc khác với mặc định
