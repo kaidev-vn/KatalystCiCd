@@ -589,7 +589,7 @@ class JobController {
               message: 'No new commit, build skipped'
             };
           }
-          console.log(`[JOB] Build method: ${job.buildConfig.method}`);
+          this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
           this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
           // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
           this.lastCommitHash = check.remoteHash;
