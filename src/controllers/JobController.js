@@ -470,6 +470,15 @@ class JobController {
     try {
       console.log(`[JOB] Starting build for job: ${job.name} (${job.id})`);
       
+      // ✅ Decrypt job secrets trước khi sử dụng
+      const decryptedJob = this.jobService.getDecryptedJob(job.id);
+      if (!decryptedJob) {
+        throw new Error('Job not found or failed to decrypt');
+      }
+      
+      // Sử dụng decryptedJob thay vì job để có plain text passwords/tokens
+      job = decryptedJob;
+      
       // Kiểm tra commit mới trước khi build để đáp ứng yêu cầu "phải có commit mới thì mới build"
       const gc = job.gitConfig || {};
       const cfg = this.configService.getConfig();

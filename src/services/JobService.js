@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { QueueService } = require('./QueueService');
+const { getSecretManager } = require('../utils/secrets');
 
 /**
  * JobService - Service quản lý jobs (CRUD operations)
@@ -17,6 +18,7 @@ class JobService {
   constructor(logger) {
     this.logger = logger;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
+    this.secretManager = getSecretManager();
     this.ensureJobsFile();
     
     // Initialize queue service for weaker machines
@@ -89,11 +91,11 @@ class JobService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       
-      // Git Configuration
+      // Git Configuration (encrypt sensitive data)
       gitConfig: {
         provider: jobData.gitConfig?.provider || 'gitlab',
         account: jobData.gitConfig?.account || '',
-        token: jobData.gitConfig?.token || '',
+        token: this.secretManager.encrypt(jobData.gitConfig?.token || ''), // ✅ Encrypted
         repoUrl: jobData.gitConfig?.repoUrl || '',
         repoPath: jobData.gitConfig?.repoPath || '',
         branch: jobData.gitConfig?.branch || 'main'
@@ -107,7 +109,16 @@ class JobService {
           scriptPath: jobData.buildConfig?.scriptPath || '',
           jsonPipelinePath: jobData.buildConfig?.jsonPipelinePath || '',
           buildOrder: jobData.buildConfig?.buildOrder || 'parallel',
-          dockerConfig: jobData.buildConfig?.dockerConfig || {
+          dockerConfig: jobData.buildConfig?.dockerConfig ? {
+            dockerfilePath: jobData.buildConfig.dockerConfig.dockerfilePath || '',
+            contextPath: jobData.buildConfig.dockerConfig.contextPath || '',
+            imageName: jobData.buildConfig.dockerConfig.imageName || '',
+            imageTag: jobData.buildConfig.dockerConfig.imageTag || '',
+            autoTagIncrement: jobData.buildConfig.dockerConfig.autoTagIncrement || false,
+            registryUrl: jobData.buildConfig.dockerConfig.registryUrl || '',
+            registryUsername: jobData.buildConfig.dockerConfig.registryUsername || '',
+            registryPassword: this.secretManager.encrypt(jobData.buildConfig.dockerConfig.registryPassword || '') // ✅ Encrypted
+          } : {
             dockerfilePath: '',
             contextPath: '',
             imageName: '',
@@ -118,7 +129,7 @@ class JobService {
             registryPassword: ''
           }
         };
-        // Preserve script-specific tagging/registry fields when method is script
+        // Preserve script-specific tagging/registry fields when method is script (encrypt password)
         if (method === 'script') {
           base.imageName = jobData.buildConfig?.imageName || '';
           base.imageTagNumber = jobData.buildConfig?.imageTagNumber || '';
@@ -126,7 +137,7 @@ class JobService {
           base.autoTagIncrement = !!jobData.buildConfig?.autoTagIncrement;
           base.registryUrl = jobData.buildConfig?.registryUrl || '';
           base.registryUsername = jobData.buildConfig?.registryUsername || '';
-          base.registryPassword = jobData.buildConfig?.registryPassword || '';
+          base.registryPassword = this.secretManager.encrypt(jobData.buildConfig?.registryPassword || ''); // ✅ Encrypted
         }
         return base;
       })(),
@@ -327,6 +338,34 @@ class JobService {
     }
 
     return errors;
+  }
+  
+  /**
+   * Lấy job với secrets đã được decrypt (để sử dụng trong build process)
+   * ⚠️ CẢNH BÁO: Phương thức này trả về plain text passwords/tokens - CHỈ dùng khi cần thiết!
+   * @param {string} jobId - Job ID
+   * @returns {Object|null} Job object với secrets đã decrypt
+   */
+  getDecryptedJob(jobId) {
+    const job = this.getJobById(jobId);
+    if (!job) return null;
+    
+    return {
+      ...job,
+      gitConfig: {
+        ...job.gitConfig,
+        token: this.secretManager.decrypt(job.gitConfig?.token || '') // ✅ Decrypt
+      },
+      buildConfig: {
+        ...job.buildConfig,
+        dockerConfig: {
+          ...job.buildConfig?.dockerConfig,
+          registryPassword: this.secretManager.decrypt(job.buildConfig?.dockerConfig?.registryPassword || '') // ✅ Decrypt
+        },
+        // Script config
+        registryPassword: this.secretManager.decrypt(job.buildConfig?.registryPassword || '') // ✅ Decrypt
+      }
+    };
   }
   
   /**

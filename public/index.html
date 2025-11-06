@@ -74,6 +74,7 @@
           <button class="tab-btn" data-tab="builds-tab">🚀 Quản lý Builds</button>
           <button class="tab-btn" data-tab="raw-config-tab">📝 config.json</button>
           <button class="tab-btn active" data-tab="config-tab">⚙️ Cấu hình chung</button>
+          <button class="tab-btn admin-only" data-tab="database-tab">🗄️ Database</button>
         </nav>
       </aside>
 
@@ -519,6 +520,310 @@
           </div>
         </section>
       </div>
+
+      <!-- Tab 6: Database Configuration -->
+      <div id="database-tab" class="tab-content">
+        <section class="card">
+          <h2>🗄️ Database Configuration</h2>
+          <p class="muted">Quản lý cấu hình database và migration dữ liệu</p>
+
+          <!-- Database Status -->
+          <div id="dbStatusSection" class="db-status-section">
+            <div class="status-card">
+              <div class="status-icon" id="dbStatusIcon">⏳</div>
+              <div class="status-info">
+                <h3 id="dbStatusTitle">Đang kiểm tra...</h3>
+                <p id="dbStatusDesc" class="muted">Loading...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Database Setup Wizard (shown if not setup) -->
+          <div id="dbSetupWizard" style="display: none;">
+            <div class="wizard-steps">
+              <div class="wizard-step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">Chọn Database</div>
+              </div>
+              <div class="wizard-step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">Cấu hình</div>
+              </div>
+              <div class="wizard-step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">Migration</div>
+              </div>
+              <div class="wizard-step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">Hoàn tất</div>
+              </div>
+            </div>
+
+            <div class="wizard-content">
+              <!-- Step 1: Choose Database Type -->
+              <div class="step-content active" id="dbStep1">
+                <h3>Chọn loại Database</h3>
+                <p class="muted">Chọn database phù hợp với nhu cầu của bạn</p>
+
+                <div class="db-type-selector">
+                  <div class="db-type-card" data-type="sqlite">
+                    <div class="db-type-icon">📦</div>
+                    <div class="db-type-name">SQLite</div>
+                    <div class="db-type-desc">
+                      File-based, không cần cài đặt.<br>
+                      Phù hợp cho small-medium scale.
+                    </div>
+                    <div class="db-type-desc" style="margin-top: 10px; font-size: 12px;">
+                      ✅ Zero config<br>
+                      ✅ Dễ backup<br>
+                      ✅ Performance tốt
+                    </div>
+                  </div>
+
+                  <div class="db-type-card" data-type="postgresql">
+                    <div class="db-type-icon">🐘</div>
+                    <div class="db-type-name">PostgreSQL</div>
+                    <div class="db-type-desc">
+                      Production-grade database.<br>
+                      Phù hợp cho large scale.
+                    </div>
+                    <div class="db-type-desc" style="margin-top: 10px; font-size: 12px;">
+                      ✅ Advanced features<br>
+                      ✅ High performance<br>
+                      ✅ Replication support
+                    </div>
+                  </div>
+                </div>
+
+                <div id="dbExistingDataInfo" class="data-summary" style="display: none;">
+                  <h4>📊 Dữ liệu hiện tại</h4>
+                  <div class="data-item">
+                    <span>Users:</span>
+                    <strong id="dbExistingUsers">0</strong>
+                  </div>
+                  <div class="data-item">
+                    <span>Jobs:</span>
+                    <strong id="dbExistingJobs">0</strong>
+                  </div>
+                  <div class="data-item">
+                    <span>Config:</span>
+                    <strong id="dbExistingConfig">No</strong>
+                  </div>
+                  <p style="margin-top: 15px; margin-bottom: 0; font-size: 14px;">
+                    💡 Dữ liệu này sẽ được migrate vào database trong bước tiếp theo.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Step 2: Configuration -->
+              <div class="step-content" id="dbStep2">
+                <h3 id="dbStep2Title">Cấu hình Database</h3>
+                <p class="muted" id="dbStep2Desc">Nhập thông tin kết nối database</p>
+
+                <!-- SQLite Config -->
+                <div id="dbSqliteConfig" style="display: none;">
+                  <div>
+                    <label for="dbSqlitePath">Đường dẫn Database File</label>
+                    <input 
+                      type="text" 
+                      id="dbSqlitePath" 
+                      placeholder="vd: ./data/ci-cd.db"
+                      value="./data/ci-cd.db"
+                    >
+                    <small class="muted">Database file sẽ được tạo tự động nếu chưa tồn tại</small>
+                  </div>
+                </div>
+
+                <!-- PostgreSQL Config -->
+                <div id="dbPostgresqlConfig" style="display: none;">
+                  <div class="row">
+                    <div>
+                      <label for="dbPgHost">Host</label>
+                      <input 
+                        type="text" 
+                        id="dbPgHost" 
+                        placeholder="localhost"
+                        value="localhost"
+                      >
+                    </div>
+                    <div>
+                      <label for="dbPgPort">Port</label>
+                      <input 
+                        type="number" 
+                        id="dbPgPort" 
+                        placeholder="5432"
+                        value="5432"
+                      >
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="dbPgDatabase">Database Name</label>
+                    <input 
+                      type="text" 
+                      id="dbPgDatabase" 
+                      placeholder="cicd_automation"
+                      value="cicd_automation"
+                    >
+                  </div>
+
+                  <div class="row">
+                    <div>
+                      <label for="dbPgUsername">Username</label>
+                      <input 
+                        type="text" 
+                        id="dbPgUsername" 
+                        placeholder="postgres"
+                      >
+                    </div>
+                    <div>
+                      <label for="dbPgPassword">Password</label>
+                      <input 
+                        type="password" 
+                        id="dbPgPassword" 
+                        placeholder="Enter password"
+                      >
+                    </div>
+                  </div>
+                </div>
+
+                <div id="dbConnectionStatus" class="alert" style="display: none; margin-top: 20px;"></div>
+
+                <button id="dbTestConnectionBtn" class="btn secondary" style="margin-top: 20px;">
+                  🔍 Test Connection
+                </button>
+              </div>
+
+              <!-- Step 3: Migration -->
+              <div class="step-content" id="dbStep3">
+                <h3>Data Migration</h3>
+                <p class="muted">Migrate dữ liệu từ JSON files vào database</p>
+
+                <div class="data-summary">
+                  <h4>📦 Sẽ migrate:</h4>
+                  <div class="data-item">
+                    <span>Users:</span>
+                    <strong id="dbMigrateUsers">0</strong>
+                  </div>
+                  <div class="data-item">
+                    <span>Jobs:</span>
+                    <strong id="dbMigrateJobs">0</strong>
+                  </div>
+                  <div class="data-item">
+                    <span>Config:</span>
+                    <strong id="dbMigrateConfig">No</strong>
+                  </div>
+                </div>
+
+                <div style="margin: 20px 0;">
+                  <label>
+                    <input type="checkbox" id="dbMigrateDataCheck" checked>
+                    Migrate dữ liệu hiện tại vào database
+                  </label>
+                  <small class="muted" style="display: block; margin-top: 5px;">JSON files sẽ được backup trước khi migrate</small>
+                </div>
+
+                <div id="dbMigrationProgress" class="migration-progress" style="display: none;">
+                  <h4>🔄 Đang migrate...</h4>
+                  
+                  <div class="progress-item">
+                    <div class="progress-label">
+                      <span>Users</span>
+                      <span id="dbUsersProgress">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" id="dbUsersProgressBar" style="width: 0%"></div>
+                    </div>
+                  </div>
+
+                  <div class="progress-item">
+                    <div class="progress-label">
+                      <span>Jobs</span>
+                      <span id="dbJobsProgress">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" id="dbJobsProgressBar" style="width: 0%"></div>
+                    </div>
+                  </div>
+
+                  <div class="progress-item">
+                    <div class="progress-label">
+                      <span>Config</span>
+                      <span id="dbConfigProgress">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" id="dbConfigProgressBar" style="width: 0%"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 4: Complete -->
+              <div class="step-content" id="dbStep4">
+                <div style="text-align: center;">
+                  <div style="font-size: 72px; margin: 30px 0;">✅</div>
+                  <h3>Setup Hoàn tất!</h3>
+                  <p class="muted">Database đã được cấu hình thành công</p>
+
+                  <div class="config-display" id="dbFinalConfig"></div>
+
+                  <div id="dbMigrationSummary" style="margin: 30px 0;"></div>
+
+                  <p style="margin-top: 30px;">
+                    🎉 Hệ thống đã cấu hình database thành công!
+                  </p>
+
+                  <button id="dbReloadPageBtn" class="btn primary" style="margin-top: 20px;">
+                    🔄 Reload trang để áp dụng
+                  </button>
+                </div>
+              </div>
+
+              <!-- Wizard Actions -->
+              <div class="wizard-actions">
+                <button id="dbPrevBtn" class="btn secondary" style="display: none;">
+                  ← Quay lại
+                </button>
+                <div></div>
+                <button id="dbNextBtn" class="btn primary">
+                  Tiếp theo →
+                </button>
+              </div>
+
+              <div id="dbErrorMessage" class="alert alert-danger" style="display: none; margin-top: 20px;"></div>
+            </div>
+          </div>
+
+          <!-- Database Info (shown if setup) -->
+          <div id="dbInfoSection" style="display: none;">
+            <div class="row" style="margin-top: 20px;">
+              <div>
+                <label>Database Type</label>
+                <p id="dbTypeInfo" style="font-weight: 600;">-</p>
+              </div>
+              <div>
+                <label>Status</label>
+                <p id="dbConnectionInfo" style="font-weight: 600; color: var(--success);">✅ Connected</p>
+              </div>
+            </div>
+
+            <div id="dbConfigInfo" style="margin-top: 20px;">
+              <label>Configuration</label>
+              <div class="config-display" id="dbConfigDetails"></div>
+            </div>
+
+            <div style="margin-top: 30px;">
+              <button id="dbManualMigrateBtn" class="btn secondary">
+                🔄 Re-migrate dữ liệu JSON
+              </button>
+              <button id="dbResetBtn" class="btn danger" style="margin-left: 10px;">
+                ⚠️ Reset Database (Dev Only)
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
       </main>
     </div>
     
@@ -890,6 +1195,7 @@
     </div>
 
     <!-- Refactored modular frontend -->
+    <script src="/js/database.js"></script>
     <script type="module" src="/js/app.js"></script>
   </body>
   </html>

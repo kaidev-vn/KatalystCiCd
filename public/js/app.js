@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tabId === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
         if (tabId === 'jobs-tab') { loadJobs(); }
         if (tabId === 'queue-tab') { loadQueueStatus(); }
+        if (tabId === 'database-tab' && window.initDatabaseTab) { window.initDatabaseTab(); }
       }
     });
   });
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBuildHistory();
   loadJobs();
   if (savedTab === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
+  if (savedTab === 'database-tab' && window.initDatabaseTab) { window.initDatabaseTab(); }
 
   // Tagging toggles
   const autoTagIncrementEl = $('autoTagIncrement');
