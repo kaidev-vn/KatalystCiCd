@@ -860,6 +860,7 @@ async function addBuild() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOMContentLoaded - main.js script loaded');
   initTheme();
   
   // Initialize tab event listeners
@@ -912,6 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshJobsBtn = $('refreshJobsBtn');
   const jobModalClose = $('jobModalClose');
   const saveJobBtn = $('saveJob');
+  const addMultiBranch = $('addBranchBtn');
   const cancelJobBtn = $('cancelJob');
   const jobSearchInput = $('jobSearch');
   const selectAllServicesBtn = $('selectAllServices');
@@ -1122,7 +1124,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (useCommonConfigBtn) {
     useCommonConfigBtn.addEventListener('click', useCommonConfig);
   }
+
+  // Add event listener for "Add Branch" button
+  const addBranchBtn = document.getElementById('addBranchBtn');
   
+  console.log('Add Branch button found:', !!addBranchBtn);
+  
+  if (addBranchBtn) {
+    console.log('Adding event listener to Add Branch button');
+    addBranchBtn.addEventListener('click', function() {
+      console.log('Add Branch button clicked!');
+      addBranch();
+    });
+  } else {
+    console.error('Add Branch button not found!');
+  }
+
   // Refresh queue status every 5 seconds
   setInterval(loadQueueStatus, 5000);
 });
@@ -1574,14 +1591,16 @@ function renderJobsTable() {
       <td>${methodText}</td>
       <td>${job.services?.length || 0} services</td>
       <td>
-        <div><span class="tag ${getStatusClass(lastStatus)}">${getStatusText(lastStatus)}</span></div>
         <div class="muted">${lastAt ? new Date(lastAt).toLocaleString('vi-VN') : 'Chưa build'}</div>
       </td>
       <td>
+        <span class="tag ${getStatusClass(lastStatus)}">${getStatusText(lastStatus)}</span>
+      </td>
+      <td>
         <div class="job-actions-inline">
-          <button class="btn small primary" onclick="runJob('${job.id}')">▶️ Chạy</button>
-          <button class="btn small outline" onclick="editJob('${job.id}')">✏️ Sửa</button>
-          <button class="btn small danger" onclick="deleteJob('${job.id}')">🗑️ Xóa</button>
+          <button class="icon-btn" onclick="runJob('${job.id}')" title="Chạy job">▶️</button>
+          <button class="icon-btn" onclick="editJob('${job.id}')" title="Sửa job">✏️</button>
+          <button class="icon-btn danger" onclick="deleteJob('${job.id}')" title="Xóa job">🗑️</button>
         </div>
       </td>
     `;
@@ -1729,6 +1748,10 @@ function populateJobForm(job) {
   toggleScheduleConfig(job.schedule?.autoCheck || false);
   document.getElementById('jobPolling').value = job.schedule?.polling || 30;
   document.getElementById('jobCron').value = job.schedule?.cron || '';
+
+  // Load branch configurations
+  const branches = git.branches || [];
+  loadBranches(branches);
 }
 
 // Reset job form
@@ -1781,10 +1804,13 @@ function resetJobForm() {
   toggleScheduleConfig(false);
   document.getElementById('jobPolling').value = 30;
   document.getElementById('jobCron').value = '';
-  
+
   // Reset services selection
   const checkboxes = document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]');
   checkboxes.forEach(cb => cb.checked = false);
+
+  // Reset branch configurations
+  clearBranches();
 }
 
 // Toggle build method configuration
@@ -1822,6 +1848,119 @@ async function loadServicesForSelection() {
     }
   } catch (error) {
     console.error('Error loading services:', error);
+  }
+}
+
+// ===== BRANCH CONFIGURATION FUNCTIONS =====
+
+// Add a new branch configuration
+function addBranch(branchData = null) {
+  console.log('addBranch called');
+  const template = document.getElementById('branchTemplate');
+  const container = document.getElementById('branchesContainer');
+  
+  console.log('Template found:', !!template);
+  console.log('Container found:', !!container);
+  
+  if (!template || !container) return;
+  
+  const clone = template.content.cloneNode(true);
+  const branchItem = clone.querySelector('.branch-item');
+  
+  if (branchData) {
+    // Populate with existing data
+    branchItem.querySelector('.branch-name').value = branchData.name || '';
+    branchItem.querySelector('.branch-tag-prefix').value = branchData.tagPrefix || '';
+    branchItem.querySelector('.branch-tag-number').value = branchData.tagNumber || '1.0.0';
+    branchItem.querySelector('.branch-tag-text').value = branchData.tagText || '';
+    branchItem.querySelector('.branch-auto-increment').checked = branchData.autoIncrement || false;
+    branchItem.querySelector('.branch-enabled').checked = branchData.enabled !== false;
+    
+    // Update tag preview
+    updateTagPreview(branchItem);
+  } else {
+    // Set default values for new branch
+    branchItem.querySelector('.branch-tag-number').value = '1.0.0';
+    branchItem.querySelector('.branch-tag-text').value = '';
+    branchItem.querySelector('.branch-auto-increment').checked = false;
+    updateTagPreview(branchItem);
+  }
+  
+  // Add delete event listener
+  const deleteBtn = branchItem.querySelector('.btn.danger');
+  deleteBtn.addEventListener('click', function() {
+    branchItem.remove();
+  });
+  
+  container.appendChild(branchItem);
+  
+  // Add event listeners for tag configuration fields
+  addTagConfigListeners(branchItem);
+}
+
+// Update tag preview for a branch item
+function updateTagPreview(branchItem) {
+  const tagPrefix = branchItem.querySelector('.branch-tag-prefix').value;
+  const tagNumber = branchItem.querySelector('.branch-tag-number').value;
+  const tagText = branchItem.querySelector('.branch-tag-text').value;
+  
+  let finalTag = tagNumber;
+  if (tagText) {
+    finalTag += '-' + tagText;
+  }
+  if (tagPrefix) {
+    finalTag = tagPrefix + '-' + finalTag;
+  }
+  
+  const previewElement = branchItem.querySelector('.branch-tag-preview');
+  if (previewElement) {
+    previewElement.textContent = finalTag;
+  }
+}
+
+// Add event listeners for tag configuration fields
+function addTagConfigListeners(branchItem) {
+  const tagFields = branchItem.querySelectorAll('.branch-tag-prefix, .branch-tag-number, .branch-tag-text');
+  tagFields.forEach(field => {
+    field.addEventListener('input', () => updateTagPreview(branchItem));
+  });
+}
+
+// Remove all branch configurations
+function clearBranches() {
+  const container = document.getElementById('branchesContainer');
+  if (container) {
+    container.innerHTML = '';
+  }
+}
+
+// Get all branch configurations from UI
+function getBranches() {
+  const branches = [];
+  const branchItems = document.querySelectorAll('.branch-item');
+  
+  branchItems.forEach(item => {
+    branches.push({
+      name: item.querySelector('.branch-name').value,
+      tagPrefix: item.querySelector('.branch-tag-prefix').value,
+      tagNumber: item.querySelector('.branch-tag-number').value,
+      tagText: item.querySelector('.branch-tag-text').value,
+      autoIncrement: item.querySelector('.branch-auto-increment').checked,
+      enabled: item.querySelector('.branch-enabled').checked
+    });
+  });
+  
+  return branches;
+}
+
+// Load branch configurations into UI
+function loadBranches(branches) {
+  clearBranches();
+  
+  if (branches && branches.length > 0) {
+    branches.forEach(branch => {
+      addBranch(branch);
+    });
   }
 }
 
@@ -1865,7 +2004,8 @@ async function saveJob() {
         token: document.getElementById('jobGitToken').value,
         branch: document.getElementById('jobGitBranch').value,
         repoUrl: document.getElementById('jobGitRepoUrl').value,
-        repoPath: document.getElementById('jobGitRepoPath').value
+        repoPath: document.getElementById('jobGitRepoPath').value,
+        branches: getBranches()
       },
       buildConfig: {
         method: document.querySelector('input[name="jobBuildMethod"]:checked').value,

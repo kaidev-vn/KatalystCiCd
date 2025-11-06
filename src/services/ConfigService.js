@@ -1,5 +1,6 @@
 const path = require('path');
 const { readJson, writeJson } = require('../utils/file');
+const { DataStorageService } = require('./DataStorageService');
 
 /**
  * ConfigService - Service quản lý cấu hình hệ thống
@@ -14,8 +15,10 @@ class ConfigService {
    * @param {string} options.dataDir - Data directory path
    * @param {Object} options.logger - Logger instance
    */
-  constructor({ dataDir, logger }) {
+  constructor({ dataDir, logger ,dbManager}) {
     this.logger = logger;
+    this.dataDir = dataDir;
+    this.dbManager = dbManager;
     this.paths = {
       CONFIG_PATH: path.join(dataDir, 'config.json'),
       BUILDS_PATH: path.join(dataDir, 'builds.json'),
@@ -23,6 +26,9 @@ class ConfigService {
       CONFIG_VERSIONS_DIR: path.join(dataDir, 'config_versions'),
       BUILDS_VERSIONS_DIR: path.join(dataDir, 'builds_versions'),
     };
+    
+    // Khởi tạo DataStorageService để quản lý lưu trữ tự động
+    this.storageService = new DataStorageService({ logger, dataDir ,dbManager});
   }
 
   /**
@@ -176,6 +182,9 @@ class ConfigService {
    * @returns {Object} Config object
    */
   getConfig() {
+    if (this.storageService.isUsingDatabase()) {
+      return this.storageService.getData('config', this.getDefaultConfig());
+    }
     return readJson(this.paths.CONFIG_PATH, this.getDefaultConfig());
   }
 
@@ -258,7 +267,11 @@ class ConfigService {
         versionWidth: Number(cfg.docker?.tagConfig?.versionWidth || 0),
       },
     };
-    writeJson(this.paths.CONFIG_PATH, cfg);
+    if (this.storageService.isUsingDatabase()) {
+      this.storageService.saveData('config', cfg);
+    } else {
+      writeJson(this.paths.CONFIG_PATH, cfg);
+    }
     this.saveVersion('config', cfg);
     return cfg;
   }
@@ -284,10 +297,17 @@ class ConfigService {
   }
 
   getBuilds() {
+    if (this.storageService.isUsingDatabase()) {
+      return this.storageService.getData('builds', []);
+    }
     return readJson(this.paths.BUILDS_PATH, []);
   }
   saveBuilds(list) {
-    writeJson(this.paths.BUILDS_PATH, list);
+    if (this.storageService.isUsingDatabase()) {
+      this.storageService.saveData('builds', list);
+    } else {
+      writeJson(this.paths.BUILDS_PATH, list);
+    }
     this.saveVersion('builds', list);
   }
   // Build run history

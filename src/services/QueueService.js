@@ -175,6 +175,11 @@ class QueueService extends EventEmitter {
     job.startedAt = new Date();
     this.runningJobs.set(job.id, job);
     
+    // Đánh dấu job đang chạy trong JobService để tạm dừng polling
+    if (this.jobService && job.jobId) {
+      this.jobService.markJobAsRunning(job.jobId);
+    }
+    
     this.logger?.send(`[QUEUE] Bắt đầu thực thi job ${job.id}`);
     this.emit('jobStarted', job);
 
@@ -191,6 +196,11 @@ class QueueService extends EventEmitter {
       this.completedJobs.push(job);
       this.stats.totalCompleted++;
       this.updateAverageExecutionTime();
+      
+      // Đánh dấu job đã hoàn thành trong JobService để resume polling
+      if (this.jobService && job.jobId) {
+        this.jobService.markJobAsCompleted(job.jobId);
+      }
       
       this.logger?.send(`[QUEUE] Job ${job.id} hoàn thành thành công (${job.executionTime}ms)`);
       this.emit('jobCompleted', job);

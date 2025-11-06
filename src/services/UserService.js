@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const { readJson, writeJson, ensureDir } = require('../utils/file');
+const { DataStorageService } = require('./DataStorageService');
 
 /**
  * User Service - Quản lý users với authentication và RBAC
@@ -17,6 +18,9 @@ class UserService {
     this.usersFile = path.join(process.cwd(), 'data', 'users.json');
     this.SALT_ROUNDS = 10;
     this._initialized = false;
+    
+    // Initialize DataStorageService
+    this.storageService = new DataStorageService({ logger, dataDir: path.dirname(this.usersFile) });
     
     // Initialize users file với default admin (async, will be called lazily)
     this._initPromise = this.ensureUsersFile();
@@ -45,7 +49,7 @@ class UserService {
       let fileExists = false;
       
       try {
-        users = await readJson(this.usersFile);
+        users = await this.storageService.getData('users');
         if (users && Array.isArray(users)) {
           fileExists = true;
         } else {
@@ -61,7 +65,7 @@ class UserService {
       if (!fileExists || users.length === 0) {
         const defaultAdmin = await this.createDefaultAdmin();
         users = [defaultAdmin];
-        await writeJson(this.usersFile, users);
+        await this.saveUsers(users);
         this.logger?.send('[USER SERVICE] ✅ Created default admin user');
         return;
       }
@@ -70,7 +74,7 @@ class UserService {
       if (!users.find(u => u.username === 'admin')) {
         const defaultAdmin = await this.createDefaultAdmin();
         users.push(defaultAdmin);
-        await writeJson(this.usersFile, users);
+        await this.saveUsers(users);
         this.logger?.send('[USER SERVICE] ✅ Added default admin user');
       }
     } catch (error) {
@@ -107,7 +111,8 @@ class UserService {
   async getAllUsers() {
     await this._ensureInitialized();
     try {
-      const users = await readJson(this.usersFile);
+      // Sử dụng DataStorageService để lấy dữ liệu từ database hoặc JSON
+      const users = await this.storageService.getData('users');
       // Remove passwords from response
       return users.map(u => {
         const { password, ...userWithoutPassword } = u;
@@ -126,7 +131,7 @@ class UserService {
    */
   async getUserById(userId) {
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
       const user = users.find(u => u.id === userId);
       if (!user) return null;
       
@@ -146,12 +151,20 @@ class UserService {
   async getUserByUsername(username) {
     await this._ensureInitialized();
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
       return users.find(u => u.username === username) || null;
     } catch (error) {
       this.logger?.send(`[USER SERVICE] ❌ Error getting user: ${error.message}`);
       return null;
     }
+  }
+
+  /**
+   * Save users data
+   * @private
+   */
+  async saveUsers(users) {
+    await this.storageService.saveData('users', users);
   }
 
   /**
@@ -166,7 +179,7 @@ class UserService {
   async createUser(userData) {
     await this._ensureInitialized();
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
 
       // Check if username exists
       if (users.find(u => u.username === userData.username)) {
@@ -189,7 +202,7 @@ class UserService {
       };
 
       users.push(newUser);
-      await writeJson(this.usersFile, users);
+      await this.saveUsers(users);
 
       this.logger?.send(`[USER SERVICE] ✅ Created user: ${newUser.username}`);
 
@@ -209,7 +222,7 @@ class UserService {
    */
   async updateUser(userId, updates) {
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
       const index = users.findIndex(u => u.id === userId);
 
       if (index === -1) {
@@ -225,7 +238,7 @@ class UserService {
         updatedAt: new Date().toISOString()
       };
 
-      await writeJson(this.usersFile, users);
+      await this.saveUsers(users);
 
       this.logger?.send(`[USER SERVICE] ✅ Updated user: ${users[index].username}`);
 
@@ -244,7 +257,7 @@ class UserService {
    */
   async deleteUser(userId) {
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
       const user = users.find(u => u.id === userId);
 
       if (!user) {
@@ -260,7 +273,7 @@ class UserService {
       }
 
       const filteredUsers = users.filter(u => u.id !== userId);
-      await writeJson(this.usersFile, filteredUsers);
+      await this.saveUsers(filteredUsers);
 
       this.logger?.send(`[USER SERVICE] ✅ Deleted user: ${user.username}`);
       return true;
@@ -288,7 +301,7 @@ class UserService {
    */
   async changePassword(userId, newPassword) {
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
       const index = users.findIndex(u => u.id === userId);
 
       if (index === -1) {
@@ -301,7 +314,7 @@ class UserService {
       users[index].mustChangePassword = false;
       users[index].updatedAt = new Date().toISOString();
 
-      await writeJson(this.usersFile, users);
+      await this.saveUsers(users);
 
       this.logger?.send(`[USER SERVICE] ✅ Changed password for user: ${users[index].username}`);
       return true;
@@ -318,12 +331,12 @@ class UserService {
    */
   async updateLastLogin(userId) {
     try {
-      const users = await readJson(this.usersFile);
+      const users = await this.storageService.getData('users');
       const index = users.findIndex(u => u.id === userId);
 
       if (index !== -1) {
         users[index].lastLogin = new Date().toISOString();
-        await writeJson(this.usersFile, users);
+        await this.saveUsers(users);
       }
     } catch (error) {
       this.logger?.send(`[USER SERVICE] ❌ Error updating last login: ${error.message}`);

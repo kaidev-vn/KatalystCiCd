@@ -5,6 +5,7 @@
   "description": "CI/CD automation system with Docker build, Git polling, queue management",
   "scripts": {
     "start": "node app.js",
+    "dev": "nodemon app.js",
     "docs": "jsdoc -c jsdoc.json",
     "docs:serve": "npm run docs && npx http-server docs/ -p 8080"
   },
@@ -32,6 +33,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "jsdoc": "^4.0.5"
+    "jsdoc": "^4.0.5",
+    "nodemon": "^3.1.9"
   }
 }

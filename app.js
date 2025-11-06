@@ -34,6 +34,8 @@ const app = express();
 // New architecture (services & utils)
 const { Logger } = require('./src/utils/logger');
 const { ConfigService } = require('./src/services/ConfigService');
+const { DataStorageService } = require('./src/services/DataStorageService');
+
 const { DockerService } = require('./src/services/DockerService');
 const { GitService } = require('./src/services/GitService');
 const { Scheduler } = require('./src/services/Scheduler');
@@ -84,7 +86,8 @@ fs.mkdirSync(BUILDS_VERSIONS_DIR, { recursive: true });
 const logger = new Logger();
 logger.register(app);
 
-const configService = new ConfigService({ dataDir: DATA_DIR, logger });
+const configService = new ConfigService({ dataDir: DATA_DIR, logger , dbManager });
+const dataStorageService = new DataStorageService({ dataDir: DATA_DIR, logger , dbManager })
 const dockerService = new DockerService({ logger, configService });
 const gitService = new GitService({ logger, dockerService, configService });
 const scheduler = new Scheduler({ logger, configService, gitService });
@@ -139,7 +142,7 @@ registerEmailController(app, { emailService, logger });
 // ========================================
 // DATABASE SETUP ROUTES (Public - no auth required)
 // ========================================
-registerDatabaseController(app, dbManager);
+registerDatabaseController(app, {configService});
 
 // Middleware: Check if database is setup (except for essential routes)
 app.use((req, res, next) => {

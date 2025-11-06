@@ -3,6 +3,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { QueueService } = require('./QueueService');
 const { getSecretManager } = require('../utils/secrets');
+const { DataStorageService } = require('./DataStorageService');
 
 /**
  * JobService - Service quản lý jobs (CRUD operations)
@@ -21,7 +22,11 @@ class JobService {
     this.jobController = jobController;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
     this.secretManager = getSecretManager();
+    this.storageService = new DataStorageService({ logger, dataDir: path.dirname(this.jobsFile) });
     this.ensureJobsFile();
+    
+    // Track running jobs to prevent polling spam
+    this.runningJobs = new Set();
     
     // Initialize queue service for weaker machines
     this.queueService = new QueueService({
@@ -81,6 +86,9 @@ class JobService {
    */
   getAllJobs() {
     try {
+      if (this.storageService.isUsingDatabase()) {
+        return this.storageService.getData('jobs', []);
+      }
       const data = fs.readFileSync(this.jobsFile, 'utf8');
       return JSON.parse(data);
     } catch (error) {
@@ -133,7 +141,15 @@ class JobService {
         token: this.secretManager.encrypt(jobData.gitConfig?.token || ''), // ✅ Encrypted
         repoUrl: jobData.gitConfig?.repoUrl || '',
         repoPath: jobData.gitConfig?.repoPath || '',
-        branch: jobData.gitConfig?.branch || 'main'
+        branch: jobData.gitConfig?.branch || 'main',
+        // Multiple branches configuration
+        branches: jobData.gitConfig?.branches || [
+          {
+            name: jobData.gitConfig?.branch || 'main',
+            tagPrefix: 'RELEASE',
+            enabled: true
+          }
+        ]
       },
       
       // Build Configuration
@@ -267,6 +283,43 @@ class JobService {
   }
 
   /**
+   * Đánh dấu job đang chạy
+   * @param {string} jobId - Job ID
+   * @returns {boolean} True nếu thành công
+   */
+  markJobAsRunning(jobId) {
+    if (this.isJobRunning(jobId)) {
+      return false; // Job đã đang chạy
+    }
+    this.runningJobs.add(jobId);
+    this.logger?.send(`[JOB-SERVICE] Job ${jobId} đang chạy, tạm dừng polling`);
+    return true;
+  }
+
+  /**
+   * Đánh dấu job đã hoàn thành
+   * @param {string} jobId - Job ID
+   * @returns {boolean} True nếu thành công
+   */
+  markJobAsCompleted(jobId) {
+    if (!this.isJobRunning(jobId)) {
+      return false; // Job không đang chạy
+    }
+    this.runningJobs.delete(jobId);
+    this.logger?.send(`[JOB-SERVICE] Job ${jobId} đã hoàn thành, resume polling`);
+    return true;
+  }
+
+  /**
+   * Kiểm tra job có đang chạy không
+   * @param {string} jobId - Job ID
+   * @returns {boolean} True nếu job đang chạy
+   */
+  isJobRunning(jobId) {
+    return this.runningJobs.has(jobId);
+  }
+
+  /**
    * Cập nhật thống kê job sau khi build
    * @param {string} jobId - Job ID
    * @param {Object} buildResult - Kết quả build
@@ -308,7 +361,11 @@ class JobService {
    */
   saveJobs(jobs) {
     try {
-      fs.writeFileSync(this.jobsFile, JSON.stringify(jobs, null, 2));
+      if (this.storageService.isUsingDatabase()) {
+        this.storageService.saveData('jobs', jobs);
+      } else {
+        fs.writeFileSync(this.jobsFile, JSON.stringify(jobs, null, 2));
+      }
     } catch (error) {
       console.error('Error saving jobs file:', error);
       throw error;

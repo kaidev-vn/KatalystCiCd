@@ -11,7 +11,6 @@ const DataMigration = require('../migrations/migrate');
  * @param {Object} dbManager - Database manager instance
  */
 function registerDatabaseController(app, dbManager) {
-  
   /**
    * Check database setup status
    * GET /api/database/status

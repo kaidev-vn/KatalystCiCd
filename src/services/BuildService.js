@@ -394,7 +394,6 @@ class BuildService {
       const steps = Array.isArray(spec.steps) ? spec.steps.slice() : [];
       // Sort by step_order if provided
       steps.sort((a, b) => (Number(a.step_order || 0) - Number(b.step_order || 0)));
-
       // Prepare environment: merge process.env, overrides, and pipeline env
       // Also resolve simple ${VAR} templates within envMap using current env values
       const baseEnv = { ...process.env, ...(envOverrides || {}) };

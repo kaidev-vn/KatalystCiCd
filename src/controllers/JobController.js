@@ -192,7 +192,15 @@ class JobController {
       token: legacyGit.token || d.token || '',
       branch: legacyGit.branch || d.branch || 'main',
       repoUrl: legacyGit.repoUrl || d.repoUrl || '',
-      repoPath: legacyGit.repoPath || d.repoPath || ''
+      repoPath: legacyGit.repoPath || d.repoPath || '',
+      // Multiple branches configuration
+      branches: d.gitConfig?.branches || [
+        {
+          name: legacyGit.branch || d.branch || 'main',
+          tagPrefix: 'RELEASE',
+          enabled: true
+        }
+      ]
     };
     // Trim strings
     ['provider','account','token','branch','repoUrl','repoPath'].forEach(k => {
@@ -599,11 +607,6 @@ class JobController {
       
       // Determine build method and execute
       let buildResult;
-
-
-    
-
-
       if (job.buildConfig.method === 'script') {
         // Chuẩn bị biến môi trường cho script từ cấu hình tag/registry
         const bc = job.buildConfig || {};
@@ -801,6 +804,8 @@ class JobController {
 
     // Nếu auto-increment và build thành công, cập nhật lại tag trong job
     if (!r.hadError && dc.autoTagIncrement) {
+      const { splitTagIntoParts } = require('../utils/tag');
+      const parts = splitTagIntoParts(r.tagToUse || dc.imageTag || 'latest');
       const updated = {
         ...job,
         buildConfig: {
@@ -808,7 +813,9 @@ class JobController {
           dockerConfig: {
             ...dc,
             imageTag: r.tagToUse
-          }
+          },
+          imageTagNumber: parts.numberPart,
+          imageTagText: parts.textPart
         }
       };
       try { this.jobService.updateJob(job.id, updated); } catch (_) {}

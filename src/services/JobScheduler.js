@@ -107,6 +107,12 @@ class JobScheduler {
           return;
         }
 
+        // Kiểm tra nếu job đang chạy thì không thêm vào queue để tránh spam
+        if (this.jobService.isJobRunning(jobId)) {
+          this.logger?.send(`[JOB-SCHEDULER] Job ${latestJob.name} (${jobId}) đang chạy, bỏ qua polling cycle này`);
+          return;
+        }
+
         this.logger?.send(`[JOB-SCHEDULER] 🔁 Thêm job vào hàng đợi (polling): ${latestJob.name} (mỗi ${pollingSec}s)`);
         try {
           this.queueService?.addJob({

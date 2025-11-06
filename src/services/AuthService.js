@@ -46,6 +46,8 @@ class AuthService {
       }
 
       // Verify password
+      console.log(user.password);
+      
       const isValidPassword = await this.userService.verifyPassword(password, user.password);
       if (!isValidPassword) {
         this.recordFailedAttempt(ipAddress);

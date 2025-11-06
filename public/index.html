@@ -19,23 +19,25 @@
       }
       
       // Display user info when DOM is ready
-      window.addEventListener('DOMContentLoaded', () => {
-        const user = auth.getUser();
-        if (user) {
-          const displayNameEl = document.getElementById('userDisplayName');
-          const roleEl = document.getElementById('userRole');
-          
-          if (displayNameEl) displayNameEl.textContent = user.username;
-          if (roleEl) roleEl.textContent = user.role;
-          
-          // Show/hide admin-only features
-          if (!auth.isAdmin()) {
-            document.querySelectorAll('.admin-only').forEach(el => {
-              el.style.display = 'none';
-            });
+        window.addEventListener('DOMContentLoaded', () => {
+          const user = auth.getUser();
+          if (user) {
+            const displayNameEl = document.getElementById('userDisplayName');
+            const roleEl = document.getElementById('userRole');
+            const avatarEl = document.getElementById('userAvatar');
+            
+            if (displayNameEl) displayNameEl.textContent = user.username;
+            if (roleEl) roleEl.textContent = user.role;
+            if (avatarEl) avatarEl.textContent = user.username.charAt(0).toUpperCase();
+            
+            // Show/hide admin-only features
+            if (!auth.isAdmin()) {
+              document.querySelectorAll('.admin-only').forEach(el => {
+                el.style.display = 'none';
+              });
+            }
           }
-        }
-      });
+        });
       
       // Global logout function
       window.handleLogout = async () => {
@@ -58,8 +60,11 @@
       </div>
       <div class="header-actions">
         <div class="user-info">
-          <span class="user-name" id="userDisplayName">User</span>
-          <span class="user-role" id="userRole">role</span>
+          <div class="user-avatar" id="userAvatar">U</div>
+          <div class="user-info-content">
+            <span class="user-name" id="userDisplayName">User</span>
+            <span class="user-role" id="userRole">role</span>
+          </div>
         </div>
         <button id="themeToggle" class="btn secondary">Chế độ tối</button>
         <button id="logoutBtn" class="btn danger" onclick="handleLogout()">Đăng xuất</button>
@@ -72,7 +77,7 @@
           <button class="tab-btn" data-tab="jobs-tab">📋 Quản lý Jobs</button>
           <button class="tab-btn" data-tab="queue-tab">⏳ Hàng đợi Build</button>
           <button class="tab-btn" data-tab="builds-tab">🚀 Quản lý Builds</button>
-          <button class="tab-btn" data-tab="raw-config-tab">📝 config.json</button>
+          <!-- <button class="tab-btn" data-tab="raw-config-tab">📝 config.json</button> -->
           <button class="tab-btn active" data-tab="config-tab">⚙️ Cấu hình chung</button>
           <button class="tab-btn admin-only" data-tab="database-tab">🗄️ Database</button>
         </nav>
@@ -262,6 +267,7 @@
                   <th>Phương thức Build</th>
                   <th>Services</th>
                   <th>Build cuối</th>
+                  <th>Trạng thái Build cuối</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
@@ -892,13 +898,32 @@
             
             <div class="row">
               <div>
+                <h4 class="form-subheader">🔐 Authentication & Token</h4>
                 <label for="jobGitToken">Access Token *</label>
                 <input id="jobGitToken" type="password" placeholder="ghp_/glpat_..." required />
               </div>
               <div>
-                <label for="jobGitBranch">Branch *</label>
+                <h4 class="form-subheader">🌿 Branch Configuration</h4>
+                <label for="jobGitBranch">Default Branch *</label>
                 <input id="jobGitBranch" type="text" placeholder="main" required />
+                <small class="muted">Branch mặc định cho job này</small>
               </div>
+            </div>
+            
+            <!-- Multi-Branch Configuration -->
+            <div class="form-section">
+              <h4 class="form-subheader">🌿🌿 Multi-Branch Configuration</h4>
+              <div class="info-box">
+                <small class="muted">Cấu hình các branch khác mà bạn muốn build. Mỗi branch có thể có tag prefix riêng.</small>
+              </div>
+              
+              <div id="branchesContainer">
+                <!-- Branches will be dynamically added here -->
+              </div>
+              
+              <button type="button" id="addBranchBtn" class="btn secondary small" style="margin-top: 10px;">
+                ➕ Thêm Branch
+              </button>
             </div>
             
             <label for="jobGitRepoUrl">Repository URL *</label>
@@ -1194,8 +1219,61 @@
       </div>
     </div>
 
+    <!-- Branch Configuration Template -->
+    <template id="branchTemplate">
+      <div class="branch-item card">
+        <div class="branch-header">
+          <h5>Branch</h5>
+          <button type="button" class="btn danger small icon-btn" title="Xóa branch">
+            🗑️
+          </button>
+        </div>
+        <div class="row">
+          <div>
+            <label>Tên Branch *</label>
+            <input type="text" placeholder="develop" required class="branch-name" />
+          </div>
+          <div>
+            <label>Tag Prefix</label>
+            <input type="text" placeholder="DEV" class="branch-tag-prefix" />
+            <small class="muted">Để trống nếu không muốn dùng prefix</small>
+          </div>
+        </div>
+        
+        <!-- Cấu hình Tag chi tiết cho từng branch -->
+        <div class="tag-config-section">
+          <h4>🏷️ Cấu hình Tag chi tiết</h4>
+          <div class="row">
+            <div>
+              <label>Phần số (có thể tự tăng)</label>
+              <input type="text" placeholder="1.0.0" class="branch-tag-number" />
+            </div>
+            <div>
+              <label>Phần chữ (cố định)</label>
+              <input type="text" placeholder="BETA" class="branch-tag-text" />
+            </div>
+          </div>
+          
+          <div class="checkbox-group">
+            <input type="checkbox" class="branch-auto-increment" />
+            <label>Tự động tăng phần số sau mỗi lần build</label>
+          </div>
+          
+          <div class="tag-preview">
+            <small class="muted">Tag cuối cùng: <span class="branch-tag-preview">1.0.0-BETA</span></small>
+          </div>
+        </div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" checked class="branch-enabled" />
+          <label>Kích hoạt build cho branch này</label>
+        </div>
+      </div>
+    </template>
+
     <!-- Refactored modular frontend -->
     <script src="/js/database.js"></script>
     <script type="module" src="/js/app.js"></script>
+    <script src="/main.js"></script>
   </body>
   </html>
