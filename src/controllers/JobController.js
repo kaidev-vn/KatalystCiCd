@@ -589,6 +589,7 @@ class JobController {
               message: 'No new commit, build skipped'
             };
           }
+          console.log(`[JOB] Build method: ${job.buildConfig.method}`);
           this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
           // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
           this.lastCommitHash = check.remoteHash;
@@ -597,7 +598,11 @@ class JobController {
       
       // Determine build method and execute
       let buildResult;
-      
+
+
+    
+
+
       if (job.buildConfig.method === 'script') {
         // Chuẩn bị biến môi trường cho script từ cấu hình tag/registry
         const bc = job.buildConfig || {};
