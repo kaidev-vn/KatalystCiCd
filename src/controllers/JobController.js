@@ -287,6 +287,10 @@ class JobController {
         baseContext = legacyRepoPath ? path.dirname(legacyRepoPath) : process.cwd();
       }
 
+      // Đảm bảo baseContext không undefined
+      if (typeof baseContext !== 'string') {
+        baseContext = process.cwd();
+      }
       const katalystRoot = path.join(baseContext, 'Katalyst');
       const repoRootPath = path.join(katalystRoot, 'repo');
       const builderRoot = path.join(katalystRoot, 'builder');
@@ -298,7 +302,13 @@ class JobController {
       }
 
       // Xác định đường dẫn repository thực tế (có thể là subdirectory)
-      const actualRepoPath = await this._ensureRepoReady(repoRootPath, gc.branch, gc.repoUrl, gc.token, gc.provider);
+      const actualRepoPath = await this._ensureRepoReady({ 
+        repoPath: repoRootPath, 
+        branch: gc.branch, 
+        repoUrl: gc.repoUrl, 
+        token: gc.token, 
+        provider: gc.provider 
+      });
 
       const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
       const jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
