@@ -637,6 +637,8 @@ class JobController {
         }
         const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build-script.sh');
 
+        console.log(`[SCRIPT] Bắt đầu thực thi script: ${scriptPath}`);
+        console.log(`[SCRIPT] Working directory: ${actualRepoPath}`);
         const r = await this.buildService.runScript(
           scriptPath,
           actualRepoPath,
