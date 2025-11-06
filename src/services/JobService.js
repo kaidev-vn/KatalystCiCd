@@ -14,9 +14,11 @@ class JobService {
    * Tạo JobService instance
    * @constructor
    * @param {Object} logger - Logger instance
+   * @param {Object} [jobController] - JobController instance (optional)
    */
-  constructor(logger) {
+  constructor(logger, jobController) {
     this.logger = logger;
+    this.jobController = jobController;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
     this.secretManager = getSecretManager();
     this.ensureJobsFile();
@@ -27,6 +29,39 @@ class JobService {
       resourceThreshold: 70, // Dừng queue nếu CPU/Memory > 70%
       logger: this.logger
     });
+    
+    // Inject job executor nếu có jobController
+    if (this.jobController) {
+      this.queueService.setJobExecutor(this._jobExecutor.bind(this));
+    }
+  }
+
+  /**
+   * Job executor function cho QueueService
+   * @private
+   * @param {Object} queueJob - Queue job object
+   * @returns {Promise<Object>} Build result
+   */
+  async _jobExecutor(queueJob) {
+    try {
+      // Lấy job thực tế từ jobId trong queue job
+      const jobId = queueJob.jobId || queueJob.id;
+      if (!jobId) {
+        throw new Error('Queue job missing jobId');
+      }
+      
+      const job = this.getJobById(jobId);
+      if (!job) {
+        throw new Error(`Job not found: ${jobId}`);
+      }
+      
+      // Gọi executeJobBuild từ jobController
+      return await this.jobController.executeJobBuild(job);
+      
+    } catch (error) {
+      this.logger?.send(`[JOB-EXECUTOR] Lỗi thực thi job: ${error.message}`);
+      throw error;
+    }
   }
 
   /**
