@@ -532,6 +532,7 @@ class JobController {
       let repoPath = '';
       let builderRoot = '';
       let jobBuilderDir = '';
+      let actualRepoPath = '';
       if ((job.buildConfig?.method || 'dockerfile') !== 'jsonfile') {
         // Xác định base context theo cấu hình: <contextInitPath>/Katalyst
         let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
