@@ -141,10 +141,14 @@ registerEmailController(app, { emailService, logger });
 // ========================================
 registerDatabaseController(app, dbManager);
 
-// Middleware: Check if database is setup (except for db-setup and api/database routes)
+// Middleware: Check if database is setup (except for essential routes)
 app.use((req, res, next) => {
-  // Skip check for database API, setup page, and dashboard (which has database tab)
+  // Skip check for:
+  // 1. Database API routes
+  // 2. Auth API routes (login/logout - cần cho user login để vào dashboard setup DB)
+  // 3. Static files and pages
   if (req.path.startsWith('/api/database') || 
+      req.path.startsWith('/api/auth') ||  // ✅ Allow auth routes
       req.path === '/db-setup.html' || 
       req.path === '/js/db-setup.js' ||
       req.path === '/js/database.js' ||
@@ -157,12 +161,12 @@ app.use((req, res, next) => {
     return next();
   }
 
-  // Check if database is setup - only block non-database API calls
-  if (!dbManager.isSetup() && req.path.startsWith('/api/') && !req.path.startsWith('/api/database')) {
+  // Check if database is setup - block other API calls
+  if (!dbManager.isSetup() && req.path.startsWith('/api/')) {
     return res.status(503).json({
       success: false,
-      message: 'Database not initialized. Please setup database first.',
-      setupUrl: '/db-setup.html'
+      message: 'Database not initialized. Please setup database in Dashboard → Database tab.',
+      setupRequired: true
     });
   }
 
