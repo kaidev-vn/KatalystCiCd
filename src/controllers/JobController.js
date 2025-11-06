@@ -310,6 +310,18 @@ class JobController {
         provider: gc.provider 
       });
 
+      // Tự động cập nhật repoPath vào job configuration nếu chưa có hoặc khác
+      if (actualRepoPath && (!gc.repoPath || gc.repoPath !== actualRepoPath)) {
+        const updated = {
+          ...job,
+          gitConfig: {
+            ...job.gitConfig,
+            repoPath: actualRepoPath
+          }
+        };
+        try { this.jobService.updateJob(job.id, updated); } catch (_) {}
+      }
+
       const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
       const jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
       try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
