@@ -291,7 +291,9 @@ class BuildService {
       const commands = makeExecutableCmd ? [makeExecutableCmd, scriptCmd] : [scriptCmd];
 
       buildLogger.send(`[SCRIPT BUILD] Thực thi script tại: ${cwd}`);
+      buildLogger.send(`[SCRIPT BUILD] Đường dẫn script: ${scriptPath}`);
       buildLogger.send(`[SCRIPT BUILD] Lệnh: ${scriptCmd}`);
+      buildLogger.send(`[SCRIPT BUILD] Working directory: ${cwd}`);
 
       const { hadError } = await runSeries(commands, buildLogger, {
         env: { ...process.env, ...(envOverrides || {}) },

@@ -288,14 +288,17 @@ class JobController {
       }
 
       const katalystRoot = path.join(baseContext, 'Katalyst');
-      const repoPath = path.join(katalystRoot, 'repo');
+      const repoRootPath = path.join(katalystRoot, 'repo');
       const builderRoot = path.join(katalystRoot, 'builder');
       try {
-        fs.mkdirSync(repoPath, { recursive: true });
+        fs.mkdirSync(repoRootPath, { recursive: true });
         fs.mkdirSync(builderRoot, { recursive: true });
       } catch (e) {
         throw new Error(`Không thể tạo thư mục context tại ${katalystRoot}: ${e.message}`);
       }
+
+      // Xác định đường dẫn repository thực tế (có thể là subdirectory)
+      const actualRepoPath = await this._ensureRepoReady(repoRootPath, gc.branch, gc.repoUrl, gc.token, gc.provider);
 
       const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
       const jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
@@ -313,8 +316,8 @@ class JobController {
       const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
       const registryUrl = bc.registryUrl || dc.registryUrl || '';
       const dockerfilePath = dc.dockerfilePath || '';
-      // contextPath ưu tiên theo cấu hình docker, nếu không có thì dùng repoPath mặc định
-      const contextPath = dc.contextPath || repoPath;
+      // contextPath ưu tiên theo cấu hình docker, nếu không có thì dùng actualRepoPath
+      const contextPath = dc.contextPath || actualRepoPath;
 
       // Tạo IMAGE_TAG từ number/text (không tự tăng khi lưu)
       const imageTag = (() => {
@@ -332,7 +335,7 @@ class JobController {
         `# Git\n` +
         `BRANCH="${gc.branch || 'main'}"\n` +
         `REPO_URL="${gc.repoUrl || ''}"\n` +
-        `REPO_PATH="${repoPath}"\n\n` +
+        `REPO_PATH="${actualRepoPath}"\n\n` +
         `# Docker Build Config\n` +
         `CONTEXT_PATH="${contextPath}"\n` +
         `DOCKERFILE_PATH="${dockerfilePath}"\n` +
