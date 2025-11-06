@@ -1373,9 +1373,24 @@ function updateJobScriptTagPreview() {
   }
 }
 
+// Kiểm tra config có chứa dữ liệu hữu ích không
+function hasValidConfigData(cfg) {
+  if (!cfg) return false;
+  
+  // Kiểm tra các trường quan trọng không được rỗng
+  const hasRepoInfo = cfg.repoUrl && cfg.repoUrl.trim() !== '';
+  const hasDockerInfo = cfg.docker && (
+    (cfg.docker.dockerfilePath && cfg.docker.dockerfilePath.trim() !== '') ||
+    (cfg.docker.imageName && cfg.docker.imageName.trim() !== '')
+  );
+  const hasScriptInfo = cfg.scriptPath && cfg.scriptPath.trim() !== '';
+  
+  return hasRepoInfo || hasDockerInfo || hasScriptInfo;
+}
+
 // Hàm sử dụng cấu hình chung để điền vào form job
 function useCommonConfig() {
-  if (!CURRENT_CFG) {
+  if (!CURRENT_CFG || !hasValidConfigData(CURRENT_CFG)) {
     alert('Không có cấu hình chung để sử dụng. Vui lòng cấu hình trong tab Cấu hình chung trước.');
     return;
   }
