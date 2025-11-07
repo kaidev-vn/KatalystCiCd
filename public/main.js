@@ -942,15 +942,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Close modal when clicking outside
-  const jobModal = $('jobModal');
-  if (jobModal) {
-    jobModal.addEventListener('click', (e) => {
-      if (e.target === jobModal) {
-        hideJobModal();
-      }
-    });
-  }
+  // Modal click handling is now managed in jobs.js module
+  // to prevent closing when clicking outside
   
   // Add null checks for all button event handlers
   const saveCfgBtn = $('saveCfg');

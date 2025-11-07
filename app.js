@@ -165,13 +165,13 @@ app.use((req, res, next) => {
   }
 
   // Check if database is setup - block other API calls
-  if (!dbManager.isSetup() && req.path.startsWith('/api/')) {
+  /* if (!dbManager.isSetup() && req.path.startsWith('/api/')) {
     return res.status(503).json({
       success: false,
       message: 'Database not initialized. Please setup database in Dashboard → Database tab.',
       setupRequired: true
     });
-  }
+  } */
 
   next();
 });

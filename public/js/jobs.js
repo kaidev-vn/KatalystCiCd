@@ -142,7 +142,15 @@ export function getStatusText(status) {
 export function showJobModal(jobId = null) {
   state.editingJobId = jobId;
   const modal = $('jobModal');
-  if (modal) modal.style.display = 'block';
+  
+  if (modal) {
+    modal.style.display = 'block';
+    modal.classList.add('show');
+    
+    // Thêm event listener để ngăn click ra ngoài đóng modal
+    modal.addEventListener('click', handleModalClick);
+  }
+  
   if (jobId) {
     const job = state.jobs.find(j => j.id === jobId);
     if (job) populateJobForm(job);
@@ -154,9 +162,24 @@ export function showJobModal(jobId = null) {
   loadServicesForSelection();
 }
 
+function handleModalClick(e) {
+  // Chỉ đóng modal nếu click vào backdrop (phần tử modal chính)
+  if (e.target.id === 'jobModal') {
+    // KHÔNG làm gì cả - ngăn đóng modal khi click ra ngoài
+    e.stopPropagation();
+  }
+}
+
 export function hideJobModal() {
   const modal = $('jobModal');
-  if (modal) modal.style.display = 'none';
+  
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('show');
+    
+    // Xóa event listener
+    modal.removeEventListener('click', handleModalClick);
+  }
 }
 
 export function populateJobForm(job) {

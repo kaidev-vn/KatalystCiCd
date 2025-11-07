@@ -51,11 +51,16 @@
     </script>
 
     <header class="app-header">
-      <div class="brand">
-        <div class="logo"><img src="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" alt="Logo" /></div>
-        <div>
-          <h1>K-Talyst</h1>
-          <p class="muted brand-subtitle">Quản lý cấu hình, build, deploy và theo dõi realtime.</p>
+      <div class="header-left">
+        <button id="sidebarToggle" class="btn icon-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="brand">
+          <div class="logo"><img src="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" alt="Logo" /></div>
+          <div>
+            <h1>K-Talyst</h1>
+            <p class="muted brand-subtitle">Quản lý cấu hình, build, deploy và theo dõi realtime.</p>
+          </div>
         </div>
       </div>
       <div class="header-actions">
@@ -486,6 +491,13 @@
           <div class="card-header">
             <h2 id="logsTitle">📋 Logs Realtime</h2>
             <div class="log-toolbar">
+              <div class="job-selector">
+                <label for="jobSelector">Job:</label>
+                <select id="jobSelector" class="select small">
+                  <option value="">-- Tất cả Jobs --</option>
+                  <!-- Job options will be populated dynamically -->
+                </select>
+              </div>
               <button id="copyLogs" class="btn small outline">📋 Copy</button>
               <button id="clearLogs" class="btn small secondary">🗑️ Clear</button>
               <button id="toggleAutoScroll" class="btn small outline active">📜 Auto Scroll</button>
@@ -856,7 +868,6 @@
       </div>
     </div>
 
-    <!-- Job Management Modal -->
     <div id="jobModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">

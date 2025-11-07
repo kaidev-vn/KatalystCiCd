@@ -7,6 +7,7 @@ import { loadRawConfigEditor, formatConfigJson, validateConfigJson, saveRawConfi
 import { loadSchedulerStatus, toggleScheduler, restartScheduler } from './scheduler.js';
 import { openLogStream, appendLog } from './logs.js';
 import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig, useCommonConfig } from './jobs.js';
+import { jobLogsManager } from './job-logs.js';
 import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue } from './queue.js';
 import { toggleAdvancedTaggingSection, toggleScriptAdvancedTaggingSection, updateTagPreview, updateScriptTagPreview, updateJobTagPreview, updateJobScriptTagPreview } from './tags.js';
 import { selectAllServices, deselectAllServices } from './services.js';
@@ -199,3 +200,14 @@ window.saveRawConfigJson = saveRawConfigJson;
 window.loadConfigVersions = loadConfigVersions;
 window.selectAllServices = selectAllServices;
 window.deselectAllServices = deselectAllServices;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const layout = document.querySelector('.layout');
+
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        layout.classList.toggle('sidebar-collapsed');
+    });
+});

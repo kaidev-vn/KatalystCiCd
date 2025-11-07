@@ -711,6 +711,7 @@ class JobController {
         const envOverrides = {}; // có thể truyền thêm env từ job nếu cần
         const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides);
         buildResult = {
+          ...r,
           buildId: r?.buildId || `json-${Date.now()}`,
           status: r?.ok ? 'completed' : 'failed',
           message: r?.ok ? 'JSON pipeline completed' : 'JSON pipeline failed'
@@ -741,7 +742,7 @@ class JobController {
       // Gửi email thất bại
       try {
         if (this.emailService) {
-          await this._notifyBuildResult(job, { buildId: null, status: 'failed', message: error.message });
+          await this._notifyBuildResult(job, { buildId: null, status: 'failed', message: error.message, failureReason: error.message });
         }
       } catch (e) {
         this.logger?.send?.(`[JOB][EMAIL] Lỗi gửi email notify khi thất bại: ${e.message}`);
@@ -774,7 +775,7 @@ class JobController {
     const gc = job.gitConfig || {};
     const bc = job.buildConfig || {};
     const method = bc.method || 'dockerfile';
-    const commitHash = this.lastCommitHash || '';
+    const commitInfo = buildResult.commitInfo || {};
 
     const timeStr = new Date().toLocaleString(
       'vi-VN',{ timeZone:'Asia/Ho_Chi_Minh'}
@@ -784,7 +785,9 @@ class JobController {
       `Job: ${job.name}`,
       `Trạng thái: ${statusLabel}`,
       `Phương thức build: ${method}`,
-      commitHash ? `Commit: ${commitHash}` : undefined,
+      commitInfo.hash ? `Commit: ${commitInfo.hash}` : undefined,
+      commitInfo.message ? `Commit Message: ${commitInfo.message}` : undefined,
+      buildResult.failureReason ? `Lý do thất bại: ${buildResult.failureReason}` : undefined,
       gc.branch ? `Branch: ${gc.branch}` : undefined,
       gc.repoUrl ? `Repo: ${gc.repoUrl}` : undefined,
       `Thời gian: ${timeStr}`,

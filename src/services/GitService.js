@@ -325,6 +325,15 @@ class GitService {
     const remoteHash = remoteLine.split('\t')[0] || '';
     this.logger?.send(`[GIT][JOB-CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
 
+    let commitMessage = '';
+    if (remoteHash) {
+      const logCmd = `git -C "${repoPath}" log --format=%B -n 1 ${remoteHash}`;
+      const logRes = await run(logCmd, this.logger);
+      if (!logRes.error) {
+        commitMessage = (logRes.stdout || '').trim();
+      }
+    }
+
     const r2 = await run(`git -C "${repoPath}" rev-parse HEAD`, this.logger);
     if (r2.error) return { ok: false, hasNew: false, error: 'rev_parse_failed', stderr: r2.stderr };
     const localHash = (r2.stdout || '').trim();
@@ -332,11 +341,11 @@ class GitService {
 
     if (!remoteHash || remoteHash === localHash) {
       this.logger?.send('[GIT][JOB-CHECK] Không có commit mới, bỏ qua pull/build.');
-      return { ok: true, hasNew: false, remoteHash, localHash, updated: false };
+      return { ok: true, hasNew: false, remoteHash, localHash, updated: false, commitMessage };
     }
 
     if (!doPull) {
-      return { ok: true, hasNew: true, remoteHash, localHash, updated: false };
+      return { ok: true, hasNew: true, remoteHash, localHash, updated: false, commitMessage };
     }
 
     // Pull changes
@@ -352,7 +361,7 @@ class GitService {
     }
 
     // After pull/reset, mark updated
-    return { ok: true, hasNew: true, remoteHash, localHash, updated: true };
+    return { ok: true, hasNew: true, remoteHash, localHash, updated: true, commitMessage };
   }
 }
 

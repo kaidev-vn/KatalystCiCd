@@ -13,7 +13,7 @@ export function appendLog(text) {
 
 export function openLogStream(channelId) {
   if (state.es) { try { state.es.close(); } catch (_) {} state.es = null; }
-  const url = channelId ? `/api/logs/stream?channel=${encodeURIComponent(channelId)}` : '/api/logs/stream';
+  const url = channelId ? `/api/logs/stream/${encodeURIComponent(channelId)}` : '/api/logs/stream';
   const connect = () => {
     state.es = new EventSource(url);
     state.es.onmessage = (ev) => appendLog(ev.data);

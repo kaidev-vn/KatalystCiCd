@@ -439,6 +439,7 @@ class BuildService {
             return { ok: true, buildId, skipped: true, reason: 'no_new_commit' };
           } else {
             buildLogger.send(`[PIPELINE] Phát hiện commit mới: ${checkResult.remoteHash}. Tiếp tục chạy pipeline.`);
+            commitInfo = { hash: checkResult.remoteHash, message: checkResult.commitMessage };
           }
         } catch (error) {
           buildLogger.send(`[PIPELINE][ERROR] Lỗi kiểm tra commit: ${error.message}`);
@@ -471,6 +472,8 @@ class BuildService {
       buildLogger.send(`[PIPELINE] Working dir: ${workingDir}`);
       const defaultShell = resolveShell();
       let hadError = false;
+      let failureReason = '';
+      let commitInfo = {};
 
       // Ensure working directory exists
       try {
@@ -503,6 +506,7 @@ class BuildService {
           const code = error.code || '';
           const sig = error.signal || '';
           const msg = error.message || 'unknown error';
+          failureReason = `Step '${name}' failed with code ${code}: ${msg}`;
           buildLogger.send(`[STEP][ERROR] code=${code} signal=${sig} message=${msg}`);
           if (!ignoreFailure) {
             buildLogger.send(`[PIPELINE] Dừng do lỗi ở step: ${name}`);
@@ -522,7 +526,7 @@ class BuildService {
       });
       buildLogger.send(`[PIPELINE] Hoàn tất: ${pipelineName} (hadError=${hadError})`);
       logStream.end();
-      return { ok: !hadError, buildId };
+      return { ok: !hadError, buildId, failureReason, commitInfo };
     } catch (error) {
       const endTime = new Date().toISOString();
       const duration = this.calculateDuration(startTime, endTime);
