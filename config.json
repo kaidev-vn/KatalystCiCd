@@ -4,7 +4,7 @@
   "token": "szHnUmesLtV2GNUKfoEt",
   "repoUrl": "",
   "repoPath": "",
-  "contextInitPath": "",
+  "contextInitPath": "/opt",
   "branch": "main",
   "email": {
     "smtpHost": "",

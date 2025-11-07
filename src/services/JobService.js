@@ -140,7 +140,7 @@ class JobService {
         account: jobData.gitConfig?.account || '',
         token: this.secretManager.encrypt(jobData.gitConfig?.token || ''), // ✅ Encrypted
         repoUrl: jobData.gitConfig?.repoUrl || '',
-        repoPath: jobData.gitConfig?.repoPath || '',
+        repoPath: jobData.gitConfig?.repoPath || this._generateRepoPath(jobData.gitConfig?.repoUrl),
         branch: jobData.gitConfig?.branch || 'main',
         // Multiple branches configuration
         branches: jobData.gitConfig?.branches || [
@@ -308,6 +308,35 @@ class JobService {
     this.runningJobs.delete(jobId);
     this.logger?.send(`[JOB-SERVICE] Job ${jobId} đã hoàn thành, resume polling`);
     return true;
+  }
+
+  /**
+   * Tự động tạo repoPath dựa trên repoUrl và context path
+   * @private
+   * @param {string} repoUrl - Repository URL
+   * @returns {string} Đường dẫn repository tự động tạo
+   */
+  _generateRepoPath(repoUrl) {
+    const { ConfigService } = require('./ConfigService');
+    const configService = new ConfigService();
+    const cfg = configService.getConfig();
+    
+    // Lấy base context từ config
+    const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
+    
+    // Trích xuất tên repository từ URL
+    let repoName = 'unknown-repo';
+    if (repoUrl) {
+      try {
+        const urlParts = repoUrl.split('/');
+        repoName = urlParts[urlParts.length - 1].replace('.git', '');
+      } catch (e) {
+        this.logger?.send(`[JOB-SERVICE] Không thể trích xuất tên repo từ URL: ${repoUrl}`);
+      }
+    }
+    
+    // Tạo đường dẫn: baseContext/Katalyst/repo/repo-name
+    return path.join(baseContext, 'Katalyst', 'repo', repoName);
   }
 
   /**
