@@ -709,7 +709,7 @@ class JobController {
         }
         
         const envOverrides = {}; // có thể truyền thêm env từ job nếu cần
-        const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides);
+        const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides, job);
         buildResult = {
           ...r,
           buildId: r?.buildId || `json-${Date.now()}`,

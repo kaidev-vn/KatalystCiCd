@@ -355,8 +355,12 @@ class BuildService {
    *     shell?: string
    *   }>
    * }
+   * @param {string} filePath - Đường dẫn tới file pipeline JSON
+   * @param {Object} [envOverrides] - Environment variables override
+   * @param {Object} [jobInfo] - Thông tin job (optional)
+   * @returns {Promise<Object>} Kết quả thực thi pipeline
    */
-  async runPipelineFile(filePath, envOverrides = {}) {
+  async runPipelineFile(filePath, envOverrides = {}, jobInfo = null) {
     const { run, resolveShell } = require('../utils/exec');
     const buildId = `pipeline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
@@ -392,7 +396,15 @@ class BuildService {
       try { spec = JSON.parse(raw); } catch (e) { throw new Error(`Lỗi parse JSON: ${e.message}`); }
 
       const pipelineName = spec.pipeline_name || path.basename(filePath);
-      const workingDir = spec.working_directory || deriveRepoPath(this.configService.getConfig()) || process.cwd();
+      
+      // Ưu tiên sử dụng job-specific repoPath nếu có, sau đó đến working_directory từ spec, rồi derive từ config
+      let workingDir = spec.working_directory;
+      if (!workingDir && jobInfo && jobInfo.gitConfig && jobInfo.gitConfig.repoPath) {
+        workingDir = jobInfo.gitConfig.repoPath;
+      }
+      if (!workingDir) {
+        workingDir = deriveRepoPath(this.configService.getConfig()) || process.cwd();
+      }
       const envMap = spec.environment_vars || {};
       const steps = Array.isArray(spec.steps) ? spec.steps.slice() : [];
       
