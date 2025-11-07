@@ -341,6 +341,9 @@ class BuildService {
    *   version: number|string,
    *   working_directory: string,
    *   environment_vars: { [key: string]: string },
+   *   check_commit: boolean, // Kiểm tra commit mới trước khi chạy
+   *   branch: string, // Branch để kiểm tra commit (nếu check_commit=true)
+   *   repo_url: string, // URL repo để kiểm tra commit (nếu check_commit=true)
    *   steps: Array<{
    *     step_order: number,
    *     step_id?: string,
@@ -392,6 +395,58 @@ class BuildService {
       const workingDir = spec.working_directory || deriveRepoPath(this.configService.getConfig()) || process.cwd();
       const envMap = spec.environment_vars || {};
       const steps = Array.isArray(spec.steps) ? spec.steps.slice() : [];
+      
+      // Kiểm tra commit mới nếu được cấu hình
+      const checkCommit = spec.check_commit === true;
+      const branch = spec.branch || 'main';
+      const repoUrl = spec.repo_url;
+      
+      if (checkCommit && repoUrl) {
+        buildLogger.send(`[PIPELINE] Kiểm tra commit mới cho branch: ${branch}, repo: ${repoUrl}`);
+        
+        try {
+          // Sử dụng GitService để kiểm tra commit mới
+          const GitService = require('./GitService');
+          const gitService = new GitService({
+            logger: buildLogger,
+            configService: this.configService
+          });
+          
+          const checkResult = await gitService.checkNewCommitAndPull({
+            repoPath: workingDir,
+            branch: branch,
+            repoUrl: repoUrl,
+            doPull: false // Chỉ kiểm tra, không pull
+          });
+          
+          if (!checkResult.ok) {
+            buildLogger.send(`[PIPELINE][WARN] Kiểm tra commit thất bại: ${checkResult.error}`);
+          } else if (!checkResult.hasNew) {
+            buildLogger.send(`[PIPELINE] Không có commit mới. Dừng pipeline.`);
+            
+            // Cập nhật build history để đánh dấu đã skip
+            const endTime = new Date().toISOString();
+            const duration = this.calculateDuration(startTime, endTime);
+            this.updateBuildHistory(buildId, {
+              status: 'skipped',
+              endTime: endTime,
+              duration: duration,
+              reason: 'no_new_commit'
+            });
+            
+            buildLogger.send(`[PIPELINE] Pipeline đã được skip do không có commit mới.`);
+            logStream.end();
+            return { ok: true, buildId, skipped: true, reason: 'no_new_commit' };
+          } else {
+            buildLogger.send(`[PIPELINE] Phát hiện commit mới: ${checkResult.remoteHash}. Tiếp tục chạy pipeline.`);
+          }
+        } catch (error) {
+          buildLogger.send(`[PIPELINE][ERROR] Lỗi kiểm tra commit: ${error.message}`);
+          // Vẫn tiếp tục chạy pipeline nếu có lỗi kiểm tra commit
+        }
+      } else if (checkCommit && !repoUrl) {
+        buildLogger.send(`[PIPELINE][WARN] Cấu hình check_commit=true nhưng thiếu repo_url. Bỏ qua kiểm tra commit.`);
+      }
       // Sort by step_order if provided
       steps.sort((a, b) => (Number(a.step_order || 0) - Number(b.step_order || 0)));
       // Prepare environment: merge process.env, overrides, and pipeline env
