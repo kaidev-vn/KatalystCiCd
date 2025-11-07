@@ -22,8 +22,26 @@ function registerGitController(app, { gitService }) {
   app.post('/api/git/check-and-build', async (req, res) => {
     try {
       const branch = String(req.body?.branch || 'main');
-      const cfg = gitService.configService.getConfig();
-      const repoPath = cfg.repoPath || '';
+      const jobId = req.body?.jobId;
+      
+      let repoPath = '';
+      
+      // Nếu có jobId, lấy repoPath từ job configuration
+      if (jobId) {
+        const { JobService } = require('../services/JobService');
+        const jobService = new JobService();
+        const job = jobService.getJobById(jobId);
+        if (job && job.gitConfig && job.gitConfig.repoPath) {
+          repoPath = job.gitConfig.repoPath;
+        }
+      }
+      
+      // Fallback: nếu không có jobId hoặc job không có repoPath, dùng từ config
+      if (!repoPath) {
+        const cfg = gitService.configService.getConfig();
+        repoPath = cfg.repoPath || '';
+      }
+      
       const result = await gitService.checkAndBuild({ repoPath, branch });
       res.json({ ok: true, result });
     } catch (e) {
