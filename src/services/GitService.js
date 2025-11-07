@@ -304,22 +304,32 @@ class GitService {
 
     const useHttpsAuth = !!effectiveToken && /^https?:\/\//.test(String(effectiveRepoUrl));
     let authConfig = '';
+    let authUrl = effectiveRepoUrl;
+    
     if (useHttpsAuth) {
       try {
+        // Sử dụng URL với token embedded thay vì header Authorization
+        // Định dạng: https://oauth2:TOKEN@gitlab.techres.vn/...
+        const urlObj = new URL(effectiveRepoUrl);
+        urlObj.username = 'oauth2';
+        urlObj.password = effectiveToken;
+        authUrl = urlObj.toString();
+        this.logger?.send('[GIT] Sử dụng HTTPS với token embedded trong URL cho thao tác fetch/pull');
+      } catch (e) {
+        this.logger?.send(`[GIT][WARN] Không tạo được URL với token: ${e.message}`);
+        // Fallback to header method
         const basic = Buffer.from((effectiveProvider === 'github' ? 'x-access-token' : 'oauth2') + ':' + effectiveToken).toString('base64');
         authConfig = `-c http.extraHeader=\"Authorization: Basic ${basic}\"`;
-        this.logger?.send('[GIT] Sử dụng HTTPS với PAT (Authorization: Basic) cho thao tác fetch/pull');
-      } catch (e) {
-        this.logger?.send(`[GIT][WARN] Không tạo được header Authorization: ${e.message}`);
+        this.logger?.send('[GIT] Fallback: Sử dụng HTTPS với PAT (Authorization: Basic)');
       }
     }
 
     // Fetch and compare remote vs local
     this.logger?.send(`[GIT][JOB-CHECK] Kiểm tra commit mới cho branch ${branch} tại repoPath: ${repoPath}`);
-    const r0 = await run(`git -C "${repoPath}" ${authConfig} fetch origin`, this.logger);
+    const r0 = await run(`git -C "${repoPath}" ${authConfig} fetch ${authUrl}`, this.logger);
     if (r0.error) return { ok: false, hasNew: false, error: 'fetch_failed', stderr: r0.stderr };
 
-    const r1 = await run(`git -C "${repoPath}" ${authConfig} ls-remote --heads origin ${branch}`, this.logger);
+    const r1 = await run(`git -C "${repoPath}" ${authConfig} ls-remote --heads ${authUrl} ${branch}`, this.logger);
     if (r1.error) return { ok: false, hasNew: false, error: 'ls_remote_failed', stderr: r1.stderr };
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
@@ -349,7 +359,7 @@ class GitService {
     }
 
     // Pull changes
-    const pullRes = await run(`git -C "${repoPath}" ${authConfig} pull origin ${branch}`, this.logger);
+    const pullRes = await run(`git -C "${repoPath}" ${authConfig} pull ${authUrl} ${branch}`, this.logger);
     if (pullRes.error) {
       this.logger?.send('[GIT][JOB-PULL][WARN] Pull thất bại hoặc phân kỳ branch. Thử reset --hard về origin để đồng bộ.');
       const resetRes = await run(`git -C "${repoPath}" reset --hard origin/${branch}`, this.logger);
