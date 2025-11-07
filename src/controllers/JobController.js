@@ -679,9 +679,35 @@ class JobController {
         // For dockerfile builds, we'll need to implement docker build logic
         buildResult = await this.executeDockerBuild(job, (this.lastCommitHash || null));
       } else if (job.buildConfig.method === 'jsonfile') {
-        // Chạy pipeline theo JSON, bỏ qua quy trình git ở trên
+        // Chạy pipeline theo JSON, nhưng kiểm tra commit mới nếu được cấu hình
         const pipelinePath = job.buildConfig?.jsonPipelinePath || '';
         if (!pipelinePath) throw new Error('jsonPipelinePath is required for jsonfile build method');
+        
+        // Kiểm tra commit mới trước khi chạy pipeline (nếu được cấu hình trong job)
+        const shouldCheckCommit = job.buildConfig?.checkCommit !== false;
+        if (shouldCheckCommit && job.gitConfig?.repoUrl && job.gitConfig?.branch) {
+          const { GitService } = require('../services/GitService');
+          const gitService = new GitService({ logger: this.logger });
+          
+          const hasNewCommit = await gitService.checkNewCommitAndPull({
+            repoUrl: job.gitConfig.repoUrl,
+            branch: job.gitConfig.branch,
+            repoPath: job.gitConfig.repoPath || '',
+            token: job.gitConfig.token || '',
+            provider: job.gitConfig.provider || 'github'
+          });
+          
+          if (!hasNewCommit) {
+            console.log(`[JOB] No new commits found for job: ${job.name}, skipping pipeline execution`);
+            return {
+              success: true,
+              buildId: `skip-${Date.now()}`,
+              status: 'skipped',
+              message: 'No new commits found, pipeline skipped'
+            };
+          }
+        }
+        
         const envOverrides = {}; // có thể truyền thêm env từ job nếu cần
         const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides);
         buildResult = {

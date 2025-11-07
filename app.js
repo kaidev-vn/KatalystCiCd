@@ -142,7 +142,7 @@ registerEmailController(app, { emailService, logger });
 // ========================================
 // DATABASE SETUP ROUTES (Public - no auth required)
 // ========================================
-registerDatabaseController(app, {configService});
+registerDatabaseController(app, dbManager);
 
 // Middleware: Check if database is setup (except for essential routes)
 app.use((req, res, next) => {
