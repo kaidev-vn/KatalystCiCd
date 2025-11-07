@@ -736,7 +736,7 @@ class JobController {
   async _notifyBuildResult(job, buildResult) {
     const cfg = this.configService.getConfig();
     const emailCfg = cfg.email || {};
-    if (!emailCfg.enableEmailNotify) return; // không gửi nếu tắt
+    if (!emailCfg.enableEmailNotify) return;
 
     const recipients = Array.isArray(emailCfg.notifyEmails) ? emailCfg.notifyEmails : [];
     if (!recipients.length) return;
@@ -749,7 +749,10 @@ class JobController {
     const bc = job.buildConfig || {};
     const method = bc.method || 'dockerfile';
     const commitHash = this.lastCommitHash || '';
-    const timeStr = new Date().toLocaleString();
+
+    const timeStr = new Date().toLocaleString(
+      'vi-VN',{ timeZone:'Asia/Ho_Chi_Minh'}
+    );
 
     const lines = [
       `Job: ${job.name}`,
