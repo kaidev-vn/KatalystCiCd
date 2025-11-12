@@ -16,10 +16,12 @@ class JobService {
    * @constructor
    * @param {Object} logger - Logger instance
    * @param {Object} [jobController] - JobController instance (optional)
+   * @param {Object} [configService] - ConfigService instance (optional)
    */
-  constructor(logger, jobController) {
+  constructor(logger, jobController, configService) {
     this.logger = logger;
     this.jobController = jobController;
+    this.configService = configService;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
     this.secretManager = getSecretManager();
     this.storageService = new DataStorageService({ logger, dataDir: path.dirname(this.jobsFile) });
@@ -28,11 +30,17 @@ class JobService {
     // Track running jobs to prevent polling spam
     this.runningJobs = new Set();
     
-    // Initialize queue service for weaker machines
+    // Lấy cấu hình từ configService nếu có, nếu không dùng giá trị mặc định
+    const config = this.configService ? this.configService.getConfig() : {};
+    const maxConcurrentJobs = config.maxConcurrentBuilds || 1;
+    const resourceThreshold = config.resourceThreshold || 70;
+    
+    // Initialize queue service với cấu hình từ config.json
     this.queueService = new QueueService({
-      maxConcurrentJobs: 1, // Chỉ chạy 1 job cùng lúc cho máy yếu
-      resourceThreshold: 70, // Dừng queue nếu CPU/Memory > 70%
-      logger: this.logger
+      maxConcurrentJobs: maxConcurrentJobs,
+      resourceThreshold: resourceThreshold,
+      logger: this.logger,
+      configService: this.configService
     });
     
     // Inject job executor nếu có jobController
@@ -126,6 +134,38 @@ class JobService {
   createJob(jobData) {
     const jobs = this.getAllJobs();
     
+    // Nếu là phương thức jsonfile và không có jsonPipelinePath, tạo đường dẫn tự động
+    let jsonPipelinePath = jobData.buildConfig?.jsonPipelinePath || '';
+    if (jobData.buildConfig?.method === 'jsonfile' && !jsonPipelinePath) {
+      let repoName = 'project';
+      
+      // DEBUG: Log để xem payload nhận được
+      console.log('[DEBUG] createJob payload:', {
+        method: jobData.buildConfig?.method,
+        jsonPipelinePath: jobData.buildConfig?.jsonPipelinePath,
+        repoUrl: jobData.gitConfig?.repoUrl,
+        hasRepoUrl: !!jobData.gitConfig?.repoUrl,
+        repoUrlType: typeof jobData.gitConfig?.repoUrl
+      });
+      
+      // Nếu có repoUrl hợp lệ (không empty), cố gắng extract tên repo
+      if (jobData.gitConfig?.repoUrl && jobData.gitConfig.repoUrl.trim() !== '') {
+        const extractedName = this._extractRepoName(jobData.gitConfig.repoUrl);
+        console.log('[DEBUG] Extracted repo name:', extractedName);
+        if (extractedName && extractedName !== 'unknown-repo') {
+          repoName = extractedName;
+        }
+      }
+      
+      // Sử dụng configService đã được inject từ constructor
+      const cfg = this.configService ? this.configService.getConfig() : {};
+      const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
+      const pipelineDir = path.join(baseContext, 'Katalyst', 'pipeline');
+      jsonPipelinePath = path.join(pipelineDir, `${repoName}_pipeline.json`);
+      
+      console.log('[DEBUG] Generated jsonPipelinePath:', jsonPipelinePath);
+    }
+    
     const newJob = {
       id: uuidv4(),
       name: jobData.name,
@@ -158,7 +198,7 @@ class JobService {
         const base = {
           method,
           scriptPath: jobData.buildConfig?.scriptPath || '',
-          jsonPipelinePath: jobData.buildConfig?.jsonPipelinePath || '',
+          jsonPipelinePath: jsonPipelinePath, // Sử dụng đường dẫn đã xác định
           buildOrder: jobData.buildConfig?.buildOrder || 'parallel',
           dockerConfig: jobData.buildConfig?.dockerConfig ? {
             dockerfilePath: jobData.buildConfig.dockerConfig.dockerfilePath || '',
@@ -320,9 +360,8 @@ class JobService {
    * @returns {string} Đường dẫn repository tự động tạo
    */
   _generateRepoPath(repoUrl) {
-    const { ConfigService } = require('./ConfigService');
-    const configService = new ConfigService();
-    const cfg = configService.getConfig();
+    // Sử dụng configService đã được inject từ constructor
+    const cfg = this.configService ? this.configService.getConfig() : {};
     
     // Lấy base context từ config
     const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
@@ -343,16 +382,15 @@ class JobService {
   }
 
   /**
-   * Tự động tạo pipeline folder và file project_pipeline.json mẫu
+   * Tự động tạo pipeline folder và file pipeline.json dựa trên tên repository
    * @private
    * @param {Object} job - Job object
    * @returns {void}
    */
   _ensurePipelineFolder(job) {
     try {
-      const { ConfigService } = require('./ConfigService');
-      const configService = new ConfigService();
-      const cfg = configService.getConfig();
+      // Sử dụng configService đã được inject từ constructor
+      const cfg = this.configService ? this.configService.getConfig() : {};
       
       const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
       const pipelineDir = path.join(baseContext, 'Katalyst', 'pipeline');
@@ -364,8 +402,8 @@ class JobService {
       }
       
       // Tạo file project_pipeline.json mẫu nếu chưa tồn tại
-      const pipelineFile = path.join(pipelineDir, 'project_pipeline.json');
-      if (!fs.existsSync(pipelineFile)) {
+      const defaultPipelineFile = path.join(pipelineDir, 'project_pipeline.json');
+      if (!fs.existsSync(defaultPipelineFile)) {
         const samplePipeline = {
           "pipeline_name": "Sample Build Pipeline",
           "version": "1.0.0",
@@ -409,11 +447,107 @@ class JobService {
           ]
         };
         
-        fs.writeFileSync(pipelineFile, JSON.stringify(samplePipeline, null, 2));
-        this.logger?.send(`[JOB-SERVICE] Đã tạo file pipeline mẫu: ${pipelineFile}`);
+        fs.writeFileSync(defaultPipelineFile, JSON.stringify(samplePipeline, null, 2));
+        this.logger?.send(`[JOB-SERVICE] Đã tạo file pipeline mẫu: ${defaultPipelineFile}`);
+      }
+      
+      // Nếu job sử dụng phương thức jsonfile và có repoUrl, tạo file pipeline riêng
+      if (job.buildConfig?.method === 'jsonfile' && job.gitConfig?.repoUrl) {
+        const repoName = this._extractRepoName(job.gitConfig.repoUrl);
+        if (repoName && repoName !== 'unknown-repo') {
+          const repoPipelineFile = path.join(pipelineDir, `${repoName}_pipeline.json`);
+          
+          // Chỉ tạo file mới nếu chưa tồn tại
+          if (!fs.existsSync(repoPipelineFile)) {
+            const repoPipeline = {
+            "pipeline_name": `${repoName} Build Pipeline`,
+            "version": "1.0.0",
+            "description": `Pipeline build tự động cho ${repoName}`,
+            "working_directory": "${REPO_PATH}",
+              "environment_vars": {
+                "BUILD_VERSION": "1.0.0",
+                "DEPLOY_ENV": "production",
+                "PROJECT_NAME": repoName
+              },
+              "check_commit": true,
+              "branch": job.gitConfig.branch || 'main',
+              "repo_url": job.gitConfig.repoUrl,
+              "steps": [
+                {
+                  "step_order": 1,
+                  "step_id": "clean_build",
+                  "step_name": "Clean and Build",
+                  "step_exec": "mvn clean package -DskipTests",
+                  "timeout_seconds": 300,
+                  "on_fail": "stop",
+                  "shell": "bash"
+                },
+                {
+                  "step_order": 2,
+                  "step_id": "docker_build",
+                  "step_name": "Build Docker Image",
+                  "step_exec": "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .",
+                  "timeout_seconds": 600,
+                  "on_fail": "stop",
+                  "shell": "bash"
+                },
+                {
+                  "step_order": 3,
+                  "step_id": "docker_push",
+                  "step_name": "Push to Registry",
+                  "step_exec": "docker push ${IMAGE_NAME}:${IMAGE_TAG}",
+                  "timeout_seconds": 300,
+                  "on_fail": "continue",
+                  "shell": "bash"
+                }
+              ]
+            };
+            
+            fs.writeFileSync(repoPipelineFile, JSON.stringify(repoPipeline, null, 2));
+            this.logger?.send(`[JOB-SERVICE] Đã tạo file pipeline cho repository: ${repoPipelineFile}`);
+            
+            // Trả về đường dẫn file pipeline đã tạo để sử dụng trong job
+            return repoPipelineFile;
+          }
+        }
       }
     } catch (error) {
       this.logger?.send(`[JOB-SERVICE][WARN] Không thể tạo pipeline folder: ${error.message}`);
+    }
+  }
+
+  /**
+   * Trích xuất tên repository từ URL
+   * @private
+   * @param {string} repoUrl - Repository URL
+   * @returns {string} Tên repository
+   */
+  _extractRepoName(repoUrl) {
+    if (!repoUrl || repoUrl.trim() === '') return 'unknown-repo';
+    
+    try {
+      // Xử lý các định dạng URL khác nhau
+      let urlToParse = repoUrl;
+      
+      // Nếu là SSH URL (git@github.com:user/repo.git)
+      if (repoUrl.includes('@') && repoUrl.includes(':')) {
+        const parts = repoUrl.split(':');
+        if (parts.length > 1) {
+          urlToParse = parts[1];
+        }
+      }
+      
+      // Nếu là HTTPS URL (https://github.com/user/repo.git)
+      const urlParts = urlToParse.split('/');
+      const lastPart = urlParts[urlParts.length - 1];
+      
+      // Loại bỏ .git extension nếu có
+      const repoName = lastPart.replace('.git', '');
+      
+      return repoName || 'unknown-repo';
+    } catch (e) {
+      this.logger?.send(`[JOB-SERVICE] Không thể trích xuất tên repo từ URL: ${repoUrl}`);
+      return 'unknown-repo';
     }
   }
 
@@ -431,6 +565,7 @@ class JobService {
    * @param {string} jobId - Job ID
    * @param {Object} buildResult - Kết quả build
    * @param {boolean} buildResult.success - Build có thành công không
+   * @param {string} [buildResult.commitHash] - Commit hash của build
    * @returns {Object} Job object đã cập nhật
    * @throws {Error} Nếu job không tồn tại
    */
@@ -445,10 +580,89 @@ class JobService {
       successfulBuilds: job.stats.successfulBuilds + (buildResult.success ? 1 : 0),
       failedBuilds: job.stats.failedBuilds + (buildResult.success ? 0 : 1),
       lastBuildAt: new Date().toISOString(),
-      lastBuildStatus: buildResult.success ? 'success' : 'failed'
+      lastBuildStatus: buildResult.success ? 'success' : 'failed',
+      lastCommitHash: buildResult.commitHash || job.stats?.lastCommitHash || null
     };
 
     return this.updateJob(jobId, { stats });
+  }
+
+  /**
+   * Kiểm tra xem commit đã được build trước đó chưa và có thất bại không
+   * @param {string} jobId - Job ID
+   * @param {string} commitHash - Commit hash cần kiểm tra
+   * @returns {Object} Kết quả kiểm tra
+   * @returns {boolean} shouldBuild - Có nên build commit này không
+   * @returns {string} reason - Lý do
+   */
+  shouldBuildCommit(jobId, commitHash) {
+    const job = this.getJobById(jobId);
+    if (!job) {
+      return { shouldBuild: false, reason: 'Job not found' };
+    }
+
+    // Nếu không có commit hash, luôn build (cho các trường hợp không dùng git)
+    if (!commitHash) {
+      return { shouldBuild: true, reason: 'No commit hash provided' };
+    }
+
+    // Lấy lịch sử build từ build service
+    const buildHistory = this.getBuildHistoryForJob(jobId);
+    
+    // Tìm build gần nhất với commit hash này
+    const buildsForCommit = buildHistory.filter(build => 
+      build.commitHash === commitHash && build.jobId === jobId
+    );
+
+    // Nếu commit này chưa từng được build, build nó
+    if (buildsForCommit.length === 0) {
+      return { shouldBuild: true, reason: 'New commit, never built before' };
+    }
+
+    // Nếu commit này đã build thành công trước đó, không build lại
+    const successfulBuild = buildsForCommit.find(build => build.status === 'success');
+    if (successfulBuild) {
+      return { 
+        shouldBuild: false, 
+        reason: 'Commit already built successfully before' 
+      };
+    }
+
+    // Nếu commit này chỉ thất bại trước đó, build lại
+    const failedBuild = buildsForCommit.find(build => build.status === 'failed');
+    if (failedBuild) {
+      return { 
+        shouldBuild: true, 
+        reason: 'Commit failed before, rebuilding' 
+      };
+    }
+
+    // Mặc định build nếu không xác định được trạng thái
+    return { shouldBuild: true, reason: 'Unknown build status, proceeding with build' };
+  }
+
+  /**
+   * Lấy lịch sử build cho job cụ thể
+   * @private
+   * @param {string} jobId - Job ID
+   * @returns {Array<Object>} Danh sách build history
+   */
+  getBuildHistoryForJob(jobId) {
+    try {
+      const buildHistoryFile = path.join(process.cwd(), 'build-history.json');
+      if (!fs.existsSync(buildHistoryFile)) {
+        return [];
+      }
+      
+      const data = fs.readFileSync(buildHistoryFile, 'utf8');
+      const history = JSON.parse(data);
+      
+      // Lọc chỉ các build của job này
+      return history.filter(build => build.jobId === jobId);
+    } catch (error) {
+      console.error('Error reading build history:', error);
+      return [];
+    }
   }
 
   /**
@@ -515,10 +729,6 @@ class JobService {
       }
       if (!jobData.gitConfig?.branch) {
         errors.push('Branch is required');
-      }
-    } else {
-      if (!jobData.buildConfig?.jsonPipelinePath) {
-        errors.push('Pipeline JSON file path is required for jsonfile build method');
       }
     }
 

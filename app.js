@@ -276,7 +276,7 @@ app.post('/api/queue/add', (req, res) => queueController.addJobToQueue(req, res)
 app.get('/api/queue/status', (req, res) => queueController.getQueueStatus(req, res));
 app.get('/api/queue/stats', (req, res) => queueController.getQueueStats(req, res));
 app.delete('/api/queue/:jobId', (req, res) => queueController.cancelJob(req, res));
-app.put('/api/queue/config', (req, res) => queueController.updateQueueConfig(req, res));
+app.post('/api/queue/config', (req, res) => queueController.updateQueueConfig(req, res));
 app.post('/api/queue/toggle', (req, res) => queueController.toggleQueueProcessing(req, res));
 app.post('/api/jobs/:jobId/run-immediate', (req, res) => queueController.runJobImmediate(req, res));
 

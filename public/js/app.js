@@ -8,7 +8,7 @@ import { loadSchedulerStatus, toggleScheduler, restartScheduler } from './schedu
 import { openLogStream, appendLog } from './logs.js';
 import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig, useCommonConfig } from './jobs.js';
 import { jobLogsManager } from './job-logs.js';
-import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue } from './queue.js';
+import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue, loadQueueConfig } from './queue.js';
 import { toggleAdvancedTaggingSection, toggleScriptAdvancedTaggingSection, updateTagPreview, updateScriptTagPreview, updateJobTagPreview, updateJobScriptTagPreview } from './tags.js';
 import { selectAllServices, deselectAllServices } from './services.js';
 
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tabId === 'builds-tab') { loadBuilds(); loadBuildHistory(); }
         if (tabId === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
         if (tabId === 'jobs-tab') { loadJobs(); }
-        if (tabId === 'queue-tab') { loadQueueStatus(); }
+        if (tabId === 'queue-tab') { loadQueueStatus(); loadQueueConfig(); }
         if (tabId === 'database-tab' && window.initDatabaseTab) { window.initDatabaseTab(); }
       }
     });
@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVersions();
   loadBuildHistory();
   loadJobs();
+  loadQueueConfig(); // Load queue config on page load
   if (savedTab === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
   if (savedTab === 'database-tab' && window.initDatabaseTab) { window.initDatabaseTab(); }
 

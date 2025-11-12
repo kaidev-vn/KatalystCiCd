@@ -137,11 +137,24 @@ export async function toggleQueueProcessing() {
   }
 }
 
+export async function loadQueueConfig() {
+  const { ok, data } = await fetchJSON('/api/queue/stats');
+  if (ok && data && data.stats) {
+    const maxConcurrentJobs = data.stats.maxConcurrentJobs || 1;
+    const resourceThreshold = data.stats.resourceThreshold || 70;
+    
+    if ($('maxConcurrentJobs')) $('maxConcurrentJobs').value = maxConcurrentJobs;
+    if ($('resourceThreshold')) $('resourceThreshold').value = resourceThreshold;
+    console.log('Loaded queue config:', data.stats);
+    
+  }
+}
+
 export async function saveQueueConfig() {
   const payload = {
     maxConcurrentJobs: Number($('maxConcurrentJobs')?.value || 1),
     resourceThreshold: Number($('resourceThreshold')?.value || 70),
-  };
+  };  
   await fetchJSON('/api/queue/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 }
 

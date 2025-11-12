@@ -1,10 +1,11 @@
 {
   "provider": "gitlab",
+  "polling": 30,
   "account": "nghiant",
   "token": "szHnUmesLtV2GNUKfoEt",
   "repoUrl": "",
   "repoPath": "",
-  "contextInitPath": "/opt",
+  "contextInitPath": "D:\\SOURCE-CODE",
   "branch": "main",
   "email": {
     "smtpHost": "",
@@ -17,8 +18,7 @@
   "maxConcurrentBuilds": 1,
   "buildTimeout": 30,
   "logRetentionDays": 30,
-  "diskSpaceThreshold": 80,
-  "polling": 30,
+  "diskSpaceThreshold": 90,
   "deployScriptPath": "",
   "buildMethod": "dockerfile",
   "deployChoice": 0,
@@ -136,5 +136,6 @@
       "startVersion": 1,
       "versionWidth": 0
     }
-  }
+  },
+  "resourceThreshold": 90
 }

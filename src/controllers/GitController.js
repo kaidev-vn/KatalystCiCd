@@ -29,7 +29,7 @@ function registerGitController(app, { gitService }) {
       // Nếu có jobId, lấy repoPath từ job configuration
       if (jobId) {
         const { JobService } = require('../services/JobService');
-        const jobService = new JobService();
+        const jobService = new JobService(null, null, gitService.configService);
         const job = jobService.getJobById(jobId);
         if (job && job.gitConfig && job.gitConfig.repoPath) {
           repoPath = job.gitConfig.repoPath;

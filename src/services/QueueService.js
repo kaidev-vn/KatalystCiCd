@@ -36,7 +36,7 @@ class QueueService extends EventEmitter {
     if (this.configService) {
       const config = this.configService.getConfig();
       this.maxConcurrentJobs = config.maxConcurrentJobs || maxConcurrentJobs;
-      this.resourceThreshold = config.diskSpaceThreshold || resourceThreshold; // Sử dụng diskSpaceThreshold từ config
+      this.resourceThreshold = config.resourceThreshold || resourceThreshold; // Sử dụng resourceThreshold từ config
     } else {
       this.maxConcurrentJobs = maxConcurrentJobs;
       this.resourceThreshold = resourceThreshold; // CPU/Memory threshold %
@@ -403,9 +403,13 @@ class QueueService extends EventEmitter {
   updateConfig({ maxConcurrentJobs, resourceThreshold }) {
     if (maxConcurrentJobs !== undefined) {
       this.maxConcurrentJobs = maxConcurrentJobs;
+      // Lưu vào config.json
+      this.configService?.updateConfig({ maxConcurrentBuilds: maxConcurrentJobs });
     }
     if (resourceThreshold !== undefined) {
       this.resourceThreshold = resourceThreshold;
+      // Lưu vào config.json
+      this.configService?.updateConfig({ resourceThreshold: resourceThreshold });
     }
     
     this.logger?.send(`[QUEUE] Cập nhật cấu hình: maxConcurrentJobs=${this.maxConcurrentJobs}, resourceThreshold=${this.resourceThreshold}%`);

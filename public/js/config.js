@@ -25,6 +25,8 @@ export async function loadConfig() {
     const { ok, data } = await fetchJSON('/api/config');
     if (!ok || !data) return;
     state.CURRENT_CFG = data;
+    // Store config globally for access from other modules
+    window.globalConfig = data;
     // Populate Git/general fields
     $('provider')?.setAttribute('value', data.provider || 'gitlab');
     const providerEl = $('provider'); if (providerEl) providerEl.value = data.provider || 'gitlab';

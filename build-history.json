@@ -1,1 +1,224 @@
-[]
+[
+  {
+    "id": "pipeline-1762941456999-wac14h",
+    "name": "JSON Pipeline: windows-maven-pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:57:36.999Z",
+    "scriptPath": "d:\\SOURCE-CODE\\NODEJS\\Ci-Cd\\pipelines\\windows-maven-pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:57:37.000Z",
+    "duration": "0s",
+    "error": "Pipeline JSON không tồn tại: d:\\SOURCE-CODE\\NODEJS\\Ci-Cd\\pipelines\\windows-maven-pipeline.json"
+  },
+  {
+    "id": "pipeline-1762941401321-311ye5",
+    "name": "JSON Pipeline: windows-maven-pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:56:41.321Z",
+    "scriptPath": "d:\\SOURCE-CODE\\NODEJS\\Ci-Cd\\pipelines\\windows-maven-pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:56:41.322Z",
+    "duration": "0s",
+    "error": "Pipeline JSON không tồn tại: d:\\SOURCE-CODE\\NODEJS\\Ci-Cd\\pipelines\\windows-maven-pipeline.json"
+  },
+  {
+    "id": "pipeline-1762941114459-03ay45",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:51:54.459Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:51:55.086Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762941084374-tp02nj",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:51:24.374Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:51:24.827Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762941054320-uvof02",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:50:54.320Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:50:54.951Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762941024268-am42q7",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:50:24.268Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:50:24.952Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940994213-z43jjw",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:49:54.213Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:49:54.619Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940964171-pcjn20",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:49:24.171Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:49:24.692Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940934106-w450rf",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:48:54.106Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:48:54.598Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940904047-zp53gl",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:48:24.047Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:48:24.484Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940874005-0c8g58",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:47:54.005Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:47:54.437Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940840902-0qs4z0",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:47:20.902Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:47:21.375Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940810876-jmerqd",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:46:50.876Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:46:51.275Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940780855-yrgwzo",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:46:20.855Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:46:22.586Z",
+    "duration": "1s"
+  },
+  {
+    "id": "pipeline-1762940532849-ngwf90",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:42:12.849Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:42:13.507Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940497790-l3eq7g",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:41:37.790Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:41:38.516Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940462734-nhkmaa",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:41:02.734Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:41:03.185Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940432694-ydymxu",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:40:32.694Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:40:33.176Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940402653-2frtnj",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:40:02.653Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:40:03.102Z",
+    "duration": "0s"
+  },
+  {
+    "id": "pipeline-1762940372636-rqiql5",
+    "name": "JSON Pipeline: project_pipeline.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T09:39:32.636Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\project_pipeline.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T09:39:34.411Z",
+    "duration": "1s"
+  }
+]

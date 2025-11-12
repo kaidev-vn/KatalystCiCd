@@ -139,9 +139,19 @@ export function getStatusText(status) {
   return 'Không rõ';
 }
 
-export function showJobModal(jobId = null) {
+export async function showJobModal(jobId = null) {
   state.editingJobId = jobId;
   const modal = $('jobModal');
+  
+  // Ensure global config is loaded before showing modal
+  if (!window.globalConfig) {
+    try {
+      const { loadConfig } = await import('./config.js');
+      await loadConfig();
+    } catch (error) {
+      console.error('Failed to load config:', error);
+    }
+  }
   
   if (modal) {
     modal.style.display = 'block';
@@ -477,10 +487,11 @@ export function validateJobForm() {
       errors.push('❌ Image Name là bắt buộc cho Script build');
     }
   } else if (method === 'jsonfile') {
-    // JSON Pipeline path (required)
+    // JSON Pipeline path - if not provided, leave empty for backend to auto-generate
     const pipelinePath = $('jobJsonPipelinePath')?.value?.trim();
     if (!pipelinePath) {
-      errors.push('❌ Đường dẫn Pipeline JSON file là bắt buộc');
+      // Leave empty to allow backend to auto-generate repository-specific path
+      if ($('jobJsonPipelinePath')) $('jobJsonPipelinePath').value = '';
     }
   }
   
@@ -533,7 +544,10 @@ export async function saveJob() {
       account: ($('jobGitAccount')?.value || '').trim(),
       token: ($('jobGitToken')?.value || '').trim(),
       branch: ($('jobGitBranch')?.value || '').trim() || 'main',
-      repoUrl: ($('jobGitRepoUrl')?.value || '').trim()
+      // For jsonfile method, only send repoUrl if it's not empty
+      repoUrl: selectedMethod === 'jsonfile' ? 
+        (($('jobGitRepoUrl')?.value || '').trim() || undefined) : 
+        ($('jobGitRepoUrl')?.value || '').trim()
       // repoPath will be auto-generated: {contextInitPath}/Katalyst/repo
     },
     

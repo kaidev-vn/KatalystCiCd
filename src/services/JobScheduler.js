@@ -12,12 +12,14 @@ class JobScheduler {
    * @param {Object} deps.jobService - JobService instance
    * @param {Object} deps.jobController - JobController instance
    * @param {Object} deps.queueService - QueueService instance
+   * @param {Object} [deps.gitService] - GitService instance (optional)
    */
-  constructor({ logger, jobService, jobController, queueService }) {
+  constructor({ logger, jobService, jobController, queueService, gitService }) {
     this.logger = logger;
     this.jobService = jobService;
     this.jobController = jobController;
     this.queueService = queueService;
+    this.gitService = gitService; // Lưu gitService để kiểm tra commit
     this._timers = new Map();
     this._isRunning = false;
   }

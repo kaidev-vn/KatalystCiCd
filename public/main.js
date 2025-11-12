@@ -2392,7 +2392,7 @@ async function saveQueueConfig() {
     const resourceThreshold = parseInt($('resourceThreshold').value);
 
     const response = await fetch('/api/queue/config', {
-      method: 'PUT',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ maxConcurrentJobs, resourceThreshold })
     });

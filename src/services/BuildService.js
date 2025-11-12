@@ -360,7 +360,7 @@ class BuildService {
    * @param {Object} [jobInfo] - Thông tin job (optional)
    * @returns {Promise<Object>} Kết quả thực thi pipeline
    */
-  async runPipelineFile(filePath, envOverrides = {}, jobInfo = null) {
+  async runPipelineFile(filePath, envOverrides = {}, jobInfo = null, commitHash = null) {
     const { run, resolveShell } = require('../utils/exec');
     const buildId = `pipeline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
@@ -372,7 +372,8 @@ class BuildService {
       method: 'jsonfile',
       status: 'running',
       startTime,
-      scriptPath: filePath
+      scriptPath: filePath,
+      commitHash: commitHash || null
     });
 
     // Create log file
@@ -534,7 +535,8 @@ class BuildService {
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime,
-        duration
+        duration,
+        commitHash: commitHash || null
       });
       buildLogger.send(`[PIPELINE] Hoàn tất: ${pipelineName} (hadError=${hadError})`);
       logStream.end();
@@ -546,7 +548,8 @@ class BuildService {
         status: 'failed',
         endTime,
         duration,
-        error: error.message
+        error: error.message,
+        commitHash: commitHash || null
       });
       buildLogger.send(`[PIPELINE] Lỗi: ${error.message}`);
       logStream.end();

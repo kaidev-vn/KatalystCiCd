@@ -23,7 +23,7 @@ class JobController {
    * @param {Object} [deps.emailService] - EmailService instance (optional)
    */
   constructor({ buildService, logger, configService, jobScheduler, gitService, queueService, emailService }) {
-    this.jobService = new JobService(logger);
+    this.jobService = new JobService(logger, null, configService);
     this.buildService = buildService;
     this.logger = logger;
     this.configService = configService;
@@ -683,13 +683,30 @@ class JobController {
         const pipelinePath = job.buildConfig?.jsonPipelinePath || '';
         if (!pipelinePath) throw new Error('jsonPipelinePath is required for jsonfile build method');
         
-        // Kiểm tra commit mới trước khi chạy pipeline (nếu được cấu hình trong job)
+        // Kiểm tra commit hash trước khi chạy pipeline (chỉ chạy nếu commit mới hoặc chưa từng build thành công)
         const shouldCheckCommit = job.buildConfig?.checkCommit !== false;
-        if (shouldCheckCommit && job.gitConfig?.repoUrl && job.gitConfig?.branch) {
+        let currentCommitHash = null; // Khai báo biến ở phạm vi rộng hơn
+        
+        // Đọc file pipeline để kiểm tra cấu hình check_commit
+        let pipelineCheckCommit = false;
+        try {
+          const fs = require('fs');
+          const pipelineContent = fs.readFileSync(pipelinePath, 'utf8');
+          const pipelineSpec = JSON.parse(pipelineContent);
+          pipelineCheckCommit = pipelineSpec.check_commit === true;
+        } catch (error) {
+          console.log(`[JOB] Failed to read pipeline file for commit check: ${error.message}`);
+        }
+        
+        // Chỉ kiểm tra commit nếu được cấu hình ở job HOẶC trong pipeline
+        const shouldPerformCommitCheck = shouldCheckCommit || pipelineCheckCommit;
+        
+        if (shouldPerformCommitCheck && job.gitConfig?.repoUrl && job.gitConfig?.branch) {
           const { GitService } = require('../services/GitService');
-          const gitService = new GitService({ logger: this.logger });
+          const gitService = new GitService({ logger: this.logger, configService: this.configService });
           
-          const hasNewCommit = await gitService.checkNewCommitAndPull({
+          // Lấy commit hash hiện tại từ remote
+          const commitCheckResult = await gitService.checkNewCommitAndPull({
             repoUrl: job.gitConfig.repoUrl,
             branch: job.gitConfig.branch,
             repoPath: job.gitConfig.repoPath || '',
@@ -697,19 +714,39 @@ class JobController {
             provider: job.gitConfig.provider || 'github'
           });
           
-          if (!hasNewCommit) {
-            console.log(`[JOB] No new commits found for job: ${job.name}, skipping pipeline execution`);
-            return {
-              success: true,
-              buildId: `skip-${Date.now()}`,
-              status: 'skipped',
-              message: 'No new commits found, pipeline skipped'
-            };
+          if (!commitCheckResult.ok) {
+            console.log(`[JOB] Failed to check commit for job: ${job.name}, error: ${commitCheckResult.error}`);
+            // Vẫn tiếp tục chạy pipeline nếu có lỗi kiểm tra commit
+          } else if (commitCheckResult.hasNew) {
+            console.log(`[JOB] New commit found for job: ${job.name}, commit: ${commitCheckResult.remoteHash}`);
+            this.lastCommitHash = commitCheckResult.remoteHash;
+            currentCommitHash = commitCheckResult.remoteHash;
+          } else {
+            // Không có commit mới, kiểm tra xem commit hiện tại đã từng build thành công chưa
+            currentCommitHash = commitCheckResult.remoteHash;
+            if (currentCommitHash) {
+              // Kiểm tra xem commit này đã từng build thành công chưa
+              const shouldBuild = await this.jobService.shouldBuildCommit(job.id, currentCommitHash);
+              if (!shouldBuild) {
+                console.log(`[JOB] Commit ${currentCommitHash} already built successfully for job: ${job.name}, skipping pipeline execution`);
+                return {
+                  success: true,
+                  buildId: `skip-${Date.now()}`,
+                  status: 'skipped',
+                  message: 'Commit already built successfully, pipeline skipped',
+                  commitHash: currentCommitHash
+                };
+              }
+              console.log(`[JOB] Commit ${currentCommitHash} needs to be built for job: ${job.name}`);
+              this.lastCommitHash = currentCommitHash;
+            }
           }
+        } else if (shouldPerformCommitCheck && (!job.gitConfig?.repoUrl || !job.gitConfig?.branch)) {
+          console.log(`[JOB][WARN] Cấu hình check_commit=true nhưng thiếu repo_url hoặc branch. Bỏ qua kiểm tra commit cho job: ${job.name}`);
         }
         
         const envOverrides = {}; // có thể truyền thêm env từ job nếu cần
-        const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides, job);
+        const r = await this.buildService.runPipelineFile(pipelinePath, envOverrides, job, currentCommitHash);
         buildResult = {
           ...r,
           buildId: r?.buildId || `json-${Date.now()}`,
