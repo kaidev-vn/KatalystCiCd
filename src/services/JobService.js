@@ -219,6 +219,9 @@ class JobService {
     jobs.push(newJob);
     this.saveJobs(jobs);
     
+    // Tự động tạo pipeline folder và file mẫu khi tạo job mới
+    this._ensurePipelineFolder(newJob);
+    
     return newJob;
   }
 
@@ -337,6 +340,81 @@ class JobService {
     
     // Tạo đường dẫn: baseContext/Katalyst/repo/repo-name
     return path.join(baseContext, 'Katalyst', 'repo', repoName);
+  }
+
+  /**
+   * Tự động tạo pipeline folder và file project_pipeline.json mẫu
+   * @private
+   * @param {Object} job - Job object
+   * @returns {void}
+   */
+  _ensurePipelineFolder(job) {
+    try {
+      const { ConfigService } = require('./ConfigService');
+      const configService = new ConfigService();
+      const cfg = configService.getConfig();
+      
+      const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
+      const pipelineDir = path.join(baseContext, 'Katalyst', 'pipeline');
+      
+      // Tạo thư mục pipeline nếu chưa tồn tại
+      if (!fs.existsSync(pipelineDir)) {
+        fs.mkdirSync(pipelineDir, { recursive: true });
+        this.logger?.send(`[JOB-SERVICE] Đã tạo thư mục pipeline: ${pipelineDir}`);
+      }
+      
+      // Tạo file project_pipeline.json mẫu nếu chưa tồn tại
+      const pipelineFile = path.join(pipelineDir, 'project_pipeline.json');
+      if (!fs.existsSync(pipelineFile)) {
+        const samplePipeline = {
+          "pipeline_name": "Sample Build Pipeline",
+          "version": "1.0.0",
+          "description": "Mẫu pipeline build tự động",
+          "working_directory": "${REPO_PATH}",
+          "environment_vars": {
+            "BUILD_VERSION": "1.0.0",
+            "DEPLOY_ENV": "production"
+          },
+          "check_commit": true,
+          "branch": "main",
+          "repo_url": "",
+          "steps": [
+            {
+              "step_order": 1,
+              "step_id": "clean_build",
+              "step_name": "Clean and Build",
+              "step_exec": "mvn clean package -DskipTests",
+              "timeout_seconds": 300,
+              "on_fail": "stop",
+              "shell": "bash"
+            },
+            {
+              "step_order": 2,
+              "step_id": "docker_build",
+              "step_name": "Build Docker Image",
+              "step_exec": "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .",
+              "timeout_seconds": 600,
+              "on_fail": "stop",
+              "shell": "bash"
+            },
+            {
+              "step_order": 3,
+              "step_id": "docker_push",
+              "step_name": "Push to Registry",
+              "step_exec": "docker push ${IMAGE_NAME}:${IMAGE_TAG}",
+              "timeout_seconds": 300,
+              "on_fail": "continue",
+              "shell": "bash"
+            }
+          ]
+        };
+        
+        fs.writeFileSync(pipelineFile, JSON.stringify(samplePipeline, null, 2));
+        this.logger?.send(`[JOB-SERVICE] Đã tạo file pipeline mẫu: ${pipelineFile}`);
+      }
+    } catch (error) {
+      this.logger?.send(`[JOB-SERVICE][WARN] Không thể tạo pipeline folder: ${error.message}`);
+    }
   }
 
   /**

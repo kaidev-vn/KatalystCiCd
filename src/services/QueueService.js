@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const { ConfigService } = require('./ConfigService');
 
 /**
  * QueueService - Quản lý hàng đợi build jobs để tối ưu hóa tài nguyên
@@ -24,12 +25,22 @@ class QueueService extends EventEmitter {
    * @param {Object} options.logger - Logger instance
    * @param {number} [options.maxConcurrentJobs=2] - Số job tối đa chạy đồng thời
    * @param {number} [options.resourceThreshold=80] - Ngưỡng tài nguyên CPU/Memory (%)
+   * @param {Object} [options.configService] - ConfigService instance (optional)
    */
-  constructor({ logger, maxConcurrentJobs = 2, resourceThreshold = 80 }) {
+  constructor({ logger, maxConcurrentJobs = 2, resourceThreshold = 80, configService }) {
     super();
     this.logger = logger;
-    this.maxConcurrentJobs = maxConcurrentJobs;
-    this.resourceThreshold = resourceThreshold; // CPU/Memory threshold %
+    this.configService = configService;
+    
+    // Ưu tiên sử dụng giá trị từ config.json nếu có configService
+    if (this.configService) {
+      const config = this.configService.getConfig();
+      this.maxConcurrentJobs = config.maxConcurrentJobs || maxConcurrentJobs;
+      this.resourceThreshold = config.diskSpaceThreshold || resourceThreshold; // Sử dụng diskSpaceThreshold từ config
+    } else {
+      this.maxConcurrentJobs = maxConcurrentJobs;
+      this.resourceThreshold = resourceThreshold; // CPU/Memory threshold %
+    }
     
     this.queue = []; // Hàng đợi jobs
     this.runningJobs = new Map(); // Jobs đang chạy
@@ -140,9 +151,9 @@ class QueueService extends EventEmitter {
     if (!this.isProcessing || this.queue.length === 0) return;
     
     // Kiểm tra tài nguyên hệ thống
-    const systemLoad = await this.checkSystemLoad();
-    if (systemLoad > this.resourceThreshold) {
-      this.logger?.send(`[QUEUE] Tài nguyên hệ thống cao (${systemLoad}%), tạm dừng xử lý queue`);
+    const systemOverloaded = await this.checkSystemLoad();
+    if (systemOverloaded) {
+      this.logger?.send(`[QUEUE] Tài nguyên hệ thống vượt ngưỡng (${this.resourceThreshold}%), tạm dừng xử lý queue`);
       return;
     }
 
@@ -261,9 +272,10 @@ class QueueService extends EventEmitter {
       const cpuUsage = await this.getCPUUsage();
       const memUsage = (1 - (os.freemem() / os.totalmem())) * 100;
       
-      return Math.max(cpuUsage, memUsage);
+      // Sử dụng ngưỡng từ cấu hình (resourceThreshold) để kiểm tra quá tải
+      return Math.max(cpuUsage, memUsage) > this.resourceThreshold;
     } catch (error) {
-      return 0; // Nếu không thể kiểm tra, cho phép tiếp tục
+      return false; // Nếu có lỗi, giả sử hệ thống không quá tải
     }
   }
 

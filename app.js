@@ -94,6 +94,75 @@ const scheduler = new Scheduler({ logger, configService, gitService });
 const buildService = new BuildService({ logger, configService });
 const schedulerController = new SchedulerController({ scheduler, configService });
 
+// ========================================
+// Tự động tạo folder pipeline khi khởi động
+// ========================================
+
+// Tạo thư mục pipeline và file project_pipeline.json mẫu
+try {
+  const cfg = configService.getConfig();
+  const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
+  const pipelineDir = path.join(baseContext, 'Katalyst', 'pipeline');
+  
+  // Tạo thư mục pipeline nếu chưa tồn tại
+  if (!fs.existsSync(pipelineDir)) {
+    fs.mkdirSync(pipelineDir, { recursive: true });
+    logger.send(`[STARTUP] Đã tạo thư mục pipeline: ${pipelineDir}`);
+  }
+  
+  // Tạo file project_pipeline.json mẫu nếu chưa tồn tại
+  const pipelineFile = path.join(pipelineDir, 'project_pipeline.json');
+  if (!fs.existsSync(pipelineFile)) {
+    const samplePipeline = {
+      "pipeline_name": "Sample Build Pipeline",
+      "version": "1.0.0",
+      "description": "Mẫu pipeline build tự động",
+      "working_directory": "${REPO_PATH}",
+      "environment_vars": {
+        "BUILD_VERSION": "1.0.0",
+        "DEPLOY_ENV": "production"
+      },
+      "check_commit": true,
+      "branch": "main",
+      "repo_url": "",
+      "steps": [
+        {
+          "step_order": 1,
+          "step_id": "clean_build",
+          "step_name": "Clean and Build",
+          "step_exec": "mvn clean package -DskipTests",
+          "timeout_seconds": 300,
+          "on_fail": "stop",
+          "shell": "bash"
+        },
+        {
+          "step_order": 2,
+          "step_id": "docker_build",
+          "step_name": "Build Docker Image",
+          "step_exec": "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .",
+          "timeout_seconds": 600,
+          "on_fail": "stop",
+          "shell": "bash"
+        },
+        {
+          "step_order": 3,
+          "step_id": "docker_push",
+          "step_name": "Push to Registry",
+          "step_exec": "docker push ${IMAGE_NAME}:${IMAGE_TAG}",
+          "timeout_seconds": 300,
+          "on_fail": "continue",
+          "shell": "bash"
+        }
+      ]
+    };
+    
+    fs.writeFileSync(pipelineFile, JSON.stringify(samplePipeline, null, 2));
+    logger.send(`[STARTUP] Đã tạo file pipeline mẫu: ${pipelineFile}`);
+  }
+} catch (error) {
+  logger.send(`[STARTUP][WARN] Không thể tạo pipeline folder: ${error.message}`);
+}
+
 // Khởi tạo EmailService sớm để truyền vào JobController
 const emailService = new EmailService({ configService, logger });
 
@@ -106,13 +175,13 @@ const authMiddleware = createAuthMiddleware(authService);
 const jobController = new JobController({ buildService, logger, configService, gitService, emailService });
 
 // Khởi tạo QueueController và truyền jobController để uỷ quyền thực thi
-const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService, jobController });
+const queueController = new QueueController({ logger, buildService, jobService: jobController.jobService, jobController, configService });
 
 // Gán queueService cho JobController để endpoint /api/jobs/:id/run thêm vào hàng đợi
 jobController.queueService = queueController.queueService;
 
 // Khởi tạo JobScheduler sau khi đã có queueService
-const jobScheduler = new JobScheduler({ logger, jobService: jobController.jobService, jobController, queueService: queueController.queueService });
+const jobScheduler = new JobScheduler({ logger, jobService: jobController.jobService, jobController, queueService: queueController.queueService, gitService });
 
 // Truyền jobScheduler vào jobController để auto restart khi cấu hình job thay đổi
 jobController.jobScheduler = jobScheduler;

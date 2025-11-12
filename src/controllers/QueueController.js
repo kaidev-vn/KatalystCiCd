@@ -14,18 +14,19 @@ class QueueController {
    * @param {Object} deps.buildService - Service quản lý build operations
    * @param {Object} deps.jobService - Service quản lý jobs
    * @param {Object} deps.jobController - Controller xử lý job execution
+   * @param {Object} deps.configService - ConfigService instance
    */
-  constructor({ logger, buildService, jobService, jobController }) {
+  constructor({ logger, buildService, jobService, jobController, configService }) {
     this.logger = logger;
     this.buildService = buildService;
     this.jobService = jobService;
     this.jobController = jobController;
+    this.configService = configService;
     
-    // Khởi tạo QueueService với cấu hình tối ưu cho máy yếu
+    // Khởi tạo QueueService với cấu hình từ config.json
     this.queueService = new QueueService({
       logger: this.logger,
-      maxConcurrentJobs: 1, // Chỉ chạy 1 job đồng thời cho máy yếu
-      resourceThreshold: 70  // Dừng khi CPU/Memory > 70%
+      configService: this.configService // Truyền configService để lấy cấu hình từ config.json
     });
 
     // Inject job executor

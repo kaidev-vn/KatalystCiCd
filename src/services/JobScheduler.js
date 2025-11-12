@@ -113,6 +113,26 @@ class JobScheduler {
           return;
         }
 
+        let shouldRun = true;
+        
+        // Kiểm tra commit mới trước khi thêm vào queue
+        if (latestJob.gitConfig?.repoUrl && this.gitService) {
+          try {
+            const hasNewCommit = await this.gitService.checkNewCommitAndPull(latestJob);
+            if (!hasNewCommit) {
+              this.logger?.send(`[JOB-SCHEDULER] Không có commit mới cho job ${latestJob.name}, bỏ qua polling cycle này`);
+              shouldRun = false;
+            }
+          } catch (error) {
+            this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra commit mới: ${error.message}, không chạy job`);
+            shouldRun = false;
+          }
+        }
+        
+        if (!shouldRun) {
+          return;
+        }
+        
         this.logger?.send(`[JOB-SCHEDULER] 🔁 Thêm job vào hàng đợi (polling): ${latestJob.name} (mỗi ${pollingSec}s)`);
         try {
           this.queueService?.addJob({
