@@ -51,6 +51,7 @@ const { SchedulerController } = require('./src/controllers/SchedulerController')
 const JobController = require('./src/controllers/JobController');
 const { JobScheduler } = require('./src/services/JobScheduler');
 const QueueController = require('./src/controllers/QueueController');
+const { RepositoryController } = require('./src/controllers/RepositoryController');
 const { EmailService } = require('./src/services/EmailService');
 const { registerEmailController } = require('./src/controllers/EmailController');
 const { WebhookService } = require('./src/services/WebhookService');
@@ -195,6 +196,9 @@ const webhookService = new WebhookService({
   configService 
 });
 
+// Khởi tạo RepositoryController cho quản lý repository
+const repositoryController = new RepositoryController({ logger });
+
 // ========================================
 // Register Controllers (Route Handlers)
 // ========================================
@@ -287,6 +291,14 @@ app.post('/api/jobs/:jobId/run-immediate', (req, res) => queueController.runJobI
 app.get('/api/scheduler/status', (req, res) => schedulerController.getStatus(req, res));
 app.post('/api/scheduler/toggle', (req, res) => schedulerController.toggle(req, res));
 app.post('/api/scheduler/restart', (req, res) => schedulerController.restart(req, res));
+
+// ========================================
+// Repository Management Routes
+// ========================================
+
+app.get('/api/repository/structure', (req, res) => repositoryController.getRepositoryStructure(req, res));
+app.get('/api/repository/file', (req, res) => repositoryController.getFileContent(req, res));
+app.get('/api/repository/search', (req, res) => repositoryController.searchFiles(req, res));
 
 /**
  * API Endpoint: Get webhook configuration

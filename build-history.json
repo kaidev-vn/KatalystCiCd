@@ -1,5 +1,29 @@
 [
   {
+    "id": "pipeline-1762944197795-il8aya",
+    "name": "JSON Pipeline: haproxy.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T10:43:17.795Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T10:43:17.796Z",
+    "duration": "0s",
+    "error": "Pipeline JSON không tồn tại: D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json"
+  },
+  {
+    "id": "pipeline-1762944152210-8ve6kj",
+    "name": "JSON Pipeline: haproxy.json",
+    "method": "jsonfile",
+    "status": "failed",
+    "startTime": "2025-11-12T10:42:32.210Z",
+    "scriptPath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json",
+    "commitHash": null,
+    "endTime": "2025-11-12T10:42:32.211Z",
+    "duration": "0s",
+    "error": "Pipeline JSON không tồn tại: D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json"
+  },
+  {
     "id": "pipeline-1762941456999-wac14h",
     "name": "JSON Pipeline: windows-maven-pipeline.json",
     "method": "jsonfile",

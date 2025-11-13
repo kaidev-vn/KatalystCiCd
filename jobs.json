@@ -5,7 +5,7 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-12T09:27:07.455Z",
-    "updatedAt": "2025-11-12T09:57:37.014Z",
+    "updatedAt": "2025-11-12T10:43:17.812Z",
     "gitConfig": {
       "provider": "github",
       "account": "kaidev-vn",
@@ -45,10 +45,10 @@
       "cron": ""
     },
     "stats": {
-      "totalBuilds": 18,
+      "totalBuilds": 20,
       "successfulBuilds": 0,
-      "failedBuilds": 18,
-      "lastBuildAt": "2025-11-12T09:57:37.014Z",
+      "failedBuilds": 20,
+      "lastBuildAt": "2025-11-12T10:43:17.812Z",
       "lastBuildStatus": "failed",
       "lastCommitHash": null
     }
