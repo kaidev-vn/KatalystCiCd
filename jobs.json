@@ -5,30 +5,30 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-12T09:27:07.455Z",
-    "updatedAt": "2025-11-14T03:23:38.607Z",
+    "updatedAt": "2025-11-15T04:38:03.199Z",
     "gitConfig": {
       "provider": "github",
       "account": "kaidev-vn",
-      "token": "2519b2034a2a1cff1f4e69e44f9b66f3:96e931a11e7c71a83c09db61f743ef1189f41d62dfafce6cc3dfa608cbf1e0d44768cc396539e8c6d47d35ad841357e05087a13b074ee8d42a1fbbcddcd7f517add3016a3fcebaaa3f07ec8695362c5d2fbc2cdf52233f7a47a342fe2a7c9978",
+      "token": "",
       "branch": "main"
     },
     "buildConfig": {
       "method": "jsonfile",
       "buildOrder": "parallel",
-      "jsonPipelinePath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json"
+      "jsonPipelinePath": "D:\\SOURCE-CODE\\NODEJS\\Ci-Cd\\pipelines\\haproxy_pipeline_windows.json"
     },
     "services": [],
     "schedule": {
       "triggerMethod": "polling",
-      "autoCheck": false,
+      "autoCheck": true,
       "polling": 30,
       "cron": ""
     },
     "stats": {
-      "totalBuilds": 21,
+      "totalBuilds": 127,
       "successfulBuilds": 0,
-      "failedBuilds": 21,
-      "lastBuildAt": "2025-11-14T03:23:20.796Z",
+      "failedBuilds": 127,
+      "lastBuildAt": "2025-11-15T04:38:03.199Z",
       "lastBuildStatus": "failed",
       "lastCommitHash": null
     }

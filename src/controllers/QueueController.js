@@ -202,6 +202,35 @@ class QueueController {
         return res.status(404).json({ error: 'Job not found' });
       }
 
+      // Kiểm tra commit mới trước khi thêm vào queue
+      const shouldCheckCommit = job.gitConfig?.repoUrl && job.gitConfig?.branch;
+      if (shouldCheckCommit) {
+        try {
+          // Lấy commit hash hiện tại từ repository
+          const currentCommitHash = await this.jobController.getCurrentCommitHash(job);
+          
+          if (currentCommitHash) {
+            // Kiểm tra xem commit này đã được build thành công chưa
+            const shouldBuildResult = this.jobService.shouldBuildCommit(jobId, currentCommitHash);
+            
+            if (!shouldBuildResult.shouldBuild) {
+              this.logger?.send(`[QUEUE] Job ${job.name} skipped - commit ${currentCommitHash} already built successfully: ${shouldBuildResult.reason}`);
+              return res.json({
+                success: true,
+                skipped: true,
+                message: `Job skipped - commit ${currentCommitHash.substring(0, 8)} already built successfully`,
+                reason: shouldBuildResult.reason
+              });
+            }
+            
+            this.logger?.send(`[QUEUE] Job ${job.name} will build new commit: ${currentCommitHash.substring(0, 8)}`);
+          }
+        } catch (error) {
+          // Nếu có lỗi khi kiểm tra commit, vẫn tiếp tục thêm vào queue nhưng log cảnh báo
+          this.logger?.send(`[QUEUE][WARN] Commit check failed for job ${job.name}: ${error.message}. Adding to queue anyway.`);
+        }
+      }
+
       // Thêm vào queue
       const queueJobId = this.queueService.addJob({
         jobId: jobId,

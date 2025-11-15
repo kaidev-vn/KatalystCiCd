@@ -131,6 +131,20 @@ class JobScheduler {
           }
         }
         
+        // Kiểm tra xem commit có nên được build không (tránh rebuild commit đã thất bại)
+        if (shouldRun && latestJob.gitConfig?.repoUrl) {
+          try {
+            const shouldBuildResult = await this.jobService.shouldBuildCommit(latestJob);
+            if (!shouldBuildResult.shouldBuild) {
+              this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} đã được build trước đó (status: ${shouldBuildResult.reason}), bỏ qua polling cycle này`);
+              shouldRun = false;
+            }
+          } catch (error) {
+            this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra lịch sử build: ${error.message}, tiếp tục chạy job`);
+            // Vẫn chạy job nếu có lỗi kiểm tra lịch sử
+          }
+        }
+        
         if (!shouldRun) {
           return;
         }

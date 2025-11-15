@@ -702,8 +702,8 @@ class JobController {
         const shouldPerformCommitCheck = shouldCheckCommit || pipelineCheckCommit;
         
         if (shouldPerformCommitCheck && job.gitConfig?.repoUrl && job.gitConfig?.branch) {
-          const { GitService } = require('../services/GitService');
-          const gitService = new GitService({ logger: this.logger, configService: this.configService });
+          const GitService = require('../services/GitService');
+          const gitService = new GitService({ logger: this.logger, configService: this.configService, dockerService: this.dockerService });
           
           // Lấy commit hash hiện tại từ remote
           const commitCheckResult = await gitService.checkNewCommitAndPull({
@@ -973,6 +973,60 @@ class JobController {
      
      return name || 'unknown-repo';
    }
+
+  /**
+   * Lấy commit hash hiện tại từ repository của job
+   * @param {Object} job - Job object
+   * @returns {Promise<string|null>} Commit hash hoặc null nếu không thể lấy
+   */
+  async getCurrentCommitHash(job) {
+    try {
+      const gc = job.gitConfig || {};
+      if (!gc.repoUrl || !gc.branch) {
+        return null;
+      }
+
+      // Lấy đường dẫn repo thực tế
+      const cfg = this.configService.getConfig();
+      const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
+      const repoPathDefault = baseContext ? path.join(baseContext, 'Katalyst', 'repo') : (gc.repoPath || '.');
+      
+      // Đảm bảo repo đã sẵn sàng
+      const actualRepoPath = await this._ensureRepoReady({
+        repoPath: repoPathDefault,
+        branch: gc.branch,
+        repoUrl: gc.repoUrl,
+        token: gc.token || '',
+        provider: gc.provider || 'github'
+      });
+
+      if (!actualRepoPath) {
+        return null;
+      }
+
+      // Lấy commit hash hiện tại từ remote
+      const GitService = require('../services/GitService');
+      const gitService = new GitService({ logger: this.logger, configService: this.configService, dockerService: this.dockerService });
+      
+      const commitCheckResult = await gitService.checkNewCommitAndPull({
+        repoUrl: gc.repoUrl,
+        branch: gc.branch,
+        repoPath: actualRepoPath,
+        token: gc.token || '',
+        provider: gc.provider || 'github',
+        doPull: false // Chỉ kiểm tra, không pull
+      });
+
+      if (commitCheckResult.ok && commitCheckResult.remoteHash) {
+        return commitCheckResult.remoteHash;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Error getting current commit hash for job ${job.name}:`, error);
+      return null;
+    }
+  }
 
   // GET /api/jobs/enabled - Get enabled jobs for scheduler
   async getEnabledJobs(req, res) {

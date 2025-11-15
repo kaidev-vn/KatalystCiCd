@@ -628,12 +628,21 @@ class JobService {
       };
     }
 
-    // Nếu commit này chỉ thất bại trước đó, build lại
+    // Nếu commit này đang build (running), không build lại
+    const runningBuild = buildsForCommit.find(build => build.status === 'running');
+    if (runningBuild) {
+      return { 
+        shouldBuild: false, 
+        reason: 'Commit is currently being built' 
+      };
+    }
+
+    // Nếu commit này đã thất bại trước đó, không build lại (để tránh build liên tục)
     const failedBuild = buildsForCommit.find(build => build.status === 'failed');
     if (failedBuild) {
       return { 
-        shouldBuild: true, 
-        reason: 'Commit failed before, rebuilding' 
+        shouldBuild: false, 
+        reason: 'Commit failed before, not rebuilding to avoid infinite loop' 
       };
     }
 
@@ -759,22 +768,42 @@ class JobService {
     const job = this.getJobById(jobId);
     if (!job) return null;
     
-    return {
-      ...job,
-      gitConfig: {
-        ...job.gitConfig,
-        token: this.secretManager.decrypt(job.gitConfig?.token || '') // ✅ Decrypt
-      },
-      buildConfig: {
-        ...job.buildConfig,
-        dockerConfig: {
-          ...job.buildConfig?.dockerConfig,
-          registryPassword: this.secretManager.decrypt(job.buildConfig?.dockerConfig?.registryPassword || '') // ✅ Decrypt
+    try {
+      return {
+        ...job,
+        gitConfig: {
+          ...job.gitConfig,
+          token: this.secretManager.decrypt(job.gitConfig?.token || '') // ✅ Decrypt
         },
-        // Script config
-        registryPassword: this.secretManager.decrypt(job.buildConfig?.registryPassword || '') // ✅ Decrypt
-      }
-    };
+        buildConfig: {
+          ...job.buildConfig,
+          dockerConfig: {
+            ...job.buildConfig?.dockerConfig,
+            registryPassword: this.secretManager.decrypt(job.buildConfig?.dockerConfig?.registryPassword || '') // ✅ Decrypt
+          },
+          // Script config
+          registryPassword: this.secretManager.decrypt(job.buildConfig?.registryPassword || '') // ✅ Decrypt
+        }
+      };
+    } catch (error) {
+      console.error(`Error decrypting job secrets for job ${jobId}:`, error);
+      // Trả về job không có secrets thay vì throw error
+      return {
+        ...job,
+        gitConfig: {
+          ...job.gitConfig,
+          token: '' // Empty string nếu không decrypt được
+        },
+        buildConfig: {
+          ...job.buildConfig,
+          dockerConfig: {
+            ...job.buildConfig?.dockerConfig,
+            registryPassword: '' // Empty string nếu không decrypt được
+          },
+          registryPassword: '' // Empty string nếu không decrypt được
+        }
+      };
+    }
   }
   
   /**

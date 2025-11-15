@@ -48,10 +48,12 @@ class BuildService {
    * @param {Object} deps - Dependencies
    * @param {Object} deps.logger - Logger instance
    * @param {Object} deps.configService - ConfigService instance
+   * @param {Object} deps.dockerService - DockerService instance
    */
-  constructor({ logger, configService }) {
+  constructor({ logger, configService, dockerService }) {
     this.logger = logger;
     this.configService = configService;
+    this.dockerService = dockerService;
     this.buildHistoryFile = path.join(process.cwd(), 'build-history.json');
     this.buildLogsDir = path.join(process.cwd(), 'build-logs');
 
@@ -373,7 +375,8 @@ class BuildService {
       status: 'running',
       startTime,
       scriptPath: filePath,
-      commitHash: commitHash || null
+      commitHash: commitHash || null,
+      jobId: jobInfo?.id || null // Thêm jobId để tracking
     });
 
     // Create log file
@@ -422,7 +425,8 @@ class BuildService {
           const GitService = require('./GitService');
           const gitService = new GitService({
             logger: buildLogger,
-            configService: this.configService
+            configService: this.configService,
+            dockerService: this.dockerService
           });
           
           const checkResult = await gitService.checkNewCommitAndPull({
@@ -536,7 +540,8 @@ class BuildService {
         status: hadError ? 'failed' : 'success',
         endTime,
         duration,
-        commitHash: commitHash || null
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
       buildLogger.send(`[PIPELINE] Hoàn tất: ${pipelineName} (hadError=${hadError})`);
       logStream.end();
@@ -549,11 +554,12 @@ class BuildService {
         endTime,
         duration,
         error: error.message,
-        commitHash: commitHash || null
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
       buildLogger.send(`[PIPELINE] Lỗi: ${error.message}`);
       logStream.end();
-      throw error;
+     console.log("[BUILD_ERROR " + err)
     }
   }
 

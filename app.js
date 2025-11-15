@@ -92,7 +92,7 @@ const dataStorageService = new DataStorageService({ dataDir: DATA_DIR, logger , 
 const dockerService = new DockerService({ logger, configService });
 const gitService = new GitService({ logger, dockerService, configService });
 const scheduler = new Scheduler({ logger, configService, gitService });
-const buildService = new BuildService({ logger, configService });
+const buildService = new BuildService({ logger, configService, dockerService });
 const schedulerController = new SchedulerController({ scheduler, configService });
 
 // ========================================

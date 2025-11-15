@@ -1,0 +1,45 @@
+{
+  "pipeline_name": "HAProxy Build Pipeline for Windows",
+  "version": "1.0.0",
+  "description": "Pipeline build HAProxy trên Windows native (không dùng WSL)",
+  "working_directory": "D:\\SOURCE-CODE\\Katalyst",
+  "environment_vars": {
+    "BUILD_VERSION": "2.8.7",
+    "DEPLOY_ENV": "production",
+    "IMAGE_NAME": "haproxy",
+    "IMAGE_TAG": "latest",
+    "REPO_PATH": "D:\\\\SOURCE-CODE\\\\Katalyst"
+  },
+  "check_commit": false,
+  "branch": "main",
+  "repo_url": "https://gitlab.com/your-username/your-haproxy-repo.git",
+  "steps": [
+    {
+      "step_order": 1,
+      "step_id": "clean_build",
+      "step_name": "Clean and Build",
+      "step_exec": "mvn clean package -DskipTests",
+      "timeout_seconds": 300,
+      "on_fail": "stop",
+      "shell": "cmd"
+    },
+    {
+      "step_order": 2,
+      "step_id": "docker_build",
+      "step_name": "Build Docker Image",
+      "step_exec": "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .",
+      "timeout_seconds": 600,
+      "on_fail": "stop",
+      "shell": "cmd"
+    },
+    {
+      "step_order": 3,
+      "step_id": "docker_push",
+      "step_name": "Push to Registry",
+      "step_exec": "docker push ${IMAGE_NAME}:${IMAGE_TAG}",
+      "timeout_seconds": 300,
+      "on_fail": "continue",
+      "shell": "cmd"
+    }
+  ]
+}
