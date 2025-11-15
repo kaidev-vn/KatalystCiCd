@@ -5,50 +5,30 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-12T09:27:07.455Z",
-    "updatedAt": "2025-11-12T10:43:17.812Z",
+    "updatedAt": "2025-11-14T03:23:38.607Z",
     "gitConfig": {
       "provider": "github",
       "account": "kaidev-vn",
       "token": "2519b2034a2a1cff1f4e69e44f9b66f3:96e931a11e7c71a83c09db61f743ef1189f41d62dfafce6cc3dfa608cbf1e0d44768cc396539e8c6d47d35ad841357e05087a13b074ee8d42a1fbbcddcd7f517add3016a3fcebaaa3f07ec8695362c5d2fbc2cdf52233f7a47a342fe2a7c9978",
-      "repoUrl": "",
-      "repoPath": "D:\\SOURCE-CODE\\Katalyst\\repo\\unknown-repo",
-      "branch": "main",
-      "branches": [
-        {
-          "name": "main",
-          "tagPrefix": "RELEASE",
-          "enabled": true
-        }
-      ]
+      "branch": "main"
     },
     "buildConfig": {
       "method": "jsonfile",
-      "scriptPath": "",
-      "jsonPipelinePath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json",
       "buildOrder": "parallel",
-      "dockerConfig": {
-        "dockerfilePath": "",
-        "contextPath": "",
-        "imageName": "",
-        "imageTag": "",
-        "autoTagIncrement": false,
-        "registryUrl": "",
-        "registryUsername": "",
-        "registryPassword": ""
-      }
+      "jsonPipelinePath": "D:\\SOURCE-CODE\\Katalyst\\pipeline\\haproxy.json"
     },
     "services": [],
     "schedule": {
       "triggerMethod": "polling",
-      "autoCheck": true,
+      "autoCheck": false,
       "polling": 30,
       "cron": ""
     },
     "stats": {
-      "totalBuilds": 20,
+      "totalBuilds": 21,
       "successfulBuilds": 0,
-      "failedBuilds": 20,
-      "lastBuildAt": "2025-11-12T10:43:17.812Z",
+      "failedBuilds": 21,
+      "lastBuildAt": "2025-11-14T03:23:20.796Z",
       "lastBuildStatus": "failed",
       "lastCommitHash": null
     }

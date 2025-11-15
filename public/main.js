@@ -38,6 +38,106 @@ function switchTab(tabId) {
     loadRawConfigEditor();
     loadConfigVersions();
   }
+  // Ensure Repository Browser is initialized when switching to it
+  if (tabId === 'repository-tab') {
+    try {
+      // Some environments may load scripts late; make sure init is called
+      if (window.__repoBrowser && typeof window.__repoBrowser.initOnce === 'function') {
+        window.__repoBrowser.initOnce();
+      } else if (typeof ensureRepositoryInit === 'function') {
+        ensureRepositoryInit();
+      }
+    } catch (e) {
+      console.error('Failed to initialize Repository Browser on tab switch:', e);
+    }
+  }
+}
+
+// Fallback: dynamically ensure repository.js is loaded and initialized
+async function ensureRepositoryInit() {
+  // 1. Check if already initialized
+  if (window.__repoBrowser && window.__repoBrowser.initialized) {
+    return;
+  }
+
+  // 2. If instance exists but not initialized, just init
+  if (window.__repoBrowser && typeof window.__repoBrowser.initOnce === 'function') {
+    console.log('[RepoBrowser] Instance exists, calling initOnce()');
+    window.__repoBrowser.initOnce();
+    return;
+  }
+
+  console.log('[RepoBrowser] ensureRepositoryInit(): Starting initialization...');
+  const repoScriptUrl = window.location.origin + '/js/repository.js';
+
+  // Function to create and initialize the instance
+  const createInstance = (BrowserClass) => {
+    if (!BrowserClass) {
+      throw new Error('RepositoryBrowser class is not available');
+    }
+    console.log('[RepoBrowser] Creating instance from class and initializing...');
+    window.__repoBrowser = new BrowserClass();
+    window.__repoBrowser.initOnce();
+  };
+
+  try {
+    // 3. Try modern dynamic import first
+    console.log('[RepoBrowser] Attempting dynamic import...', repoScriptUrl);
+    const repoModule = await import(repoScriptUrl);
+    
+    // The module's default export should be the class
+    const RepositoryBrowser = repoModule.default;
+    console.log('[RepoBrowser] Dynamic import successful.');
+    createInstance(RepositoryBrowser);
+
+  } catch (importError) {
+    console.warn('[RepoBrowser] Dynamic import failed, trying classic script fallback:', importError);
+
+    // 4. Fallback to classic script loading
+    await new Promise((resolve, reject) => {
+      // Check if script is already being loaded
+      if (document.querySelector(`script[src="${repoScriptUrl}"]`)) {
+        console.log('[RepoBrowser] Script tag already exists, waiting for it to load...');
+        // Simple wait, assuming it will eventually load or fail
+        setTimeout(() => {
+            if (window.__repoBrowserFactory) {
+                resolve();
+            } else {
+                reject(new Error('Script was already in DOM but factory not found'));
+            }
+        }, 200);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = repoScriptUrl;
+      script.async = true;
+
+      script.onload = () => {
+        console.log('[RepoBrowser] Classic script loaded successfully.');
+        resolve();
+      };
+
+      script.onerror = (err) => {
+        console.error('[RepoBrowser] Classic script load failed:', err);
+        reject(new Error('Failed to load repository.js script'));
+      };
+
+      document.head.appendChild(script);
+    });
+
+    // After script is loaded, the factory should be on the window
+    if (window.__repoBrowserFactory) {
+      console.log('[RepoBrowser] Found factory, creating class...');
+      const RepositoryBrowser = window.__repoBrowserFactory({ 
+          $: window.$, 
+          fetchJSON: window.fetchJSON 
+      });
+      createInstance(RepositoryBrowser);
+    } else {
+      throw new Error('repository.js loaded, but __repoBrowserFactory not found on window');
+    }
+  }
 }
 
 // Build Method Selection
@@ -876,6 +976,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize tabs
   const savedTab = localStorage.getItem('activeTab') || 'config-tab';
   switchTab(savedTab);
+  try { ensureRepositoryInit(); } catch (e) { console.warn('ensureRepositoryInit() failed', e); }
   
   // Initialize build method selection
   const savedMethod = localStorage.getItem('buildMethod') || 'dockerfile';
@@ -1112,6 +1213,10 @@ document.addEventListener('DOMContentLoaded', () => {
     jobScriptImageTagText.addEventListener('input', updateJobScriptTagPreview);
   }
   
+  // [REMOVED] Fallback listeners for the repository 'Load' button were removed.
+// The RepositoryBrowser class now handles its own events, and these fallbacks
+// were creating a race condition.
+  
   // Add event listener for "Use Common Config" button
   const useCommonConfigBtn = document.getElementById('useCommonConfigBtn');
   if (useCommonConfigBtn) {
@@ -1136,6 +1241,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // Refresh queue status every 5 seconds
   setInterval(loadQueueStatus, 5000);
 });
+
+// Fallback for Browse button if repository.js fails to load - MOVED OUTSIDE DOMContentLoaded
+console.log('DEBUG: Starting browse button fallback setup');
+const browseRepoBtn = document.getElementById('browseRepoBtn');
+console.log('DEBUG: browseRepoBtn found:', !!browseRepoBtn);
+if (browseRepoBtn) {
+  console.log('DEBUG: browseRepoBtn id:', browseRepoBtn.id);
+  console.log('DEBUG: dataset.boundFallback:', browseRepoBtn.dataset.boundFallback);
+}
+if (browseRepoBtn && !browseRepoBtn.dataset.boundFallback) {
+  browseRepoBtn.dataset.boundFallback = '1';
+  console.log('DEBUG: Binding fallback click handler');
+  
+  browseRepoBtn.addEventListener('click', () => {
+    console.log('[RepoBrowser] Browse button clicked (fallback)');
+    
+    // Show helpful suggestions for manual path entry
+    const suggestions = [
+      'D:\\SOURCE-CODE',
+      'C:\\Users',
+      'D:\\Projects', 
+      'C:\\xampp\\htdocs',
+      'D:\\SOURCE-CODE\\NODEJS\\Ci-Cd'
+    ].filter(Boolean);
+    
+    const message = `📁 Trình duyệt không hỗ trợ Directory Picker.\n\n` +
+                   `💡 Gợi ý các đường dẫn thông dụng:\n` +
+                   suggestions.map((path, i) => `${i + 1}. ${path}`).join('\n') + 
+                   `\n\n📋 Vui lòng sao chép và dán đường dẫn vào ô input.`;
+    
+    alert(message);
+  });
+}
 
 // Modal state
 let editingBuildId = null;

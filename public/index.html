@@ -843,6 +843,54 @@
         </section>
       </div>
 
+      
+      <!-- Repository Browser Tab Content -->
+      <div id="repository-tab" class="tab-content">
+        <section class="card">
+          <h2>📁 Repository Browser</h2>
+          <div class="repository-browser">
+            <div class="repo-path-input">
+              <label for="repoPathInput">Đường dẫn Repository:</label>
+              <div class="path-input-group">
+                <input type="text" id="repoPathInput" placeholder="D:\SOURCE-CODE\Katalyst" />
+                <button id="browseRepoBtn" class="btn primary">📂 Browse</button>
+                <button id="loadRepoBtn" class="btn">🔄 Load</button>
+              </div>
+              <small class="muted">Nhập đường dẫn thư mục repository để xem cấu trúc và source code</small>
+            </div>
+
+            <div class="breadcrumb" id="repoBreadcrumb">
+              <span class="breadcrumb-item" data-path="">Root</span>
+            </div>
+
+            <div class="repo-content">
+              <div class="repo-sidebar">
+                <div class="repo-search">
+                  <input type="text" id="repoSearchInput" placeholder="🔍 Tìm kiếm file..." />
+                  <select id="repoSearchType">
+                    <option value="all">Tất cả</option>
+                    <option value="file">File</option>
+                    <option value="directory">Thư mục</option>
+                  </select>
+                </div>
+                
+                <div class="repo-tree" id="repoTree">
+                  <div class="loading">📁 Chọn repository để bắt đầu...</div>
+                </div>
+              </div>
+
+              <div class="repo-main">
+                <div class="file-content" id="fileContent">
+                  <div class="no-file-selected">
+                    <p>📄 Chọn file để xem nội dung</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
       </main>
     </div>
     
@@ -1231,53 +1279,6 @@
       </div>
     </div>
 
-    <!-- Repository Browser Tab Content -->
-    <div id="repository-tab" class="tab-content">
-      <div class="card">
-        <h2>📁 Repository Browser</h2>
-        <div class="repository-browser">
-          <div class="repo-path-input">
-            <label for="repoPathInput">Đường dẫn Repository:</label>
-            <div class="path-input-group">
-              <input type="text" id="repoPathInput" placeholder="D:\SOURCE-CODE\Katalyst" />
-              <button id="browseRepoBtn" class="btn primary">📂 Browse</button>
-              <button id="loadRepoBtn" class="btn">🔄 Load</button>
-            </div>
-            <small class="muted">Nhập đường dẫn thư mục repository để xem cấu trúc và source code</small>
-          </div>
-
-          <div class="breadcrumb" id="repoBreadcrumb">
-            <span class="breadcrumb-item" data-path="">Root</span>
-          </div>
-
-          <div class="repo-content">
-            <div class="repo-sidebar">
-              <div class="repo-search">
-                <input type="text" id="repoSearchInput" placeholder="🔍 Tìm kiếm file..." />
-                <select id="repoSearchType">
-                  <option value="all">Tất cả</option>
-                  <option value="file">File</option>
-                  <option value="directory">Thư mục</option>
-                </select>
-              </div>
-              
-              <div class="repo-tree" id="repoTree">
-                <div class="loading">📁 Chọn repository để bắt đầu...</div>
-              </div>
-            </div>
-
-            <div class="repo-main">
-              <div class="file-content" id="fileContent">
-                <div class="no-file-selected">
-                  <p>📄 Chọn file để xem nội dung</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Branch Configuration Template -->
     <template id="branchTemplate">
       <div class="branch-item card">
@@ -1333,6 +1334,7 @@
     <!-- Refactored modular frontend -->
     <script src="/js/database.js"></script>
     <script type="module" src="/js/app.js"></script>
+    <script type="module" src="/js/repository.js"></script>
     <script src="/main.js"></script>
   </body>
   </html>
