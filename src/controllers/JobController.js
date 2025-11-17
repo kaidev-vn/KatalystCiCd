@@ -535,6 +535,39 @@ class JobController {
       // Kiểm tra commit mới trước khi build để đáp ứng yêu cầu "phải có commit mới thì mới build"
       const gc = job.gitConfig || {};
       const cfg = this.configService.getConfig();
+      
+      // Xác định danh sách branches cần xử lý
+      const branchesToProcess = [];
+      
+      // Thêm branch chính nếu có
+      if (gc.branch) {
+        branchesToProcess.push({
+          name: gc.branch,
+          tagPrefix: gc.tagPrefix || '',
+          enabled: true
+        });
+      }
+      
+      // Thêm các branch phụ từ mảng branches
+      if (Array.isArray(gc.branches)) {
+        gc.branches.forEach(branchConfig => {
+          if (branchConfig.enabled && branchConfig.name) {
+            branchesToProcess.push(branchConfig);
+          }
+        });
+      }
+      
+      // Nếu không có branch nào, sử dụng branch mặc định
+      if (branchesToProcess.length === 0) {
+        branchesToProcess.push({
+          name: 'main',
+          tagPrefix: '',
+          enabled: true
+        });
+      }
+      
+      console.log(`[JOB] Processing ${branchesToProcess.length} branches for job: ${job.name}`);
+      
       // Nếu phương thức là jsonfile, bỏ qua chuẩn bị repo & kiểm tra commit (pipeline tự xử lý)
       // Ngược lại, chuẩn bị context và repo như bình thường
       let repoPath = '';
@@ -569,40 +602,56 @@ class JobController {
           try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
         }
 
-        const branch = gc.branch || 'main';
         const repoUrl = gc.repoUrl;
         const token = gc.token;
         const provider = gc.provider || 'gitlab';
 
-        // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
-        const actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
+        // Xử lý từng branch
+        let hasNewCommit = false;
+        let lastCommitHash = null;
+        
+        for (const branchConfig of branchesToProcess) {
+          const branch = branchConfig.name;
+          
+          // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
+          const actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
 
-        if (this.gitService && actualRepoPath) {
-          const check = await this.gitService.checkNewCommitAndPull({
-            repoPath: actualRepoPath,
-            branch,
-            repoUrl,
-            token,
-            provider,
-            doPull: true
-          });
-          if (!check.ok) {
-            throw new Error(`Kiểm tra/pull commit thất bại: ${check.error || 'unknown'}`);
+          if (this.gitService && actualRepoPath) {
+            const check = await this.gitService.checkNewCommitAndPull({
+              repoPath: actualRepoPath,
+              branch,
+              repoUrl,
+              token,
+              provider,
+              doPull: true
+            });
+            if (!check.ok) {
+              console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
+              continue;
+            }
+            if (check.hasNew) {
+              hasNewCommit = true;
+              lastCommitHash = check.remoteHash;
+              this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
+              break; // Chỉ cần một commit mới để trigger build
+            }
           }
-          if (!check.hasNew) {
-            this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} (${branch}). Bỏ qua build.`);
-            return {
-              success: true,
-              buildId: `skip-${Date.now()}`,
-              status: 'skipped',
-              message: 'No new commit, build skipped'
-            };
-          }
-          this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
-          this.logger?.send(`[JOB] Phát hiện commit mới: ${check.remoteHash}. Tiến hành build.`);
-          // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
-          this.lastCommitHash = check.remoteHash;
         }
+        
+        if (!hasNewCommit) {
+          this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} trên các branches: ${branchesToProcess.map(b => b.name).join(', ')}. Bỏ qua build.`);
+          return {
+            success: true,
+            buildId: `skip-${Date.now()}`,
+            status: 'skipped',
+            message: 'No new commit on any branch, build skipped'
+          };
+        }
+        
+        this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
+        this.logger?.send(`[JOB] Tiến hành build với commit mới: ${lastCommitHash}`);
+        // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
+        this.lastCommitHash = lastCommitHash;
       }
       
       // Determine build method and execute
@@ -616,7 +665,7 @@ class JobController {
         const tagText = bc.imageTagText || (dc.imageTag ? require('../utils/tag').splitTagIntoParts(dc.imageTag).textPart : '');
         const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
         const { nextSplitTag } = require('../utils/tag');
-        const imageTag = nextSplitTag(tagNumber || '1.0.75', tagText || '', autoInc);
+        const imageTag = nextSplitTag(tagNumber || '1.0.0', tagText || '', autoInc);
         const registryUrl = bc.registryUrl || dc.registryUrl || '';
         const registryUsername = bc.registryUsername || dc.registryUsername || '';
         const registryPassword = bc.registryPassword || dc.registryPassword || '';
@@ -701,48 +750,66 @@ class JobController {
         // Chỉ kiểm tra commit nếu được cấu hình ở job HOẶC trong pipeline
         const shouldPerformCommitCheck = shouldCheckCommit || pipelineCheckCommit;
         
-        if (shouldPerformCommitCheck && job.gitConfig?.repoUrl && job.gitConfig?.branch) {
+        if (shouldPerformCommitCheck && job.gitConfig?.repoUrl) {
           const GitService = require('../services/GitService');
           const gitService = new GitService({ logger: this.logger, configService: this.configService, dockerService: this.dockerService });
           
-          // Lấy commit hash hiện tại từ remote
-          const commitCheckResult = await gitService.checkNewCommitAndPull({
-            repoUrl: job.gitConfig.repoUrl,
-            branch: job.gitConfig.branch,
-            repoPath: job.gitConfig.repoPath || '',
-            token: job.gitConfig.token || '',
-            provider: job.gitConfig.provider || 'github'
-          });
+          let hasNewCommit = false;
           
-          if (!commitCheckResult.ok) {
-            console.log(`[JOB] Failed to check commit for job: ${job.name}, error: ${commitCheckResult.error}`);
-            // Vẫn tiếp tục chạy pipeline nếu có lỗi kiểm tra commit
-          } else if (commitCheckResult.hasNew) {
-            console.log(`[JOB] New commit found for job: ${job.name}, commit: ${commitCheckResult.remoteHash}`);
-            this.lastCommitHash = commitCheckResult.remoteHash;
-            currentCommitHash = commitCheckResult.remoteHash;
-          } else {
-            // Không có commit mới, kiểm tra xem commit hiện tại đã từng build thành công chưa
-            currentCommitHash = commitCheckResult.remoteHash;
-            if (currentCommitHash) {
-              // Kiểm tra xem commit này đã từng build thành công chưa
-              const shouldBuild = await this.jobService.shouldBuildCommit(job.id, currentCommitHash);
-              if (!shouldBuild.shouldBuild) {
-                console.log(`[JOB] Commit ${currentCommitHash} already built successfully for job: ${job.name}, skipping pipeline execution. Reason: ${shouldBuild.reason}`);
-                return {
-                  success: true,
-                  buildId: `skip-${Date.now()}`,
-                  status: 'skipped',
-                  message: `Commit already built successfully, pipeline skipped. Reason: ${shouldBuild.reason}`,
-                  commitHash: currentCommitHash
-                };
+          // Kiểm tra từng branch trong danh sách
+          for (const branchConfig of branchesToProcess) {
+            const branch = branchConfig.name;
+            
+            // Lấy commit hash hiện tại từ remote
+            const commitCheckResult = await gitService.checkNewCommitAndPull({
+              repoUrl: job.gitConfig.repoUrl,
+              branch: branch,
+              repoPath: job.gitConfig.repoPath || '',
+              token: job.gitConfig.token || '',
+              provider: job.gitConfig.provider || 'github'
+            });
+            
+            if (!commitCheckResult.ok) {
+              console.log(`[JOB] Failed to check commit for job: ${job.name}, branch: ${branch}, error: ${commitCheckResult.error}`);
+              continue; // Tiếp tục với branch khác nếu có lỗi
+            } else if (commitCheckResult.hasNew) {
+              console.log(`[JOB] New commit found for job: ${job.name}, branch: ${branch}, commit: ${commitCheckResult.remoteHash}`);
+              this.lastCommitHash = commitCheckResult.remoteHash;
+              currentCommitHash = commitCheckResult.remoteHash;
+              hasNewCommit = true;
+              break; // Chỉ cần một commit mới để trigger build
+            } else {
+              // Không có commit mới, kiểm tra xem commit hiện tại đã từng build thành công chưa
+              currentCommitHash = commitCheckResult.remoteHash;
+              if (currentCommitHash) {
+                // Kiểm tra xem commit này đã từng build thành công chưa
+                const shouldBuild = await this.jobService.shouldBuildCommit(job.id, currentCommitHash);
+                if (!shouldBuild.shouldBuild) {
+                  console.log(`[JOB] Commit ${currentCommitHash} already built successfully for job: ${job.name}, branch: ${branch}, skipping pipeline execution. Reason: ${shouldBuild.reason}`);
+                  // Tiếp tục kiểm tra các branch khác
+                  continue;
+                }
+                console.log(`[JOB] Commit ${currentCommitHash} needs to be built for job: ${job.name}, branch: ${branch}`);
+                this.lastCommitHash = currentCommitHash;
+                hasNewCommit = true; // Cần build vì commit chưa được build thành công
+                break;
               }
-              console.log(`[JOB] Commit ${currentCommitHash} needs to be built for job: ${job.name}`);
-              this.lastCommitHash = currentCommitHash;
             }
           }
-        } else if (shouldPerformCommitCheck && (!job.gitConfig?.repoUrl || !job.gitConfig?.branch)) {
-          console.log(`[JOB][WARN] Cấu hình check_commit=true nhưng thiếu repo_url hoặc branch. Bỏ qua kiểm tra commit cho job: ${job.name}`);
+          
+          // Nếu không có commit mới hoặc commit cần build trên bất kỳ branch nào
+          if (!hasNewCommit && currentCommitHash) {
+            console.log(`[JOB] No new commits or commits needing build found for any branch in job: ${job.name}`);
+            return {
+              success: true,
+              buildId: `skip-${Date.now()}`,
+              status: 'skipped',
+              message: 'No new commits or commits needing build found on any branch, pipeline skipped',
+              commitHash: currentCommitHash
+            };
+          }
+        } else if (shouldPerformCommitCheck && !job.gitConfig?.repoUrl) {
+          console.log(`[JOB][WARN] Cấu hình check_commit=true nhưng thiếu repo_url. Bỏ qua kiểm tra commit cho job: ${job.name}`);
         }
         
         const envOverrides = {}; // có thể truyền thêm env từ job nếu cần

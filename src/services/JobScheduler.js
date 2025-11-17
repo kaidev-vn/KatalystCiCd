@@ -117,12 +117,46 @@ class JobScheduler {
 
         let shouldRun = true;
         
-        // Kiểm tra commit mới trước khi thêm vào queue
+        // Kiểm tra commit mới trước khi thêm vào queue - hỗ trợ multi-branch
         if (latestJob.gitConfig?.repoUrl && this.gitService) {
           try {
-            const hasNewCommit = await this.gitService.checkNewCommitAndPull(latestJob);
+            // Tạo danh sách branches để kiểm tra (main branch + additional branches)
+            const branchesToProcess = [];
+            const gc = latestJob.gitConfig;
+            
+            // Thêm main branch nếu có
+            if (gc.branch) {
+              branchesToProcess.push(gc.branch);
+            }
+            
+            // Thêm các branches từ mảng branches nếu có
+            if (gc.branches && Array.isArray(gc.branches)) {
+              for (const branchConfig of gc.branches) {
+                if (branchConfig.enabled && branchConfig.name) {
+                  branchesToProcess.push(branchConfig.name);
+                }
+              }
+            }
+            
+            let hasNewCommit = false;
+            
+            // Kiểm tra từng branch
+            for (const branch of branchesToProcess) {
+              try {
+                const jobWithBranch = { ...latestJob, gitConfig: { ...gc, branch } };
+                const branchHasNewCommit = await this.gitService.checkNewCommitAndPull(jobWithBranch);
+                if (branchHasNewCommit) {
+                  hasNewCommit = true;
+                  this.logger?.send(`[JOB-SCHEDULER] Có commit mới trên branch ${branch} cho job ${latestJob.name}`);
+                  break; // Chỉ cần một branch có commit mới là đủ
+                }
+              } catch (branchError) {
+                this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra commit trên branch ${branch}: ${branchError.message}`);
+              }
+            }
+            
             if (!hasNewCommit) {
-              this.logger?.send(`[JOB-SCHEDULER] Không có commit mới cho job ${latestJob.name}, bỏ qua polling cycle này`);
+              this.logger?.send(`[JOB-SCHEDULER] Không có commit mới trên bất kỳ branch nào cho job ${latestJob.name}, bỏ qua polling cycle này`);
               shouldRun = false;
             }
           } catch (error) {
@@ -131,14 +165,50 @@ class JobScheduler {
           }
         }
         
-        // Kiểm tra xem commit có nên được build không (tránh rebuild commit đã thất bại)
+        // Kiểm tra xem commit có nên được build không (tránh rebuild commit đã thất bại) - hỗ trợ multi-branch
         if (shouldRun && latestJob.gitConfig?.repoUrl) {
           try {
-            const shouldBuildResult = await this.jobService.shouldBuildCommit(latestJob);
-            console.log('shouldBuildResult', shouldBuildResult);
+            // Tạo danh sách branches để kiểm tra (main branch + additional branches)
+            const branchesToProcess = [];
+            const gc = latestJob.gitConfig;
             
-            if (!shouldBuildResult.shouldBuild) {
-              this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} đã được build trước đó (status: ${shouldBuildResult.reason}), bỏ qua polling cycle này`);
+            // Thêm main branch nếu có
+            if (gc.branch) {
+              branchesToProcess.push(gc.branch);
+            }
+            
+            // Thêm các branches từ mảng branches nếu có
+            if (gc.branches && Array.isArray(gc.branches)) {
+              for (const branchConfig of gc.branches) {
+                if (branchConfig.enabled && branchConfig.name) {
+                  branchesToProcess.push(branchConfig.name);
+                }
+              }
+            }
+            
+            let shouldBuildAnyBranch = false;
+            
+            // Kiểm tra từng branch
+            for (const branch of branchesToProcess) {
+              try {
+                const jobWithBranch = { ...latestJob, gitConfig: { ...gc, branch } };
+                const shouldBuildResult = await this.jobService.shouldBuildCommit(jobWithBranch);
+                console.log('shouldBuildResult', shouldBuildResult);
+                
+                if (shouldBuildResult.shouldBuild) {
+                  shouldBuildAnyBranch = true;
+                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${branch} cần được build`);
+                  break; // Chỉ cần một branch cần build là đủ
+                } else {
+                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${branch} đã được build trước đó (status: ${shouldBuildResult.reason})`);
+                }
+              } catch (branchError) {
+                this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra lịch sử build trên branch ${branch}: ${branchError.message}`);
+              }
+            }
+            
+            if (!shouldBuildAnyBranch) {
+              this.logger?.send(`[JOB-SCHEDULER] Tất cả commits trên các branches đã được build trước đó, bỏ qua polling cycle này`);
               shouldRun = false;
             }
           } catch (error) {
