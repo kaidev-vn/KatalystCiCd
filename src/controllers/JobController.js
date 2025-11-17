@@ -727,13 +727,13 @@ class JobController {
             if (currentCommitHash) {
               // Kiểm tra xem commit này đã từng build thành công chưa
               const shouldBuild = await this.jobService.shouldBuildCommit(job.id, currentCommitHash);
-              if (!shouldBuild) {
-                console.log(`[JOB] Commit ${currentCommitHash} already built successfully for job: ${job.name}, skipping pipeline execution`);
+              if (!shouldBuild.shouldBuild) {
+                console.log(`[JOB] Commit ${currentCommitHash} already built successfully for job: ${job.name}, skipping pipeline execution. Reason: ${shouldBuild.reason}`);
                 return {
                   success: true,
                   buildId: `skip-${Date.now()}`,
                   status: 'skipped',
-                  message: 'Commit already built successfully, pipeline skipped',
+                  message: `Commit already built successfully, pipeline skipped. Reason: ${shouldBuild.reason}`,
                   commitHash: currentCommitHash
                 };
               }

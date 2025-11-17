@@ -135,6 +135,8 @@ class JobScheduler {
         if (shouldRun && latestJob.gitConfig?.repoUrl) {
           try {
             const shouldBuildResult = await this.jobService.shouldBuildCommit(latestJob);
+            console.log('shouldBuildResult', shouldBuildResult);
+            
             if (!shouldBuildResult.shouldBuild) {
               this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} đã được build trước đó (status: ${shouldBuildResult.reason}), bỏ qua polling cycle này`);
               shouldRun = false;

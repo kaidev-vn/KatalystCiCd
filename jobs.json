@@ -5,10 +5,11 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-12T09:27:07.455Z",
-    "updatedAt": "2025-11-15T04:38:03.199Z",
+    "updatedAt": "2025-11-17T09:46:54.580Z",
     "gitConfig": {
       "provider": "github",
       "account": "kaidev-vn",
+      "repoUrl": "https://github.com/kaidev-vn/your-repo-name.git",
       "token": "",
       "branch": "main"
     },
@@ -25,10 +26,10 @@
       "cron": ""
     },
     "stats": {
-      "totalBuilds": 127,
+      "totalBuilds": 137,
       "successfulBuilds": 0,
-      "failedBuilds": 127,
-      "lastBuildAt": "2025-11-15T04:38:03.199Z",
+      "failedBuilds": 137,
+      "lastBuildAt": "2025-11-17T09:46:54.579Z",
       "lastBuildStatus": "failed",
       "lastCommitHash": null
     }

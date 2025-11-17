@@ -12,7 +12,7 @@
   },
   "check_commit": false,
   "branch": "main",
-  "repo_url": "https://gitlab.com/your-username/your-haproxy-repo.git",
+  "repo_url": "",
   "steps": [
     {
       "step_order": 1,
