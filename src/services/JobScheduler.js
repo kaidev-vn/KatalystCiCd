@@ -143,7 +143,11 @@ class JobScheduler {
             // Kiểm tra từng branch
             for (const branch of branchesToProcess) {
               try {
-                const jobWithBranch = { ...latestJob, gitConfig: { ...gc, branch } };
+                const jobWithBranch = { 
+                  ...latestJob, 
+                  gitConfig: { ...gc, branch },
+                  repoPath: latestJob.repoPath // Đảm bảo repoPath được truyền đúng cách
+                };
                 const branchHasNewCommit = await this.gitService.checkNewCommitAndPull(jobWithBranch);
                 
                 // Xử lý trường hợp thư mục repo không tồn tại
@@ -198,7 +202,11 @@ class JobScheduler {
             // Kiểm tra từng branch
             for (const branch of branchesToProcess) {
               try {
-                const jobWithBranch = { ...latestJob, gitConfig: { ...gc, branch } };
+                const jobWithBranch = { 
+                  ...latestJob, 
+                  gitConfig: { ...gc, branch },
+                  repoPath: latestJob.repoPath // Đảm bảo repoPath được truyền đúng cách
+                };
                 const shouldBuildResult = await this.jobService.shouldBuildCommit(jobWithBranch);
                 console.log('shouldBuildResult', shouldBuildResult);
                 
