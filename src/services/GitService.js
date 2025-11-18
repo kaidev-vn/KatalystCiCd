@@ -296,7 +296,10 @@ class GitService {
    * Returns: { ok, hasNew, remoteHash, localHash, updated }
    */
   async checkNewCommitAndPull({ repoPath, branch, repoUrl, token, provider, doPull = true }) {
-    if (!repoPath) throw new Error('Chưa cấu hình repoPath');
+    if (!repoPath) {
+      this.logger?.send(`[GIT][JOB-CHECK][WARN] Chưa cấu hình repoPath cho branch ${branch}`);
+      return { ok: false, hasNew: false, error: 'repo_not_configured', message: `Chưa cấu hình repoPath cho branch ${branch}` };
+    }
     
     // Kiểm tra xem thư mục repo có tồn tại không
     try {
