@@ -145,7 +145,14 @@ class JobScheduler {
               try {
                 const jobWithBranch = { ...latestJob, gitConfig: { ...gc, branch } };
                 const branchHasNewCommit = await this.gitService.checkNewCommitAndPull(jobWithBranch);
-                if (branchHasNewCommit) {
+                
+                // Xử lý trường hợp thư mục repo không tồn tại
+                if (branchHasNewCommit && branchHasNewCommit.error === 'repo_not_exists') {
+                  this.logger?.send(`[JOB-SCHEDULER][WARN] Thư mục repo không tồn tại cho branch ${branch}, bỏ qua kiểm tra commit`);
+                  continue; // Bỏ qua branch này nhưng tiếp tục kiểm tra các branch khác
+                }
+                
+                if (branchHasNewCommit && branchHasNewCommit.hasNew) {
                   hasNewCommit = true;
                   this.logger?.send(`[JOB-SCHEDULER] Có commit mới trên branch ${branch} cho job ${latestJob.name}`);
                   break; // Chỉ cần một branch có commit mới là đủ

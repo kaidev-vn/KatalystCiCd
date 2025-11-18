@@ -297,6 +297,14 @@ class GitService {
    */
   async checkNewCommitAndPull({ repoPath, branch, repoUrl, token, provider, doPull = true }) {
     if (!repoPath) throw new Error('Chưa cấu hình repoPath');
+    
+    // Kiểm tra xem thư mục repo có tồn tại không
+    try {
+      await fs.access(repoPath);
+    } catch (error) {
+      this.logger?.send(`[GIT][JOB-CHECK][WARN] Thư mục repo không tồn tại: ${repoPath}`);
+      return { ok: false, hasNew: false, error: 'repo_not_exists', message: `Thư mục repo không tồn tại: ${repoPath}` };
+    }
     const cfg = this.configService.getConfig();
     const effectiveToken = typeof token === 'string' ? token : cfg?.token;
     const effectiveRepoUrl = typeof repoUrl === 'string' ? repoUrl : cfg?.repoUrl || '';

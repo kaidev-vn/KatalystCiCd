@@ -363,7 +363,7 @@ class JobService {
     // Sử dụng configService đã được inject từ constructor
     const cfg = this.configService ? this.configService.getConfig() : {};
     
-    // Lấy base context từ config
+    // Lấy base context từ config - ưu tiên contextInitPath từ config.json
     const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
     
     // Trích xuất tên repository từ URL
@@ -377,7 +377,8 @@ class JobService {
       }
     }
     
-    // Tạo đường dẫn: baseContext/Katalyst/repo/repo-name
+    // Tạo đường dẫn theo định dạng: baseContext/Katalyst/repo/repo-name
+    // Nếu baseContext là D:\SOURCE-CODE, kết quả sẽ là D:\SOURCE-CODE\Katalyst\repo\repo-name
     return path.join(baseContext, 'Katalyst', 'repo', repoName);
   }
 
