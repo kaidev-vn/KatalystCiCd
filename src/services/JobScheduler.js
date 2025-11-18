@@ -116,6 +116,9 @@ class JobScheduler {
         }
 
         let shouldRun = true;
+        let hasNewCommit = false;
+        let latestCommitHash = null;
+        let latestBranchWithCommit = null;
         
         // Kiểm tra commit mới trước khi thêm vào queue - hỗ trợ multi-branch
         if (latestJob.gitConfig?.repoUrl && this.gitService) {
@@ -137,10 +140,6 @@ class JobScheduler {
                 }
               }
             }
-            
-            let hasNewCommit = false;
-            let latestCommitHash = null;
-            let latestBranchWithCommit = null;
             
             // Kiểm tra từng branch
             for (const branch of branchesToProcess) {
