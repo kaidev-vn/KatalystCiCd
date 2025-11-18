@@ -393,6 +393,15 @@ class GitService {
         return { ok: false, hasNew: true, remoteHash, localHash, updated: false, error: 'reset_failed', stderr: resetRes.stderr };
       }
       this.logger?.send('[GIT][JOB-RESET] Đã reset về origin thành công.');
+    } else {
+      // Sau khi pull thành công, đảm bảo local branch trỏ chính xác đến commit mới
+      // Bằng cách reset hard về commit remoteHash để đảm bảo đồng bộ hoàn toàn
+      const resetRes = await run(`git -C "${repoPath}" reset --hard ${remoteHash}`, this.logger);
+      if (resetRes.error) {
+        this.logger?.send(`[GIT][JOB-RESET][WARN] Reset về commit ${remoteHash} thất bại: ${resetRes.error.message}`);
+      } else {
+        this.logger?.send(`[GIT][JOB-RESET] Đã reset về commit mới: ${remoteHash}`);
+      }
     }
 
     // After pull/reset, mark updated
