@@ -81,7 +81,7 @@ class QueueController {
       }
 
       // Uỷ quyền cho JobController để tránh trùng lặp và đảm bảo kiểm tra commit mới
-      const buildResult = await this.jobController.executeJobBuild(job);
+      const buildResult = await this.jobController.executeJobBuild(job, queueJob.metadata);
       // Cập nhật thống kê job sau khi hoàn thành
       try { this.jobService.updateJobStats(queueJob.jobId, buildResult); } catch (_) {}
       
