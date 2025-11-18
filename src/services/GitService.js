@@ -353,6 +353,12 @@ class GitService {
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
     this.logger?.send(`[GIT][JOB-CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
+    
+    // Nếu không tìm thấy branch trên remote, không thể kiểm tra commit mới
+    if (!remoteHash) {
+      this.logger?.send(`[GIT][JOB-CHECK][WARN] Không tìm thấy branch ${branch} trên remote. Không thể kiểm tra commit mới.`);
+      return { ok: false, hasNew: false, error: 'branch_not_found', message: `Không tìm thấy branch ${branch} trên remote` };
+    }
 
     let commitMessage = '';
     if (remoteHash) {
