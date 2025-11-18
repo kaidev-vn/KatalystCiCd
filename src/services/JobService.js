@@ -183,13 +183,17 @@ class JobService {
         repoPath: jobData.gitConfig?.repoPath || this._generateRepoPath(jobData.gitConfig?.repoUrl),
         branch: jobData.gitConfig?.branch || 'main',
         // Multiple branches configuration
-        branches: jobData.gitConfig?.branches || [
+        branches: (jobData.gitConfig?.branches || [
           {
             name: jobData.gitConfig?.branch || 'main',
             tagPrefix: 'RELEASE',
             enabled: true
           }
-        ]
+        ]).map(branchConfig => ({
+          ...branchConfig,
+          // Tạo repoPath riêng cho mỗi branch nếu chưa có
+          repoPath: branchConfig.repoPath || this._generateBranchRepoPath(jobData.gitConfig?.repoUrl, branchConfig.name)
+        }))
       },
       
       // Build Configuration
@@ -380,6 +384,36 @@ class JobService {
     // Tạo đường dẫn theo định dạng: baseContext/Katalyst/repo/repo-name
     // Nếu baseContext là D:\SOURCE-CODE, kết quả sẽ là D:\SOURCE-CODE\Katalyst\repo\repo-name
     return path.join(baseContext, 'Katalyst', 'repo', repoName);
+  }
+
+  /**
+   * Tự động tạo repoPath riêng cho từng branch
+   * @private
+   * @param {string} repoUrl - Repository URL
+   * @param {string} branchName - Tên branch
+   * @returns {string} Đường dẫn repository riêng cho branch
+   */
+  _generateBranchRepoPath(repoUrl, branchName) {
+    // Sử dụng configService đã được inject từ constructor
+    const cfg = this.configService ? this.configService.getConfig() : {};
+    
+    // Lấy base context từ config - ưu tiên contextInitPath từ config.json
+    const baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '/opt';
+    
+    // Trích xuất tên repository từ URL
+    let repoName = 'unknown-repo';
+    if (repoUrl) {
+      try {
+        const urlParts = repoUrl.split('/');
+        repoName = urlParts[urlParts.length - 1].replace('.git', '');
+      } catch (e) {
+        this.logger?.send(`[JOB-SERVICE] Không thể trích xuất tên repo từ URL: ${repoUrl}`);
+      }
+    }
+    
+    // Tạo đường dẫn theo định dạng: baseContext/Katalyst/repo/repo-name/branch-name
+    // Nếu baseContext là D:\SOURCE-CODE, kết quả sẽ là D:\SOURCE-CODE\Katalyst\repo\repo-name\branch-name
+    return path.join(baseContext, 'Katalyst', 'repo', repoName, branchName);
   }
 
   /**
