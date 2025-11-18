@@ -671,12 +671,12 @@ class JobService {
   shouldBuildCommit(jobId, commitHash) {
     const job = this.getJobById(jobId);
     if (!job) {
-      return { shouldBuild: false, reason: 'Job not found' };
+      return { shouldBuild: false, reason: 'Job not found', commitHash: null };
     }
 
     // Nếu không có commit hash, luôn build (cho các trường hợp không dùng git)
     if (!commitHash) {
-      return { shouldBuild: true, reason: 'No commit hash provided' };
+      return { shouldBuild: true, reason: 'No commit hash provided', commitHash: null };
     }
 
     // Lấy lịch sử build từ build service
@@ -689,7 +689,7 @@ class JobService {
 
     // Nếu commit này chưa từng được build, build nó
     if (buildsForCommit.length === 0) {
-      return { shouldBuild: true, reason: 'New commit, never built before' };
+      return { shouldBuild: true, reason: 'New commit, never built before', commitHash };
     }
 
     // Nếu commit này đã build thành công trước đó, không build lại
@@ -697,7 +697,8 @@ class JobService {
     if (successfulBuild) {
       return { 
         shouldBuild: false, 
-        reason: 'Commit already built successfully before' 
+        reason: 'Commit already built successfully before',
+        commitHash 
       };
     }
 
@@ -706,7 +707,8 @@ class JobService {
     if (runningBuild) {
       return { 
         shouldBuild: false, 
-        reason: 'Commit is currently being built' 
+        reason: 'Commit is currently being built',
+        commitHash 
       };
     }
 
@@ -715,12 +717,13 @@ class JobService {
     if (failedBuild) {
       return { 
         shouldBuild: false, 
-        reason: 'Commit failed before, not rebuilding to avoid infinite loop' 
+        reason: 'Commit failed before, not rebuilding to avoid infinite loop',
+        commitHash 
       };
     }
 
     // Mặc định build nếu không xác định được trạng thái
-    return { shouldBuild: true, reason: 'Unknown build status, proceeding with build' };
+    return { shouldBuild: true, reason: 'Unknown build status, proceeding with build', commitHash };
   }
 
   /**

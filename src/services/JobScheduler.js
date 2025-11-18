@@ -139,6 +139,8 @@ class JobScheduler {
             }
             
             let hasNewCommit = false;
+            let latestCommitHash = null;
+            let latestBranchWithCommit = null;
             
             // Kiểm tra từng branch
             for (const branch of branchesToProcess) {
@@ -160,7 +162,9 @@ class JobScheduler {
                 
                 if (branchHasNewCommit && branchHasNewCommit.hasNew) {
                   hasNewCommit = true;
-                  this.logger?.send(`[JOB-SCHEDULER] Có commit mới trên branch ${branch} cho job ${latestJob.name}`);
+                  latestCommitHash = branchHasNewCommit.commitHash || branchHasNewCommit.remoteHash;
+                  latestBranchWithCommit = branch;
+                  this.logger?.send(`[JOB-SCHEDULER] Có commit mới trên branch ${branch} cho job ${latestJob.name}: ${latestCommitHash}`);
                   break; // Chỉ cần một branch có commit mới là đủ
                 }
               } catch (branchError) {
@@ -201,27 +205,29 @@ class JobScheduler {
             
             let shouldBuildAnyBranch = false;
             
-            // Kiểm tra từng branch
-            for (const branch of branchesToProcess) {
+            // Kiểm tra từng branch - chỉ kiểm tra branch có commit mới
+            if (hasNewCommit && latestBranchWithCommit && latestCommitHash) {
               try {
                 const jobWithBranch = { 
                   ...latestJob, 
-                  gitConfig: { ...gc, branch },
+                  gitConfig: { ...gc, branch: latestBranchWithCommit },
                   repoPath: latestJob.repoPath // Đảm bảo repoPath được truyền đúng cách
                 };
-                const shouldBuildResult = await this.jobService.shouldBuildCommit(jobWithBranch.id, null);
+                const shouldBuildResult = await this.jobService.shouldBuildCommit(jobWithBranch.id, latestCommitHash);
                 console.log('shouldBuildResult', shouldBuildResult);
                 
                 if (shouldBuildResult.shouldBuild) {
                   shouldBuildAnyBranch = true;
-                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${branch} cần được build`);
-                  break; // Chỉ cần một branch cần build là đủ
+                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${latestBranchWithCommit} cần được build`);
                 } else {
-                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${branch} đã được build trước đó (status: ${shouldBuildResult.reason})`);
+                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${latestBranchWithCommit} đã được build trước đó (status: ${shouldBuildResult.reason})`);
                 }
               } catch (branchError) {
-                this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra lịch sử build trên branch ${branch}: ${branchError.message}`);
+                this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra lịch sử build trên branch ${latestBranchWithCommit}: ${branchError.message}`);
               }
+            } else {
+              // Nếu không có commit mới, không cần kiểm tra build history
+              shouldBuildAnyBranch = false;
             }
             
             if (!shouldBuildAnyBranch) {
