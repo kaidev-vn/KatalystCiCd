@@ -3,7 +3,10 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { QueueService } = require('./QueueService');
 const { getSecretManager } = require('../utils/secrets');
+<<<<<<< HEAD
 const { DataStorageService } = require('./DataStorageService');
+=======
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
 
 /**
  * JobService - Service quản lý jobs (CRUD operations)
@@ -15,16 +18,24 @@ class JobService {
    * Tạo JobService instance
    * @constructor
    * @param {Object} logger - Logger instance
+<<<<<<< HEAD
    * @param {Object} [jobController] - JobController instance (optional)
    * @param {Object} [configService] - ConfigService instance (optional)
    */
   constructor(logger, jobController, configService) {
+=======
+   */
+  constructor(logger) {
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
     this.logger = logger;
     this.jobController = jobController;
     this.configService = configService;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
     this.secretManager = getSecretManager();
+<<<<<<< HEAD
     this.storageService = new DataStorageService({ logger, dataDir: path.dirname(this.jobsFile) });
+=======
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
     this.ensureJobsFile();
     
     // Track running jobs to prevent polling spam
@@ -50,6 +61,7 @@ class JobService {
   }
 
   /**
+<<<<<<< HEAD
    * Job executor function cho QueueService
    * @private
    * @param {Object} queueJob - Queue job object
@@ -78,6 +90,8 @@ class JobService {
   }
 
   /**
+=======
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
    * Đảm bảo file jobs.json tồn tại
    * @private
    * @returns {void}
@@ -337,6 +351,7 @@ class JobService {
   }
 
   /**
+<<<<<<< HEAD
    * Đánh dấu job đang chạy
    * @param {string} jobId - Job ID
    * @returns {boolean} True nếu thành công
@@ -634,11 +649,16 @@ class JobService {
   }
 
   /**
+=======
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
    * Cập nhật thống kê job sau khi build
    * @param {string} jobId - Job ID
    * @param {Object} buildResult - Kết quả build
    * @param {boolean} buildResult.success - Build có thành công không
+<<<<<<< HEAD
    * @param {string} [buildResult.commitHash] - Commit hash của build
+=======
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
    * @returns {Object} Job object đã cập nhật
    * @throws {Error} Nếu job không tồn tại
    */
@@ -661,6 +681,7 @@ class JobService {
   }
 
   /**
+<<<<<<< HEAD
    * Kiểm tra xem commit đã được build trước đó chưa và có thất bại không
    * @param {string} jobId - Job ID
    * @param {string} commitHash - Commit hash cần kiểm tra
@@ -751,6 +772,8 @@ class JobService {
   }
 
   /**
+=======
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
    * Lấy danh sách jobs đã enabled và có autoCheck
    * @returns {Array<Object>} Danh sách enabled jobs
    */
@@ -844,6 +867,7 @@ class JobService {
     const job = this.getJobById(jobId);
     if (!job) return null;
     
+<<<<<<< HEAD
     try {
       return {
         ...job,
@@ -880,6 +904,24 @@ class JobService {
         }
       };
     }
+=======
+    return {
+      ...job,
+      gitConfig: {
+        ...job.gitConfig,
+        token: this.secretManager.decrypt(job.gitConfig?.token || '') // ✅ Decrypt
+      },
+      buildConfig: {
+        ...job.buildConfig,
+        dockerConfig: {
+          ...job.buildConfig?.dockerConfig,
+          registryPassword: this.secretManager.decrypt(job.buildConfig?.dockerConfig?.registryPassword || '') // ✅ Decrypt
+        },
+        // Script config
+        registryPassword: this.secretManager.decrypt(job.buildConfig?.registryPassword || '') // ✅ Decrypt
+      }
+    };
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
   }
   
   /**

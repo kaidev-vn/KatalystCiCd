@@ -1,6 +1,10 @@
 /**
  * Logger - SSE (Server-Sent Events) logger cho realtime log streaming
+<<<<<<< HEAD
  * Hỗ trợ multiple channels: mỗi job có log stream riêng
+=======
+ * Broadcast logs tới tất cả connected clients qua HTTP SSE endpoint
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
  * @class
  */
 class Logger {
@@ -14,7 +18,11 @@ class Logger {
   }
 
   /**
+<<<<<<< HEAD
    * Đăng ký SSE endpoints vào Express app
+=======
+   * Đăng ký SSE endpoint vào Express app
+>>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
    * @param {Object} app - Express app instance
    * @returns {void}
    */

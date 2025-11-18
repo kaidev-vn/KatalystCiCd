@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "docs": "jsdoc -c jsdoc.json",
     "docs:serve": "npm run docs && npx http-server docs/ -p 8080"
   },
   "keywords": [
