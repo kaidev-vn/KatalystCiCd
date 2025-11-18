@@ -1,5 +1,6 @@
 const { run } = require('../utils/exec');
 const { nextTag, nextTagWithConfig,nextSplitTag, splitTagIntoParts } = require('../utils/tag');
+const { pathExists, normalizePathForOS } = require('../utils/file');
 
 /**
  * GitService - Service quản lý Git operations
@@ -303,12 +304,18 @@ class GitService {
     }
     
     // Kiểm tra xem thư mục repo có tồn tại không
-    try {
-      await fs.access(repoPath);
-    } catch (error) {
-      this.logger?.send(`[GIT][JOB-CHECK][WARN] Thư mục repo không tồn tại: ${repoPath}`);
-      return { ok: false, hasNew: false, error: 'repo_not_exists', message: `Thư mục repo không tồn tại: ${repoPath}` };
+    // Chuẩn hóa đường dẫn cho hệ điều hành hiện tại
+    const normalizedRepoPath = normalizePathForOS(repoPath);
+    
+    // Kiểm tra xem đường dẫn có tồn tại không
+    const exists = await pathExists(normalizedRepoPath);
+    if (!exists) {
+      this.logger?.send(`[GIT][JOB-CHECK][WARN] Thư mục repo không tồn tại: ${normalizedRepoPath} (original: ${repoPath})`);
+      return { ok: false, hasNew: false, error: 'repo_not_exists', message: `Thư mục repo không tồn tại: ${normalizedRepoPath}` };
     }
+    
+    // Sử dụng đường dẫn đã chuẩn hóa cho các thao tác tiếp theo
+    repoPath = normalizedRepoPath;
     const cfg = this.configService.getConfig();
     const effectiveToken = typeof token === 'string' ? token : cfg?.token;
     const effectiveRepoUrl = typeof repoUrl === 'string' ? repoUrl : cfg?.repoUrl || '';

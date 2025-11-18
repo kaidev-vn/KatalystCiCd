@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 /**
  * Đảm bảo thư mục chứa file tồn tại (recursive mkdir)
@@ -59,4 +60,54 @@ function timestamp() {
   return `${yyyy}${MM}${dd}-${hh}${mm}${ss}`;
 }
 
-module.exports = { ensureDir, readJson, writeJson, timestamp };
+/**
+ * Kiểm tra xem hệ thống đang chạy trên Windows hay Linux/Unix
+ * @returns {boolean} True nếu đang chạy trên Windows
+ */
+function isWindows() {
+  return os.platform() === 'win32';
+}
+
+/**
+ * Kiểm tra xem đường dẫn có tồn tại và có thể truy cập được không
+ * @param {string} path - Đường dẫn cần kiểm tra
+ * @returns {Promise<boolean>} True nếu đường dẫn tồn tại và có thể truy cập
+ */
+async function pathExists(path) {
+  try {
+    await fs.promises.access(path);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Chuyển đổi đường dẫn Linux sang Windows format nếu cần thiết
+ * @param {string} linuxPath - Đường dẫn Linux format
+ * @returns {string} Đường dẫn phù hợp với hệ điều hành hiện tại
+ */
+function normalizePathForOS(linuxPath) {
+  if (isWindows()) {
+    // Trên Windows, chuyển đổi đường dẫn Linux sang Windows format
+    // Ví dụ: /opt/Katalyst/repo/system -> C:\opt\Katalyst\repo\system
+    const windowsPath = linuxPath
+      .replace(/^\//, 'C:\\') // Thay / đầu bằng C:\
+      .replace(/\//g, '\\'); // Thay tất cả / bằng \
+    
+    return windowsPath;
+  }
+  
+  // Trên Linux/Unix, giữ nguyên đường dẫn
+  return linuxPath;
+}
+
+module.exports = { 
+  ensureDir, 
+  readJson, 
+  writeJson, 
+  timestamp,
+  isWindows,
+  pathExists,
+  normalizePathForOS 
+};
