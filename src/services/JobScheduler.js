@@ -143,17 +143,9 @@ class JobScheduler {
             // Kiểm tra từng branch
             for (const branch of branchesToProcess) {
               try {
-                // Tìm repoPath cụ thể cho branch này (nếu có trong mảng branches)
-                let branchRepoPath = gc.repoPath;
-                if (gc.branches && Array.isArray(gc.branches)) {
-                  const branchConfig = gc.branches.find(b => b.name === branch);
-                  if (branchConfig && branchConfig.repoPath) {
-                    branchRepoPath = branchConfig.repoPath;
-                  }
-                }
-                
+                // Luôn sử dụng repoPath chính từ cấp root cho tất cả các branch
                 const branchHasNewCommit = await this.gitService.checkNewCommitAndPull({
-                  repoPath: branchRepoPath,
+                  repoPath: gc.repoPath,
                   branch: branch,
                   repoUrl: gc.repoUrl,
                   token: gc.token,
