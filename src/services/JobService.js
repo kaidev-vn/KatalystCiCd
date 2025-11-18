@@ -68,8 +68,8 @@ class JobService {
         throw new Error(`Job not found: ${jobId}`);
       }
       
-      // Gọi executeJobBuild từ jobController
-      return await this.jobController.executeJobBuild(job);
+      // Gọi executeJobBuild từ jobController với metadata từ queue job
+      return await this.jobController.executeJobBuild(job, queueJob.metadata);
       
     } catch (error) {
       this.logger?.send(`[JOB-EXECUTOR] Lỗi thực thi job: ${error.message}`);

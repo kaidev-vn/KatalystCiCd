@@ -253,7 +253,10 @@ class JobScheduler {
             maxRetries: 1,
             metadata: {
               source: 'polling',
-              triggerMethod: latestTriggerMethod
+              triggerMethod: latestTriggerMethod,
+              skipGitCheck: true, // Bỏ qua kiểm tra git khi job được trigger từ polling
+              commitHash: latestCommitHash,
+              branch: latestBranchWithCommit
             }
           });
         } catch (e) {

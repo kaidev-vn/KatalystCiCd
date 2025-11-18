@@ -519,7 +519,7 @@ class JobController {
   }
 
   // Execute job build (internal method)
-  async executeJobBuild(job) {
+  async executeJobBuild(job, metadata = {}) {
     try {
       console.log(`[JOB] Starting build for job: ${job.name} (${job.id})`);
       
@@ -610,44 +610,53 @@ class JobController {
         let hasNewCommit = false;
         let lastCommitHash = null;
         
-        for (const branchConfig of branchesToProcess) {
-          const branch = branchConfig.name;
-          
-          // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
-          const actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
+        // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
+        if (metadata.skipGitCheck) {
+          this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
+          hasNewCommit = true;
+          lastCommitHash = metadata.commitHash;
+          this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
+        } else {
+          // Thực hiện kiểm tra commit thông thường
+          for (const branchConfig of branchesToProcess) {
+            const branch = branchConfig.name;
+            
+            // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
+            const actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
 
-          this.logger?.send(`[JOB] Kiểm tra commit mới cho branch ${branch} tại ${actualRepoPath}`);
+            this.logger?.send(`[JOB] Kiểm tra commit mới cho branch ${branch} tại ${actualRepoPath}`);
 
-          if (this.gitService && actualRepoPath) {
-            const check = await this.gitService.checkNewCommitAndPull({
-              repoPath: actualRepoPath,
-              branch,
-              repoUrl,
-              token,
-              provider,
-              doPull: true
-            });
-            if (!check.ok) {
-              console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
-              continue;
-            }
-            if (check.hasNew) {
-              hasNewCommit = true;
-              lastCommitHash = check.remoteHash;
-              this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
-              break; // Chỉ cần một commit mới để trigger build
+            if (this.gitService && actualRepoPath) {
+              const check = await this.gitService.checkNewCommitAndPull({
+                repoPath: actualRepoPath,
+                branch,
+                repoUrl,
+                token,
+                provider,
+                doPull: true
+              });
+              if (!check.ok) {
+                console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
+                continue;
+              }
+              if (check.hasNew) {
+                hasNewCommit = true;
+                lastCommitHash = check.remoteHash;
+                this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
+                break; // Chỉ cần một commit mới để trigger build
+              }
             }
           }
-        }
-        
-        if (!hasNewCommit) {
-          this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} trên các branches: ${branchesToProcess.map(b => b.name).join(', ')}. Bỏ qua build.`);
-          return {
-            success: true,
-            buildId: `skip-${Date.now()}`,
-            status: 'skipped',
-            message: 'No new commit on any branch, build skipped'
-          };
+          
+          if (!hasNewCommit) {
+            this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} trên các branches: ${branchesToProcess.map(b => b.name).join(', ')}. Bỏ qua build.`);
+            return {
+              success: true,
+              buildId: `skip-${Date.now()}`,
+              status: 'skipped',
+              message: 'No new commit on any branch, build skipped'
+            };
+          }
         }
         
         this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
