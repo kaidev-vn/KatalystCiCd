@@ -260,6 +260,9 @@ class JobService {
       }
     };
 
+    // Tự động tạo repoPath nếu bị thiếu (đảm bảo tính nhất quán)
+    this._ensureRepoPath(newJob);
+    
     jobs.push(newJob);
     this.saveJobs(jobs);
     
@@ -284,14 +287,18 @@ class JobService {
       throw new Error('Job not found');
     }
 
-    // Update job data
-    jobs[jobIndex] = {
+    // Merge dữ liệu cập nhật
+    const updatedJob = {
       ...jobs[jobIndex],
       ...updateData,
       id: jobId, // Ensure ID doesn't change
       updatedAt: new Date().toISOString()
     };
 
+    // Tự động tạo repoPath nếu bị thiếu
+    this._ensureRepoPath(updatedJob);
+
+    jobs[jobIndex] = updatedJob;
     this.saveJobs(jobs);
     return jobs[jobIndex];
   }
@@ -414,6 +421,37 @@ class JobService {
     // Tạo đường dẫn theo định dạng: baseContext/Katalyst/repo/repo-name/branch-name
     // Nếu baseContext là D:\SOURCE-CODE, kết quả sẽ là D:\SOURCE-CODE\Katalyst\repo\repo-name\branch-name
     return path.join(baseContext, 'Katalyst', 'repo', repoName, branchName);
+  }
+
+  /**
+   * Đảm bảo job có repoPath hợp lệ, tự động tạo nếu bị thiếu
+   * @private
+   * @param {Object} job - Job object
+   * @returns {void}
+   */
+  _ensureRepoPath(job) {
+    const gc = job.gitConfig || {};
+    
+    // Chỉ xử lý nếu job có gitConfig và repoUrl
+    if (!gc.repoUrl) {
+      return;
+    }
+    
+    // Nếu repoPath đã tồn tại, không cần làm gì
+    if (gc.repoPath) {
+      return;
+    }
+    
+    // Tự động tạo repoPath dựa trên repoUrl
+    const repoPath = this._generateRepoPath(gc.repoUrl);
+    
+    // Cập nhật job với repoPath mới
+    job.gitConfig = {
+      ...gc,
+      repoPath: repoPath
+    };
+    
+    this.logger?.send(`[JOB-SERVICE] Đã tự động tạo repoPath: ${repoPath}`);
   }
 
   /**
