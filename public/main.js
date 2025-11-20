@@ -934,7 +934,7 @@ async function loadVersions() {
   });
   renderItems(buildBox, buildList, async (_file) => {
     // (Tùy chọn) có thể thêm API rollback cho builds nếu cần.
-    alert('Hiện chưa hỗ trợ rollback trực tiếp cho builds. Bạn có thể mở file trong thư mục builds_versions và khôi phục thủ công.');
+    showInfoToast('Hiện chưa hỗ trợ rollback trực tiếp cho builds. Bạn có thể mở file trong thư mục builds_versions và khôi phục thủ công.');
   });
 }
 
@@ -943,7 +943,7 @@ async function addBuild() {
   const envText = $('buildEnv').value.trim();
   let env = {};
   if (envText) {
-    try { env = JSON.parse(envText); } catch (e) { alert('ENV không hợp lệ (JSON)'); return; }
+    try { env = JSON.parse(envText); } catch (e) { showErrorToast('ENV không hợp lệ (JSON)'); return; }
   }
   const steps = $('buildSteps').value.split('\n').map(s => s.trim()).filter(Boolean);
   const res = await fetch('/api/builds', {
@@ -1271,7 +1271,7 @@ if (browseRepoBtn && !browseRepoBtn.dataset.boundFallback) {
                    suggestions.map((path, i) => `${i + 1}. ${path}`).join('\n') + 
                    `\n\n📋 Vui lòng sao chép và dán đường dẫn vào ô input.`;
     
-    alert(message);
+    showErrorToast(message);
   });
 }
 
@@ -1333,7 +1333,7 @@ async function saveEditedBuild() {
   const editBuildStepsEl = $('editBuildSteps');
   
   if (!editBuildNameEl || !editBuildEnvEl || !editBuildStepsEl) {
-    alert('Không tìm thấy các trường cần thiết');
+    showErrorToast('Không tìm thấy các trường cần thiết');
     return;
   }
   
@@ -1341,7 +1341,7 @@ async function saveEditedBuild() {
   const envText = editBuildEnvEl.value.trim();
   let env = {};
   if (envText) {
-    try { env = JSON.parse(envText); } catch (e) { alert('ENV không hợp lệ (JSON)'); return; }
+    try { env = JSON.parse(envText); } catch (e) { showErrorToast('ENV không hợp lệ (JSON)'); return; }
   }
   const steps = editBuildStepsEl.value.split('\n').map(s => s.trim()).filter(Boolean);
   await fetch(`/api/builds/${editingBuildId}`, {
@@ -1399,7 +1399,7 @@ async function toggleScheduler() {
     const statusResult = await statusResponse.json();
     
     if (!statusResult.success) {
-      alert('Không thể lấy trạng thái scheduler');
+      showErrorToast('Không thể lấy trạng thái scheduler');
       return;
     }
     
@@ -1418,10 +1418,10 @@ async function toggleScheduler() {
       updateSchedulerUI(result.data);
       appendLog(`[UI] ${result.message}`);
     } else {
-      alert(`Lỗi: ${result.error}`);
+      showErrorToast(`Lỗi: ${result.error}`);
     }
   } catch (error) {
-    alert(`Lỗi khi toggle scheduler: ${error.message}`);
+    showErrorToast(`Lỗi khi toggle scheduler: ${error.message}`);
   }
 }
 
@@ -1539,7 +1539,7 @@ function hasValidConfigData(cfg) {
 // Hàm sử dụng cấu hình chung để điền vào form job
 function useCommonConfig() {
   if (!CURRENT_CFG || !hasValidConfigData(CURRENT_CFG)) {
-    alert('Không có cấu hình chung để sử dụng. Vui lòng cấu hình trong tab Cấu hình chung trước.');
+    showErrorToast('Không có cấu hình chung để sử dụng. Vui lòng cấu hình trong tab Cấu hình chung trước.');
     return;
   }
 
@@ -2194,7 +2194,7 @@ async function saveJob() {
     
     // Validate required fields
     if (!jobData.name || !jobData.gitConfig.repoUrl || !jobData.gitConfig.branch) {
-      alert('Vui lòng điền đầy đủ các trường bắt buộc (*)');
+      showErrorToast('Vui lòng điền đầy đủ các trường bắt buộc (*)');
       return;
     }
     
@@ -2210,14 +2210,14 @@ async function saveJob() {
     if (response.ok) {
       hideJobModal();
       loadJobs();
-      alert(editingJobId ? 'Job đã được cập nhật!' : 'Job đã được tạo thành công!');
+      showSuccessToast(editingJobId ? 'Job đã được cập nhật!' : 'Job đã được tạo thành công!');
     } else {
       const error = await response.text();
-      alert('Lỗi khi lưu job: ' + error);
+      showErrorToast('Lỗi khi lưu job: ' + error);
     }
   } catch (error) {
     console.error('Error saving job:', error);
-    alert('Lỗi khi lưu job: ' + error.message);
+    showErrorToast('Lỗi khi lưu job: ' + error.message);
   }
 }
 
@@ -2234,14 +2234,14 @@ async function deleteJob(jobId) {
     const response = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
     if (response.ok) {
       loadJobs();
-      alert('Job đã được xóa!');
+      showSuccessToast('Job đã được xóa!');
     } else {
       const error = await response.text();
-      alert('Lỗi khi xóa job: ' + error);
+      showErrorToast('Lỗi khi xóa job: ' + error);
     }
   } catch (error) {
     console.error('Error deleting job:', error);
-    alert('Lỗi khi xóa job: ' + error.message);
+    showErrorToast('Lỗi khi xóa job: ' + error.message);
   }
 }
 
@@ -2250,15 +2250,15 @@ async function runJob(jobId) {
   try {
     const response = await fetch(`/api/jobs/${jobId}/run`, { method: 'POST' });
     if (response.ok) {
-      alert('Job đã được khởi chạy!');
+      showSuccessToast('Job đã được khởi chạy!');
       loadJobs(); // Refresh to show updated status
     } else {
       const error = await response.text();
-      alert('Lỗi khi chạy job: ' + error);
+      showErrorToast('Lỗi khi chạy job: ' + error);
     }
   } catch (error) {
     console.error('Error running job:', error);
-    alert('Lỗi khi chạy job: ' + error.message);
+    showErrorToast('Lỗi khi chạy job: ' + error.message);
   }
 }
 

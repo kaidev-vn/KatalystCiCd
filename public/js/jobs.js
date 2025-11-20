@@ -15,7 +15,7 @@ function splitTagLocal(tag) {
 export function useCommonConfig() {
   const cfg = state.CURRENT_CFG;
   if (!cfg) {
-    alert('Không có cấu hình chung để sử dụng. Vui lòng vào tab Cấu hình chung để lưu cấu hình trước.');
+    showErrorToast('Không có cấu hình chung để sử dụng. Vui lòng vào tab Cấu hình chung để lưu cấu hình trước.');
     return;
   }
 
@@ -62,7 +62,7 @@ export function useCommonConfig() {
   updateJobTagPreview();
   updateJobScriptTagPreview();
 
-  alert('Đã áp dụng cấu hình chung vào form Job.');
+  showSuccessToast('Đã áp dụng cấu hình chung vào form Job.');
 }
 
 export async function loadJobs() {
@@ -403,7 +403,7 @@ export function copyWebhookUrl() {
   if (webhookUrlDisplay) {
     webhookUrlDisplay.select();
     document.execCommand('copy');
-    alert('✅ Webhook URL đã được copy vào clipboard!');
+    showSuccessToast('✅ Webhook URL đã được copy vào clipboard!');
   }
 }
 
@@ -420,17 +420,17 @@ export async function showWebhookSecret() {
           if (confirm('⚠️ Secret token đang hiển thị!\n\nẤn OK để copy vào clipboard, Cancel để ẩn lại.')) {
             webhookSecretDisplay.select();
             document.execCommand('copy');
-            alert('✅ Secret token đã được copy!');
+            showSuccessToast('✅ Secret token đã được copy!');
           }
           webhookSecretDisplay.type = 'password';
           webhookSecretDisplay.value = '••••••••••••••••';
         }, 100);
       } else {
-        alert('❌ Không thể lấy webhook secret. Vui lòng kiểm tra file .env hoặc app.js');
+        showErrorToast('❌ Không thể lấy webhook secret. Vui lòng kiểm tra file .env hoặc app.js');
       }
     } catch (error) {
       console.error('Error fetching webhook config:', error);
-      alert('❌ Lỗi khi lấy webhook config: ' + error.message);
+      showErrorToast('❌ Lỗi khi lấy webhook config: ' + error.message);
     }
   }
 }
@@ -521,7 +521,7 @@ export async function saveJob() {
   
   if (validationErrors.length > 0) {
     const errorMessage = '❌ Lỗi validation:\n\n' + validationErrors.join('\n');
-    alert(errorMessage);
+    showErrorToast(errorMessage);
     return;
   }
   
@@ -611,7 +611,7 @@ export async function saveJob() {
   } else {
     // Show validation errors from server to help user adjust inputs
     const msg = res?.data?.error || 'Không thể lưu Job. Vui lòng kiểm tra lại các trường bắt buộc.';
-    alert(msg + (res?.data?.details ? `\n- ${res.data.details.join('\n- ')}` : ''));
+    showErrorToast(msg + (res?.data?.details ? `\n- ${res.data.details.join('\n- ')}` : ''));
   }
 }
 
