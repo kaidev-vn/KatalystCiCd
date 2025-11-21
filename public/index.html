@@ -162,7 +162,7 @@
           <div class="sidebar-divider"></div>
           <div class="system-status">
             <div class="status-indicator active"></div>
-            <span>Hệ thống hoạt động</span>
+            <!-- <span>Hệ thống hoạt động</span> -->
           </div>
         </div>
       </aside>
@@ -577,9 +577,10 @@
                   <!-- Job options will be populated dynamically -->
                 </select>
               </div>
+              <button id="toggleFilterBtn" class="btn small outline" title="Filter log theo job hiện tại">🔍 Filter theo Job</button>
+              <button id="toggleScrollBtn" class="btn small outline active" title="Tạm dừng/tiếp tục auto scroll">⏸️ Tạm dừng Scroll</button>
               <button id="copyLogs" class="btn small outline">📋 Copy</button>
               <button id="clearLogs" class="btn small secondary">🗑️ Clear</button>
-              <button id="toggleAutoScroll" class="btn small outline active">📜 Auto Scroll</button>
             </div>
           </div>
           <div id="logs" aria-live="polite" aria-atomic="false" class="logs"></div>
@@ -1348,6 +1349,32 @@
               </div>
             </div>
           </div>
+
+          <!-- Monolith Configuration -->
+          <div class="form-section">
+            <h3>🏗️ Cấu hình Monolith</h3>
+            <div class="checkbox-group">
+              <input type="checkbox" id="jobMonolith" onchange="toggleMonolithConfig(this.checked)" />
+              <label for="jobMonolith">Đây là source code monolith</label>
+            </div>
+            
+            <div id="monolithConfig" style="display: none;">
+              <div class="row">
+                <div>
+                  <label for="jobMonolithModule">Tên Module</label>
+                  <input id="jobMonolithModule" type="text" placeholder="abc" />
+                </div>
+              </div>
+              
+              <div class="row">
+                <div>
+                  <label for="jobMonolithChangePath">Đường dẫn thay đổi (JSON array)</label>
+                  <textarea id="jobMonolithChangePath" rows="4" placeholder='["module/a/*", "module/b/**"]'></textarea>
+                  <small class="muted">Nhập các đường dẫn cần kiểm tra thay đổi dưới dạng JSON array. Job sẽ chỉ được trigger khi có thay đổi trong các đường dẫn này.</small>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         <div class="modal-actions">
@@ -1412,10 +1439,10 @@
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Floating Action Button -->
+    <!-- Floating Action Button
     <div class="fab-container">
-      <button class="fab btn-fab primary pulse">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <button class="fab btn-fab primary pulse"> -->
+        <!-- <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
@@ -1442,7 +1469,7 @@
           <span>Quick Build</span>
         </button>
       </div>
-    </div>
+    </div> -->
 
     <!-- Refactored modular frontend -->
     <script src="/js/database.js"></script>

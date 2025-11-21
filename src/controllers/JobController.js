@@ -89,13 +89,6 @@ class JobController {
   async createJob(req, res) {
     try {
       const jobData = req.body;
-      // Debug: log incoming payload to help diagnose validation issues reported by user
-      try {
-        console.log('[JobController] Incoming createJob payload:', JSON.stringify(jobData, null, 2));
-      } catch (e) {
-        console.log('[JobController] Incoming createJob payload (stringify failed):', jobData);
-      }
-
       // Normalize payload to support both legacy (git/build) and new (gitConfig/buildConfig) schemas
       const normalized = this.normalizeJobPayload(jobData);
       
@@ -264,6 +257,13 @@ class JobController {
       cron: d.cron || ''
     };
 
+    // Normalize monolith config
+    const monolith = !!d.monolith;
+    const monolithConfig = d.monolithConfig || {
+      module: d.monolithModule || '',
+      changePath: Array.isArray(d.monolithChangePath) ? d.monolithChangePath : []
+    };
+
     return {
       id: d.id,
       name: d.name,
@@ -272,7 +272,9 @@ class JobController {
       gitConfig,
       buildConfig,
       services,
-      schedule
+      schedule,
+      monolith,
+      monolithConfig
     };
   }
 
@@ -565,9 +567,7 @@ class JobController {
           enabled: true
         });
       }
-      
-      console.log(`[JOB] Processing ${branchesToProcess.length} branches for job: ${job.name}`);
-      
+            
       // Nếu phương thức là jsonfile, bỏ qua chuẩn bị repo & kiểm tra commit (pipeline tự xử lý)
       // Ngược lại, chuẩn bị context và repo như bình thường
       let repoPath = '';

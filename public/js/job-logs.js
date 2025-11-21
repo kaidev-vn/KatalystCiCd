@@ -1,5 +1,5 @@
 import { $ } from './utils.js';
-import { openLogStream } from './logs.js';
+import { openLogStream, filterLogsByJob } from './logs.js';
 
 /**
  * Quản lý job logs selector và realtime streams
@@ -77,6 +77,9 @@ export class JobLogsManager {
         logsTitle.textContent = '📋 Logs Realtime';
       }
     }
+    
+    // Áp dụng filter log theo job
+    filterLogsByJob(jobId);
     
     // Mở log stream mới
     openLogStream(jobId);

@@ -279,10 +279,29 @@ export function populateJobForm(job) {
       cb.checked = (job.services || []).includes(cb.getAttribute('data-service'));
     });
   }, 150);
+
+  // Monolith configuration
+  const monolithEl = $('jobMonolith');
+  if (monolithEl) {
+    monolithEl.checked = !!job.monolith;
+    toggleMonolithConfig(!!job.monolith);
+  }
+  
+  const monolithModuleEl = $('jobMonolithModule');
+  if (monolithModuleEl) {
+    monolithModuleEl.value = job.monolithConfig?.module || '';
+  }
+  
+  const monolithChangePathEl = $('jobMonolithChangePath');
+  if (monolithChangePathEl) {
+    monolithChangePathEl.value = Array.isArray(job.monolithConfig?.changePath) 
+      ? JSON.stringify(job.monolithConfig.changePath, null, 2)
+      : '';
+  }
 }
 
 export function resetJobForm() {
-  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobJsonPipelinePath','jobPolling','jobCron'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobJsonPipelinePath','jobPolling','jobCron','jobMonolithModule','jobMonolithChangePath'].forEach(id => { const el = $(id); if (el) el.value = ''; });
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = true;
   const dockerRadio = document.getElementById('jobMethodDocker'); if (dockerRadio) dockerRadio.checked = true;
   toggleBuildMethodConfig('dockerfile');
@@ -291,6 +310,10 @@ export function resetJobForm() {
   const pollingRadio = document.getElementById('jobTriggerPolling');
   if (pollingRadio) pollingRadio.checked = true;
   toggleTriggerMethodConfig('polling');
+  
+  // Reset monolith config
+  const monolithEl = $('jobMonolith'); if (monolithEl) monolithEl.checked = false;
+  toggleMonolithConfig(false);
   
   document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]').forEach(cb => { cb.checked = false; });
 }
@@ -316,6 +339,13 @@ export function toggleBuildMethodConfig(method) {
 export function toggleScheduleConfig(show) {
   const sec = $('scheduleConfig');
   if (sec) sec.style.display = show ? 'block' : 'none';
+}
+
+export function toggleMonolithConfig(show) {
+  const monolithConfig = $('monolithConfig');
+  if (monolithConfig) {
+    monolithConfig.style.display = show ? 'block' : 'none';
+  }
 }
 
 export function toggleTriggerMethodConfig(method) {
@@ -600,7 +630,23 @@ export async function saveJob() {
     
     services: Array.from(
       document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked')
-    ).map(cb => cb.getAttribute('data-service'))
+    ).map(cb => cb.getAttribute('data-service')),
+    
+    // Monolith configuration
+    monolith: !!$('jobMonolith')?.checked,
+    monolithConfig: {
+      module: ($('jobMonolithModule')?.value || '').trim(),
+      changePath: (() => {
+        try {
+          const changePathValue = ($('jobMonolithChangePath')?.value || '').trim();
+          if (!changePathValue) return [];
+          return JSON.parse(changePathValue);
+        } catch (e) {
+          console.error('Invalid monolith changePath JSON:', e);
+          return [];
+        }
+      })()
+    }
   };
   const url = id ? `/api/jobs/${id}` : '/api/jobs';
   const method = id ? 'PUT' : 'POST';

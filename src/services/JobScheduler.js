@@ -145,12 +145,16 @@ class JobScheduler {
             for (const branch of branchesToProcess) {
               try {
                 // Luôn sử dụng repoPath chính từ cấp root cho tất cả các branch
-                const branchHasNewCommit = await this.gitService.checkNewCommitAndPull({
+                // Sử dụng phương thức mới hỗ trợ monolith condition
+                const branchHasNewCommit = await this.gitService.checkNewCommitAndPullWithMonolith({
                   repoPath: gc.repoPath,
                   branch: branch,
                   repoUrl: gc.repoUrl,
                   token: gc.token,
-                  provider: gc.provider
+                  provider: gc.provider,
+                  monolith: latestJob.monolith,
+                  monolithConfig: latestJob.monolithConfig || { module: '', changePath: [] },
+                  doPull: false // Chỉ kiểm tra, không pull ngay
                 });
                 
                 // Xử lý trường hợp thư mục repo không tồn tại

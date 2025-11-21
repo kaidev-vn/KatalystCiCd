@@ -118,6 +118,33 @@ function registerBuildsController(app, { configService, buildService, emailServi
     }
   });
 
+  // Thêm endpoint mới để hỗ trợ URL pattern của frontend
+  app.get('/api/build-history/:buildId/logs', (req, res) => {
+    try {
+      const buildId = String(req.params.buildId);
+      const logs = buildService.getBuildLogs(buildId);
+      res.type('text/plain').send(logs);
+    } catch (e) {
+      console.error('Error getting build logs:', e);
+      res.status(404).send('Build logs not found');
+    }
+  });
+
+  // Thêm endpoint download logs
+  app.get('/api/build-history/:buildId/logs/download', (req, res) => {
+    try {
+      const buildId = String(req.params.buildId);
+      const logs = buildService.getBuildLogs(buildId);
+      
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="build-${buildId}-logs.txt"`);
+      res.send(logs);
+    } catch (e) {
+      console.error('Error downloading build logs:', e);
+      res.status(404).send('Build logs not found');
+    }
+  });
+
   // Run script build
   app.post('/api/run-script', async (req, res) => {
     try {

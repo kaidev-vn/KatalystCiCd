@@ -5,12 +5,14 @@ import { loadBuildHistory, filterBuilds, refreshBuildHistory, clearBuildHistory,
 import { loadConfig, loadDeployChoices, saveConfig } from './config.js';
 import { loadRawConfigEditor, formatConfigJson, validateConfigJson, saveRawConfigJson, loadConfigVersions } from './raw-config.js';
 import { loadSchedulerStatus, toggleScheduler, restartScheduler } from './scheduler.js';
-import { openLogStream, appendLog } from './logs.js';
-import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig, useCommonConfig } from './jobs.js';
+import { openLogStream, appendLog, initLogControls } from './logs.js';
+import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig, useCommonConfig, toggleMonolithConfig } from './jobs.js';
 import { jobLogsManager } from './job-logs.js';
 import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue, loadQueueConfig } from './queue.js';
 import { toggleAdvancedTaggingSection, toggleScriptAdvancedTaggingSection, updateTagPreview, updateScriptTagPreview, updateJobTagPreview, updateJobScriptTagPreview } from './tags.js';
 import { selectAllServices, deselectAllServices } from './services.js';
+
+// Global exports will be set after DOMContentLoaded
 
 // Bootstrap
 document.addEventListener('DOMContentLoaded', () => {
@@ -152,6 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Logs stream
   openLogStream();
+  
+  // Initialize log controls
+  initLogControls();
 
   // Tag inputs
   $('imageTagNumber') && ($('imageTagNumber').addEventListener('input', updateTagPreview));
@@ -171,36 +176,47 @@ document.addEventListener('DOMContentLoaded', () => {
   $('clearQueueBtn') && ($('clearQueueBtn').addEventListener('click', clearQueue));
   loadQueueStatus();
   setInterval(loadQueueStatus, 5000);
+
+  // Setup event listeners for monolith config checkbox
+  const jobMonolithCheckbox = $('jobMonolith');
+  if (jobMonolithCheckbox) {
+    jobMonolithCheckbox.addEventListener('change', (e) => {
+      toggleMonolithConfig(e.target.checked);
+    });
+  }
+
+  // Global exports to keep backward compatibility with inline HTML handlers
+  window.selectBuildMethod = selectBuildMethod;
+  window.runDockerBuild = runDockerBuild;
+  window.runScriptBuild = runScriptBuild;
+  window.runCheckPullBuild = runCheckPullBuild;
+  window.runCheckConnection = runCheckConnection;
+  window.refreshBuilds = refreshBuildHistory;
+  window.clearBuildHistory = clearBuildHistory;
+  window.showJobModal = showJobModal;
+  window.hideJobModal = hideJobModal;
+  window.saveJob = saveJob;
+  window.toggleBuildMethodConfig = toggleBuildMethodConfig;
+  window.toggleScheduleConfig = toggleScheduleConfig;
+  window.toggleAdvancedTaggingSection = toggleAdvancedTaggingSection;
+  window.toggleScriptAdvancedTaggingSection = toggleScriptAdvancedTaggingSection;
+  window.toggleMonolithConfig = toggleMonolithConfig;
+  window.updateTagPreview = updateTagPreview;
+  window.updateScriptTagPreview = updateScriptTagPreview;
+  window.updateJobTagPreview = updateJobTagPreview;
+  window.updateJobScriptTagPreview = updateJobScriptTagPreview;
+  window.toggleScheduler = toggleScheduler;
+  window.restartScheduler = restartScheduler;
+  window.loadRawConfigEditor = loadRawConfigEditor;
+  window.formatConfigJson = formatConfigJson;
+  window.validateConfigJson = validateConfigJson;
+  window.saveRawConfigJson = saveRawConfigJson;
+  window.loadConfigVersions = loadConfigVersions;
+  window.selectAllServices = selectAllServices;
+  window.deselectAllServices = deselectAllServices;
 });
 
-// Global exports to keep backward compatibility with inline HTML handlers
-window.selectBuildMethod = selectBuildMethod;
-window.runDockerBuild = runDockerBuild;
-window.runScriptBuild = runScriptBuild;
-window.runCheckPullBuild = runCheckPullBuild;
-window.runCheckConnection = runCheckConnection;
-window.refreshBuilds = refreshBuildHistory;
-window.clearBuildHistory = clearBuildHistory;
-window.showJobModal = showJobModal;
-window.hideJobModal = hideJobModal;
-window.saveJob = saveJob;
-window.toggleBuildMethodConfig = toggleBuildMethodConfig;
-window.toggleScheduleConfig = toggleScheduleConfig;
-window.toggleAdvancedTaggingSection = toggleAdvancedTaggingSection;
-window.toggleScriptAdvancedTaggingSection = toggleScriptAdvancedTaggingSection;
-window.updateTagPreview = updateTagPreview;
-window.updateScriptTagPreview = updateScriptTagPreview;
-window.updateJobTagPreview = updateJobTagPreview;
-window.updateJobScriptTagPreview = updateJobScriptTagPreview;
-window.toggleScheduler = toggleScheduler;
-window.restartScheduler = restartScheduler;
-window.loadRawConfigEditor = loadRawConfigEditor;
-window.formatConfigJson = formatConfigJson;
-window.validateConfigJson = validateConfigJson;
-window.saveRawConfigJson = saveRawConfigJson;
-window.loadConfigVersions = loadConfigVersions;
-window.selectAllServices = selectAllServices;
-window.deselectAllServices = deselectAllServices;
+
 
 document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.querySelector('.sidebar');
