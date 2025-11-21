@@ -191,6 +191,15 @@ class GitService {
     } else {
       this.logger?.send('[GIT][VALIDATION] Build history rỗng, bỏ qua repository validation');
     }
+    // Additional validation: Check if commit hash exists locally before building
+    if (remoteHash) {
+      try {
+        await run(`git -C "${repoPath}" cat-file -t ${remoteHash}`, this.logger);
+        this.logger?.send(`[GIT][INFO] Commit ${remoteHash} tồn tại trong repository`);
+      } catch (error) {
+        throw new Error(`Commit ${remoteHash} không tồn tại trong repository local: ${error.message}`);
+      }
+    }
 
     const cmds = [
       `git -C "${repoPath}" ${authConfig} fetch origin`,
