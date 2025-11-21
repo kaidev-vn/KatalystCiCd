@@ -208,15 +208,8 @@ class GitService {
     const remoteHash = remoteLine.split('\t')[0] || '';
     this.logger?.send(`[CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
     
-    // VALIDATION: Check if commit hash exists locally before proceeding
-    if (remoteHash) {
-      try {
-        await run(`git -C "${repoPath}" cat-file -t ${remoteHash}`, this.logger);
-        this.logger?.send(`[GIT][VALIDATION] Commit ${remoteHash} tồn tại trong repository`);
-      } catch (error) {
-        throw new Error(`Commit ${remoteHash} không tồn tại trong repository local - có thể repository bị corrupt: ${error.message}`);
-      }
-    }
+    // VALIDATION: Check if commit hash exists locally - AFTER FETCH/PULL
+    // Validation này sẽ được thực hiện SAU KHI fetch/pull thành công
     const r2 = await run(cmds[2], this.logger);
     if (r2.error) throw new Error('rev-parse failed');
     const localHash = (r2.stdout || '').trim();
@@ -247,6 +240,16 @@ class GitService {
         throw new Error('reset failed');
       } else {
         this.logger?.send('[RESET] Đã reset về origin thành công. Tiếp tục quy trình build.');
+      }
+    }
+
+    // VALIDATION: Check if commit hash exists locally AFTER fetch/pull
+    if (remoteHash) {
+      try {
+        await run(`git -C "${repoPath}" cat-file -t ${remoteHash}`, this.logger);
+        this.logger?.send(`[GIT][VALIDATION] Commit ${remoteHash} tồn tại trong repository`);
+      } catch (error) {
+        throw new Error(`Commit ${remoteHash} không tồn tại trong repository local sau khi fetch - cần manual intervention: ${error.message}`);
       }
     }
 
