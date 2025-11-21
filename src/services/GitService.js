@@ -25,6 +25,66 @@ class GitService {
   }
 
   /**
+   * Validate Git repository - kiểm tra repository không bị corrupt
+   * @async
+   * @private
+   * @param {string} repoPath - Đường dẫn repository
+   * @throws {Error} Nếu repository bị corrupt hoặc không hợp lệ
+   */
+  async _validateGitRepository(repoPath) {
+    // Kiểm tra thư mục repository tồn tại
+    const fs = require('fs');
+    const path = require('path');
+    
+    if (!fs.existsSync(repoPath)) {
+      throw new Error(`Repository directory does not exist: ${repoPath}`);
+    }
+    
+    // Kiểm tra có phải là Git repository
+    const gitDir = path.join(repoPath, '.git');
+    if (!fs.existsSync(gitDir)) {
+      throw new Error(`Not a Git repository: ${repoPath}`);
+    }
+    
+    // Kiểm tra Git repository integrity
+    const integrityCheck = await run(`git -C "${repoPath}" fsck --full --strict`, this.logger);
+    if (integrityCheck.error) {
+      throw new Error(`Git repository corrupt: ${integrityCheck.stderr || integrityCheck.error.message}`);
+    }
+    
+    // Kiểm tra object database
+    const objectCheck = await run(`git -C "${repoPath}" cat-file -t HEAD`, this.logger);
+    if (objectCheck.error) {
+      throw new Error(`Git object database corrupt: ${objectCheck.stderr || objectCheck.error.message}`);
+    }
+    
+    this.logger?.send(`[GIT][VALIDATION] Repository validation passed: ${repoPath}`);
+  }
+
+  /**
+   * Lấy build history từ storage
+   * @async
+   * @private
+   * @returns {Promise<Array>} Danh sách build history
+   */
+  async _getBuildHistory() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const buildHistoryPath = path.join(__dirname, '../../build-history.json');
+      
+      if (fs.existsSync(buildHistoryPath)) {
+        const content = fs.readFileSync(buildHistoryPath, 'utf8');
+        return JSON.parse(content || '[]');
+      }
+      return [];
+    } catch (error) {
+      this.logger?.send(`[GIT][WARN] Không thể đọc build history: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Kiểm tra kết nối Git repository
    * @async
    * @returns {Promise<Object>} Kết quả kiểm tra
@@ -117,6 +177,19 @@ class GitService {
       } catch (e) {
         this.logger?.send(`[GIT][WARN] Không tạo được header Authorization: ${e.message}`);
       }
+    }
+
+    // VALIDATION: Chỉ kiểm tra repository nếu có build history (tránh check không cần thiết)
+    const buildHistory = await this._getBuildHistory();
+    if (buildHistory && buildHistory.length > 0) {
+      try {
+        await this._validateGitRepository(repoPath);
+      } catch (error) {
+        this.logger?.send(`[GIT][VALIDATION-ERROR] Repository validation failed: ${error.message}`);
+        throw new Error(`Git repository corrupt or invalid: ${error.message}`);
+      }
+    } else {
+      this.logger?.send('[GIT][VALIDATION] Build history rỗng, bỏ qua repository validation');
     }
 
     const cmds = [
