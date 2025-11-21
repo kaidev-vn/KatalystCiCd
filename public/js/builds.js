@@ -69,14 +69,28 @@ export function selectBuildForLogs(buildId) {
   if (titleEl) titleEl.textContent = `📋 Logs cho Build #${buildId}`;
 }
 
-export async function loadBuildLogs(buildId) {
+export async function loadBuildLogs(buildId, limit = 500, offset = 0) {
   try {
-    const res = await fetch(`/api/build-history/${encodeURIComponent(buildId)}/logs`);
+    const url = `/api/build-history/${encodeURIComponent(buildId)}/logs?limit=${limit}&offset=${offset}`;
+    const res = await fetch(url);
     const text = await res.text();
-    const logsEl = $('logs');
-    if (logsEl) logsEl.textContent = '';
+    
+    // Chỉ xóa logs nếu là lần đầu tiên tải
+    if (offset === 0) {
+      const logsEl = $('logs');
+      if (logsEl) logsEl.textContent = '';
+    }
+    
     text.split('\n').forEach(line => appendLog(line));
-  } catch (e) { appendLog(`[UI][ERROR] ${e.message || e}`); }
+    
+    // Kiểm tra xem còn logs nào nữa không
+    if (text.trim().length > 0) {
+      // Tự động tải thêm logs nếu cần
+      setTimeout(() => loadBuildLogs(buildId, limit, offset + limit), 100);
+    }
+  } catch (e) { 
+    appendLog(`[UI][ERROR] ${e.message || e}`);
+  }
 }
 
 export function viewBuildLogs(buildId) {

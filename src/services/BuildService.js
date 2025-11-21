@@ -630,14 +630,47 @@ class BuildService {
   }
 
   // Build Logs Management
-  getBuildLogs(buildId) {
+  getBuildLogs(buildId, options = {}) {
+    const { limit = 1000, offset = 0 } = options;
     const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
 
-    if (fs.existsSync(logFile)) {
+    if (!fs.existsSync(logFile)) {
+      throw new Error(`Build logs not found for ID: ${buildId}`);
+    }
+
+    // Đọc toàn bộ file nếu không có phân trang
+    if (!limit && !offset) {
       return fs.readFileSync(logFile, 'utf8');
     }
 
-    throw new Error(`Build logs not found for ID: ${buildId}`);
+    // Phân trang: chỉ đọc phần cần thiết
+    const content = fs.readFileSync(logFile, 'utf8');
+    const lines = content.split('\n');
+    
+    // Tính toán chỉ số bắt đầu và kết thúc
+    const start = Math.max(0, offset);
+    const end = limit ? Math.min(lines.length, start + limit) : lines.length;
+    
+    return lines.slice(start, end).join('\n');
+  }
+
+  // Lấy thông tin về log file (kích thước, số dòng)
+  getBuildLogsInfo(buildId) {
+    const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
+    
+    if (!fs.existsSync(logFile)) {
+      throw new Error(`Build logs not found for ID: ${buildId}`);
+    }
+
+    const stats = fs.statSync(logFile);
+    const content = fs.readFileSync(logFile, 'utf8');
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    return {
+      size: stats.size,
+      lineCount: lines.length,
+      exists: true
+    };
   }
 
   calculateDuration(startTime, endTime) {

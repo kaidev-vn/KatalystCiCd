@@ -110,7 +110,12 @@ function registerBuildsController(app, { configService, buildService, emailServi
   app.get('/api/build-logs/:buildId', (req, res) => {
     try {
       const buildId = String(req.params.buildId);
-      const logs = buildService.getBuildLogs(buildId);
+      const { limit, offset } = req.query;
+      const options = {
+        limit: limit ? parseInt(limit) : undefined,
+        offset: offset ? parseInt(offset) : undefined
+      };
+      const logs = buildService.getBuildLogs(buildId, options);
       res.type('text/plain').send(logs);
     } catch (e) {
       console.error('Error getting build logs:', e);
@@ -118,11 +123,28 @@ function registerBuildsController(app, { configService, buildService, emailServi
     }
   });
 
+  // API để lấy thông tin về logs (kích thước, số dòng)
+  app.get('/api/build-logs/:buildId/info', (req, res) => {
+    try {
+      const buildId = String(req.params.buildId);
+      const info = buildService.getBuildLogsInfo(buildId);
+      res.json(info);
+    } catch (e) {
+      console.error('Error getting build logs info:', e);
+      res.status(404).json({ error: 'Build logs not found' });
+    }
+  });
+
   // Thêm endpoint mới để hỗ trợ URL pattern của frontend
   app.get('/api/build-history/:buildId/logs', (req, res) => {
     try {
       const buildId = String(req.params.buildId);
-      const logs = buildService.getBuildLogs(buildId);
+      const { limit, offset } = req.query;
+      const options = {
+        limit: limit ? parseInt(limit) : undefined,
+        offset: offset ? parseInt(offset) : undefined
+      };
+      const logs = buildService.getBuildLogs(buildId, options);
       res.type('text/plain').send(logs);
     } catch (e) {
       console.error('Error getting build logs:', e);
