@@ -192,14 +192,7 @@ class GitService {
       this.logger?.send('[GIT][VALIDATION] Build history rỗng, bỏ qua repository validation');
     }
     // Additional validation: Check if commit hash exists locally before building
-    if (remoteHash) {
-      try {
-        await run(`git -C "${repoPath}" cat-file -t ${remoteHash}`, this.logger);
-        this.logger?.send(`[GIT][INFO] Commit ${remoteHash} tồn tại trong repository`);
-      } catch (error) {
-        throw new Error(`Commit ${remoteHash} không tồn tại trong repository local: ${error.message}`);
-      }
-    }
+    // MOVED TO checkNewCommitAndPull METHOD TO CATCH POLLING TRIGGERS
 
     const cmds = [
       `git -C "${repoPath}" ${authConfig} fetch origin`,
@@ -214,6 +207,16 @@ class GitService {
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
     this.logger?.send(`[CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
+    
+    // VALIDATION: Check if commit hash exists locally before proceeding
+    if (remoteHash) {
+      try {
+        await run(`git -C "${repoPath}" cat-file -t ${remoteHash}`, this.logger);
+        this.logger?.send(`[GIT][VALIDATION] Commit ${remoteHash} tồn tại trong repository`);
+      } catch (error) {
+        throw new Error(`Commit ${remoteHash} không tồn tại trong repository local - có thể repository bị corrupt: ${error.message}`);
+      }
+    }
     const r2 = await run(cmds[2], this.logger);
     if (r2.error) throw new Error('rev-parse failed');
     const localHash = (r2.stdout || '').trim();
