@@ -165,7 +165,7 @@ class JobScheduler {
                 
                 if (branchHasNewCommit && branchHasNewCommit.hasNew) {
                   hasNewCommit = true;
-                  latestCommitHash = branchHasNewCommit.commitHash || branchHasNewCommit.remoteHash;
+                  latestCommitHash = branchHasNewCommit.remoteHash; // Sửa: luôn lấy remoteHash
                   latestBranchWithCommit = branch;
                   this.logger?.send(`[JOB-SCHEDULER] Có commit mới trên branch ${branch} cho job ${latestJob.name}: ${latestCommitHash}`);
                   break; // Chỉ cần một branch có commit mới là đủ

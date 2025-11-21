@@ -711,7 +711,9 @@ class JobController {
         const r = await this.buildService.runScript(
           scriptPath,
           actualRepoPath,
-          env
+          env,
+          job, // jobInfo
+          lastCommitHash // commitHash
         );
 
         // Chuẩn hóa kết quả để phù hợp với hệ thống thống kê

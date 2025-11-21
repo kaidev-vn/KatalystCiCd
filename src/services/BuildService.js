@@ -146,7 +146,7 @@ class BuildService {
    * @returns {string} return.buildId - Build instance ID
    * @throws {Error} Nếu build không tìm thấy hoặc thực thi failed
    */
-  async run(id) {
+  async run(id, jobInfo = null, commitHash = null) {
     const list = this.list();
     const it = list.find(b => b.id === id);
     if (!it) throw new Error('Không tìm thấy build');
@@ -160,7 +160,9 @@ class BuildService {
       name: it.name,
       method: 'custom',
       status: 'running',
-      startTime: startTime
+      startTime: startTime,
+      commitHash: commitHash || null,
+      jobId: jobInfo?.id || null // Thêm jobId để tracking
     });
 
     this.logger?.send(`[BUILD] Chạy build: ${it.name} (ID: ${buildId})`);
@@ -190,7 +192,9 @@ class BuildService {
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime: endTime,
-        duration: duration
+        duration: duration,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[BUILD] Hoàn tất: ${it.name} (hadError=${hadError})`);
@@ -205,7 +209,9 @@ class BuildService {
         status: 'failed',
         endTime: endTime,
         duration: duration,
-        error: error.message
+        error: error.message,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[BUILD] Lỗi: ${error.message}`);
@@ -226,7 +232,7 @@ class BuildService {
    * @returns {string} return.buildId - Build instance ID
    * @throws {Error} Nếu script failed
    */
-  async runScript(scriptPath, workingDir = null, envOverrides = {}) {
+  async runScript(scriptPath, workingDir = null, envOverrides = {}, jobInfo = null, commitHash = null) {
     const config = this.configService.getConfig();
     const buildId = `script-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
@@ -238,7 +244,9 @@ class BuildService {
       method: 'script',
       status: 'running',
       startTime: startTime,
-      scriptPath: scriptPath
+      scriptPath: scriptPath,
+      commitHash: commitHash || null,
+      jobId: jobInfo?.id || null // Thêm jobId để tracking
     });
 
     this.logger?.send(`[SCRIPT BUILD] Chạy script: ${scriptPath} (ID: ${buildId})`);
@@ -310,7 +318,9 @@ class BuildService {
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime: endTime,
-        duration: duration
+        duration: duration,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[SCRIPT BUILD] Hoàn tất: ${scriptPath} (hadError=${hadError})`);
@@ -325,7 +335,9 @@ class BuildService {
         status: 'failed',
         endTime: endTime,
         duration: duration,
-        error: error.message
+        error: error.message,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[SCRIPT BUILD] Lỗi: ${error.message}`);

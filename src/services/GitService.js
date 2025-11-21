@@ -425,28 +425,39 @@ class GitService {
     }
 
     try {
-      // Lấy danh sách files đã thay đổi trong commit
-      const cmd = `git -C "${repoPath}" diff-tree --no-commit-id --name-only -r ${commitHash}`;
+      // Đầu tiên kiểm tra xem commit có tồn tại không
+      const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
+      const checkCommitResult = await run(checkCommitCmd, this.logger);
+      
+      if (checkCommitResult.error) {
+        this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
+        return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu commit không tồn tại
+      }
+
+      // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
+      // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u
+      const cmd = `git -C "${repoPath}" diff --name-only ${commitHash}^ ${commitHash} | cut -d '/' -f1 | sort -u`;
       const { error, stdout } = await run(cmd, this.logger);
       
       if (error) {
-        this.logger?.send(`[GIT][MONOLITH-CHECK] Lỗi khi lấy danh sách files: ${error.message}`);
+        this.logger?.send(`[GIT][MONOLITH-CHECK] Lỗi khi lấy danh sách modules: ${error.message}`);
         return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu có lỗi
       }
 
-      const changedFiles = stdout.trim().split('\n').filter(Boolean);
-      this.logger?.send(`[GIT][MONOLITH-CHECK] Files changed in commit ${commitHash}: ${changedFiles.join(', ')}`);
+      const changedModules = stdout.trim().split('\n').filter(Boolean);
+      this.logger?.send(`[GIT][MONOLITH-CHECK] Modules changed in commit ${commitHash}: ${changedModules.join(', ')}`);
 
-      // Kiểm tra xem có file nào phù hợp với changePaths không
-      const hasRelevantChanges = changedFiles.some(file => {
+      // Kiểm tra xem có module nào phù hợp với changePaths không
+      const hasRelevantChanges = changedModules.some(module => {
         return changePaths.some(path => {
-          // Kiểm tra nếu file bắt đầu với đường dẫn được chỉ định
-          return file.startsWith(path);
+          // Kiểm tra nếu module khớp với đường dẫn được chỉ định
+          // Hoặc nếu đường dẫn là prefix của module
+          return module === path || module.startsWith(path);
         });
       });
 
       this.logger?.send(`[GIT][MONOLITH-CHECK] Has relevant changes for monolith: ${hasRelevantChanges}`);
-      return { hasRelevantChanges, changedFiles };
+      return { hasRelevantChanges, changedFiles: changedModules };
     } catch (error) {
       this.logger?.send(`[GIT][MONOLITH-CHECK] Lỗi khi kiểm tra monolith condition: ${error.message}`);
       return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu có lỗi
