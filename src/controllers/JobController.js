@@ -726,13 +726,19 @@ class JobController {
         // }
         console.log(`[SCRIPT] Bắt đầu thực thi script: ${scriptPath}`);
         console.log(`[SCRIPT] Working directory: ${actualRepoPath}`);
-        const r = await this.buildService.runScript(
-          scriptPath,
-          actualRepoPath,
-          env,
-          job, // jobInfo
-          lastCommitHash // commitHash
-        );
+        let r;
+        try {
+          r = await this.buildService.runScript(
+            scriptPath,
+            actualRepoPath,
+            env,
+            job, // jobInfo
+            lastCommitHash // commitHash
+          );
+        } catch (error) {
+          console.error(`[SCRIPT] Lỗi khi thực thi script: ${error.message}`);
+          r = { ok: false, error: error.message };
+        }
 
         // Chuẩn hóa kết quả để phù hợp với hệ thống thống kê
         buildResult = {
