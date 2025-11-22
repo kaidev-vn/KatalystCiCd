@@ -519,8 +519,13 @@ class GitService {
       
       if (checkCommitResult.error) {
         this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
-        // KHÔNG cho phép build nếu commit không tồn tại - đây là lỗi nghiêm trọng
-        throw new Error(`Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`);
+        // Trả về lỗi thay vì throw để xử lý ở cấp cao hơn
+        return { 
+          hasRelevantChanges: false, 
+          changedFiles: [], 
+          error: 'commit_not_found',
+          errorMessage: `Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`
+        };
       }
 
       // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
@@ -613,15 +618,16 @@ class GitService {
     // Kiểm tra monolith condition
     const { changePath = [] } = monolithConfig;
     let monolithCheck;
-    try {
-      monolithCheck = await this.checkMonolithCondition({
-        repoPath,
-        commitHash: checkResult.remoteHash,
-        changePaths: changePath
-      });
-    } catch (error) {
-      // Nếu commit không tồn tại, trả về lỗi và không cho build
-      this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${error.message}`);
+    
+    monolithCheck = await this.checkMonolithCondition({
+      repoPath,
+      commitHash: checkResult.remoteHash,
+      changePaths: changePath
+    });
+    
+    // Xử lý trường hợp commit không tồn tại
+    if (monolithCheck.error === 'commit_not_found') {
+      this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${monolithCheck.errorMessage}`);
       return { 
         ok: false, 
         hasNew: false,
@@ -630,7 +636,7 @@ class GitService {
         updated: false,
         commitMessage: checkResult.commitMessage,
         error: 'commit_not_found',
-        stderr: error.message
+        stderr: monolithCheck.errorMessage
       };
     }
 
