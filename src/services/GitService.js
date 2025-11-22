@@ -804,6 +804,7 @@ class GitService {
       return { 
         ok: true, 
         hasNew: false, // Đánh dấu là không có commit mới phù hợp
+        hasRelevantChanges: false, // Thêm thuộc tính này để JobController có thể kiểm tra
         remoteHash: checkResult.remoteHash, 
         localHash: checkResult.localHash, 
         updated: false,
@@ -825,10 +826,10 @@ class GitService {
         provider, 
         doPull: true
       });
-      return { ...pullResult, monolithChecked: true };
+      return { ...pullResult, monolithChecked: true, hasRelevantChanges: true };
     }
 
-    return { ...checkResult, monolithChecked: true };
+    return { ...checkResult, monolithChecked: true, hasRelevantChanges: true };
   }
 }
 

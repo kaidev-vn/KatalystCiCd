@@ -650,7 +650,7 @@ class JobController {
                 
                 if (check.ok && check.hasNew) {
                   // Kiểm tra xem có thay đổi phù hợp với monolith không
-                  if (!check.monolithConditionMet) {
+                  if (!check.hasRelevantChanges) {
                     this.logger?.send(`[JOB] Commit mới trên branch ${branch} nhưng không có thay đổi phù hợp với monolith module ${job.monolithConfig.module}. Bỏ qua build.`);
                     continue; // Tiếp tục kiểm tra branch khác
                   }
