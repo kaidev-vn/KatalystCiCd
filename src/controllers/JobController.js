@@ -710,27 +710,18 @@ class JobController {
           try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
         }
         const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build-script.sh');
-        this.logger?.send(`[JOB] scriptPath: ${scriptPath}`);
-        // Kiểm tra nếu script không tồn tại và tạo script mẫu
-        if (!fs.existsSync(scriptPath)) {
-          console.log(`[SCRIPT] Script không tồn tại: ${scriptPath}, tạo script mẫu...`);
-          const sampleScript = process.platform === 'win32' 
-            ? '@echo off\necho "Build script for Windows"\necho "IMAGE_NAME: %IMAGE_NAME%"\necho "IMAGE_TAG: %IMAGE_TAG%"\n' 
-            : '#!/bin/bash\necho "Build script for Linux"\necho "IMAGE_NAME: $IMAGE_NAME"\necho "IMAGE_TAG: $IMAGE_TAG"\n';
-          fs.writeFileSync(scriptPath, sampleScript, 'utf8');
-          console.log(`[SCRIPT] Đã tạo script mẫu tại: ${scriptPath}`);
-        }
-        
-        // Đảm bảo script có quyền thực thi trên Unix-like systems
-        if (process.platform !== 'win32' && fs.existsSync(scriptPath)) {
-          try {
-            fs.chmodSync(scriptPath, '755'); // Make executable on Unix
-            console.log(`[SCRIPT] Đã set quyền thực thi cho script: ${scriptPath}`);
-          } catch (error) {
-            console.log(`[SCRIPT] Lỗi khi set quyền thực thi: ${error.message}`);
-          }
-        }
 
+        this.logger?.send(`[JOB] scriptPath: ${scriptPath}`);
+     
+        // // Đảm bảo script có quyền thực thi trên Unix-like systems
+        // if (process.platform !== 'win32' && fs.existsSync(scriptPath)) {
+        //   try {
+        //     fs.chmodSync(scriptPath, '755'); // Make executable on Unix
+        //     console.log(`[SCRIPT] Đã set quyền thực thi cho script: ${scriptPath}`);
+        //   } catch (error) {
+        //     console.log(`[SCRIPT] Lỗi khi set quyền thực thi: ${error.message}`);
+        //   }
+        // }
         console.log(`[SCRIPT] Bắt đầu thực thi script: ${scriptPath}`);
         console.log(`[SCRIPT] Working directory: ${actualRepoPath}`);
         const r = await this.buildService.runScript(
@@ -766,7 +757,6 @@ class JobController {
         // For dockerfile builds, we'll need to implement docker build logic
         buildResult = await this.executeDockerBuild(job, (this.lastCommitHash || null));
       } else if (job.buildConfig.method === 'jsonfile') {
-        // Chạy pipeline theo JSON, nhưng kiểm tra commit mới nếu được cấu hình
         const pipelinePath = job.buildConfig?.jsonPipelinePath || '';
         if (!pipelinePath) throw new Error('jsonPipelinePath is required for jsonfile build method');
         
