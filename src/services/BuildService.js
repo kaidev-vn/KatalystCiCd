@@ -233,6 +233,9 @@ class BuildService {
    * @throws {Error} Nếu script failed
    */
   async runScript(scriptPath, workingDir = null, envOverrides = {}, jobInfo = null, commitHash = null) {
+    
+    this.logger?.send(`[SCRIPT] Chạy script: ${scriptPath}`);
+
     const config = this.configService.getConfig();
     const buildId = `script-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();

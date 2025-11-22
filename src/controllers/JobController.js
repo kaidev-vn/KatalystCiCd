@@ -729,7 +729,10 @@ class JobController {
         
         // Kiểm tra script path có tồn tại không
         const fs = require('fs');
-        if (!fs.existsSync(scriptPath)) {
+        const scriptExists = fs.existsSync(scriptPath);
+        console.log(`[SCRIPT] Kiểm tra script path: ${scriptPath}, tồn tại: ${scriptExists}`);
+        
+        if (!scriptExists) {
           console.error(`[SCRIPT] Lỗi: Script path không tồn tại: ${scriptPath}`);
           return {
             success: false,
