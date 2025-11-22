@@ -497,6 +497,49 @@ class GitService {
   }
 
   /**
+   * Tạo auth config string cho Git commands
+   * @private
+   * @param {Object} params - Parameters
+   * @param {string} params.token - Git token
+   * @param {string} params.provider - Git provider
+   * @returns {string} Auth config string
+   */
+  _getAuthConfig({ token, provider }) {
+    if (!token) return '';
+    
+    const effectiveProvider = String(provider || 'gitlab').toLowerCase();
+    const user = effectiveProvider === 'github' ? 'x-access-token' : 'oauth2';
+    const basic = Buffer.from(`${user}:${token}`).toString('base64');
+    return `-c http.extraHeader="Authorization: Basic ${basic}"`;
+  }
+
+  /**
+   * Tạo auth URL với token embedded
+   * @private
+   * @param {Object} params - Parameters
+   * @param {string} params.repoUrl - Repository URL
+   * @param {string} params.token - Git token
+   * @param {string} params.provider - Git provider
+   * @returns {string} Auth URL với token embedded
+   */
+  _getAuthUrl({ repoUrl, token, provider }) {
+    if (!token || !/^https?:\/\//.test(String(repoUrl))) {
+      return repoUrl;
+    }
+    
+    try {
+      const urlObj = new URL(repoUrl);
+      const effectiveProvider = String(provider || 'gitlab').toLowerCase();
+      urlObj.username = effectiveProvider === 'github' ? 'x-access-token' : 'oauth2';
+      urlObj.password = token;
+      return urlObj.toString();
+    } catch (e) {
+      this.logger?.send(`[GIT][WARN] Không tạo được auth URL: ${e.message}`);
+      return repoUrl;
+    }
+  }
+
+  /**
    * Lấy commit hash mới nhất từ remote repository (không kiểm tra local)
    * Tránh lỗi "bad object" bằng cách không sử dụng local repository
    */
