@@ -751,7 +751,7 @@ class JobController {
             actualRepoPath,
             env,
             job, // jobInfo
-            lastCommitHash // commitHash
+            lastCommitHash || null // commitHash
           );
         } catch (error) {
           console.error(`[SCRIPT] Lỗi khi thực thi script: ${error.message}`);
