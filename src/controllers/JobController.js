@@ -726,6 +726,19 @@ class JobController {
         // }
         console.log(`[SCRIPT] Bắt đầu thực thi script: ${scriptPath}`);
         console.log(`[SCRIPT] Working directory: ${actualRepoPath}`);
+        
+        // Kiểm tra script path có tồn tại không
+        const fs = require('fs');
+        if (!fs.existsSync(scriptPath)) {
+          console.error(`[SCRIPT] Lỗi: Script path không tồn tại: ${scriptPath}`);
+          return {
+            success: false,
+            buildId: `script-${Date.now()}`,
+            status: 'failed',
+            message: `Script path không tồn tại: ${scriptPath}`
+          };
+        }
+        
         let r;
         try {
           r = await this.buildService.runScript(
