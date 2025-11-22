@@ -706,6 +706,19 @@ class JobController {
         }
         const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build-script.sh');
 
+        // Kiểm tra nếu script không tồn tại và tạo script mẫu
+        if (!fs.existsSync(scriptPath)) {
+          console.log(`[SCRIPT] Script không tồn tại: ${scriptPath}, tạo script mẫu...`);
+          const sampleScript = process.platform === 'win32' 
+            ? '@echo off\necho "Build script for Windows"\necho "IMAGE_NAME: %IMAGE_NAME%"\necho "IMAGE_TAG: %IMAGE_TAG%"\n' 
+            : '#!/bin/bash\necho "Build script for Linux"\necho "IMAGE_NAME: $IMAGE_NAME"\necho "IMAGE_TAG: $IMAGE_TAG"\n';
+          fs.writeFileSync(scriptPath, sampleScript, 'utf8');
+          if (process.platform !== 'win32') {
+            fs.chmodSync(scriptPath, '755'); // Make executable on Unix
+          }
+          console.log(`[SCRIPT] Đã tạo script mẫu tại: ${scriptPath}`);
+        }
+
         console.log(`[SCRIPT] Bắt đầu thực thi script: ${scriptPath}`);
         console.log(`[SCRIPT] Working directory: ${actualRepoPath}`);
         const r = await this.buildService.runScript(
