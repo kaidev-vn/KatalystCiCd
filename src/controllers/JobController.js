@@ -661,10 +661,11 @@ class JobController {
         
         this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
         this.logger?.send(`[JOB] Tiến hành build với commit mới: ${lastCommitHash}`);
+        this.logger?.send(`[JOB] buildResult: ${buildResult}`);
         // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
         this.lastCommitHash = lastCommitHash;
       }
-      
+      this.logger?.send(`[JOB] job.buildConfig: ${job.buildConfig}`);
       // Determine build method and execute
       let buildResult;
       if (job.buildConfig.method === 'script') {
@@ -699,13 +700,15 @@ class JobController {
 
         // Thư mục builder cho job đã được tạo sẵn ở bước chuẩn bị.
         // Nếu vì lý do nào đó chưa tạo được, thử tạo lại tại đây.
+         this.logger?.send(`[JOB] jobBuilderDir: ${jobBuilderDir}`);
+
         if (!jobBuilderDir) {
           const safeName = String(job.name || '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
           jobBuilderDir = path.join(builderRoot, `${safeName}-${job.id}`);
           try { fs.mkdirSync(jobBuilderDir, { recursive: true }); } catch (_) {}
         }
         const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build-script.sh');
-
+        this.logger?.send(`[JOB] scriptPath: ${scriptPath}`);
         // Kiểm tra nếu script không tồn tại và tạo script mẫu
         if (!fs.existsSync(scriptPath)) {
           console.log(`[SCRIPT] Script không tồn tại: ${scriptPath}, tạo script mẫu...`);
@@ -713,10 +716,17 @@ class JobController {
             ? '@echo off\necho "Build script for Windows"\necho "IMAGE_NAME: %IMAGE_NAME%"\necho "IMAGE_TAG: %IMAGE_TAG%"\n' 
             : '#!/bin/bash\necho "Build script for Linux"\necho "IMAGE_NAME: $IMAGE_NAME"\necho "IMAGE_TAG: $IMAGE_TAG"\n';
           fs.writeFileSync(scriptPath, sampleScript, 'utf8');
-          if (process.platform !== 'win32') {
-            fs.chmodSync(scriptPath, '755'); // Make executable on Unix
-          }
           console.log(`[SCRIPT] Đã tạo script mẫu tại: ${scriptPath}`);
+        }
+        
+        // Đảm bảo script có quyền thực thi trên Unix-like systems
+        if (process.platform !== 'win32' && fs.existsSync(scriptPath)) {
+          try {
+            fs.chmodSync(scriptPath, '755'); // Make executable on Unix
+            console.log(`[SCRIPT] Đã set quyền thực thi cho script: ${scriptPath}`);
+          } catch (error) {
+            console.log(`[SCRIPT] Lỗi khi set quyền thực thi: ${error.message}`);
+          }
         }
 
         console.log(`[SCRIPT] Bắt đầu thực thi script: ${scriptPath}`);
