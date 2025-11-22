@@ -633,14 +633,40 @@ class JobController {
             this.logger?.send(`[JOB] Kiểm tra commit mới cho branch ${branch} tại ${actualRepoPath}`);
 
             if (this.gitService && actualRepoPath) {
-              const check = await this.gitService.checkNewCommitAndPull({
-                repoPath: actualRepoPath,
-                branch,
-                repoUrl,
-                token,
-                provider,
-                doPull: true
-              });
+              let check;
+              
+              // Kiểm tra nếu job có cấu hình monolith thì sử dụng hàm monolith checking
+              if (job.monolith && job.monolithConfig) {
+                check = await this.gitService.checkNewCommitAndPullWithMonolith({
+                  repoPath: actualRepoPath,
+                  branch,
+                  repoUrl,
+                  token,
+                  provider,
+                  doPull: true,
+                  module: job.monolithConfig.module,
+                  changePath: job.monolithConfig.changePath
+                });
+                
+                if (check.ok && check.hasNew) {
+                  // Kiểm tra xem có thay đổi phù hợp với monolith không
+                  if (!check.monolithConditionMet) {
+                    this.logger?.send(`[JOB] Commit mới trên branch ${branch} nhưng không có thay đổi phù hợp với monolith module ${job.monolithConfig.module}. Bỏ qua build.`);
+                    continue; // Tiếp tục kiểm tra branch khác
+                  }
+                }
+              } else {
+                // Kiểm tra commit thông thường
+                check = await this.gitService.checkNewCommitAndPull({
+                  repoPath: actualRepoPath,
+                  branch,
+                  repoUrl,
+                  token,
+                  provider,
+                  doPull: true
+                });
+              }
+              
               if (!check.ok) {
                 console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
                 continue;

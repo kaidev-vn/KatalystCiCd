@@ -93,7 +93,19 @@ export function openLogStream(channelId) {
   const url = channelId ? `/api/logs/stream/${encodeURIComponent(channelId)}` : '/api/logs/stream';
   const connect = () => {
     state.es = new EventSource(url);
-    state.es.onmessage = (ev) => appendLog(ev.data);
+    state.es.onmessage = (ev) => {
+      // Parse message để extract jobId nếu có
+      const message = ev.data;
+      let jobId = null;
+      
+      // Kiểm tra nếu message có chứa job ID pattern
+      const jobIdMatch = message.match(/\[job:(.+?)\]/);
+      if (jobIdMatch) {
+        jobId = jobIdMatch[1];
+      }
+      
+      appendLog(message, jobId);
+    };
     state.es.onerror = () => {
       appendLog('[SSE] Lỗi kết nối, sẽ thử lại...');
       try { state.es.close(); } catch (_) {}
@@ -105,27 +117,45 @@ export function openLogStream(channelId) {
 
 // Khởi tạo event listeners cho các nút điều khiển
 export function initLogControls() {
+  console.log('Initializing log controls...');
+  
   const scrollBtn = $('toggleScrollBtn');
   const filterBtn = $('toggleFilterBtn');
   const jobSelector = $('jobSelector');
   
+  console.log('Found elements:', { scrollBtn, filterBtn, jobSelector });
+  
   if (scrollBtn) {
+    console.log('Adding scroll button listener');
     scrollBtn.addEventListener('click', () => {
+      console.log('Scroll button clicked');
       toggleAutoScroll();
     });
+  } else {
+    console.error('Scroll button not found!');
   }
   
   if (filterBtn) {
+    console.log('Adding filter button listener');
     filterBtn.addEventListener('click', () => {
+      console.log('Filter button clicked');
       const selectedJobId = jobSelector ? jobSelector.value : null;
       filterLogsByJob(selectedJobId);
     });
+  } else {
+    console.error('Filter button not found!');
   }
   
   if (jobSelector) {
+    console.log('Adding job selector listener');
     jobSelector.addEventListener('change', () => {
+      console.log('Job selector changed');
       const selectedJobId = jobSelector.value;
       filterLogsByJob(selectedJobId);
     });
+  } else {
+    console.error('Job selector not found!');
   }
+  
+  console.log('Log controls initialized');
 }
