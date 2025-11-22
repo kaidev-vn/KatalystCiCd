@@ -626,7 +626,7 @@ class JobController {
             const branch = branchConfig.name;
             
             // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
-            const actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
+            actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
 
             this.logger?.send(`[JOB] Kiểm tra commit mới cho branch ${branch} tại ${actualRepoPath}`);
 
