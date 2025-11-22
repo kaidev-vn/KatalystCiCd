@@ -510,7 +510,8 @@ class GitService {
     const effectiveProvider = String(provider || 'gitlab').toLowerCase();
     const user = effectiveProvider === 'github' ? 'x-access-token' : 'oauth2';
     const basic = Buffer.from(`${user}:${token}`).toString('base64');
-    return `-c http.extraHeader="Authorization: Basic ${basic}"`;
+    // Không sử dụng -c option cho ls-remote vì không được hỗ trợ
+    return ''; // ls-remote không hỗ trợ -c option, sử dụng auth URL thay thế
   }
 
   /**
