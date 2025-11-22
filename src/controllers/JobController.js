@@ -619,6 +619,8 @@ class JobController {
           this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
           hasNewCommit = true;
           lastCommitHash = metadata.commitHash;
+          // Đảm bảo actualRepoPath được khởi tạo ngay cả khi skip Git check
+          actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
           this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
         } else {
           // Thực hiện kiểm tra commit thông thường
