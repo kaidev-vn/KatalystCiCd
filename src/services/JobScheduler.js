@@ -163,6 +163,13 @@ class JobScheduler {
                   continue; // Bỏ qua branch này nhưng tiếp tục kiểm tra các branch khác
                 }
                 
+                // Xử lý trường hợp commit không tồn tại - dừng kiểm tra và không chạy job
+                if (branchHasNewCommit && branchHasNewCommit.ok === false && branchHasNewCommit.error === 'commit_not_found') {
+                  this.logger?.send(`[JOB-SCHEDULER][ERROR] Commit không tồn tại trên branch ${branch} cho job ${latestJob.name}, dừng polling`);
+                  shouldRun = false;
+                  break; // Dừng kiểm tra các branch khác
+                }
+                
                 if (branchHasNewCommit && branchHasNewCommit.hasNew) {
                   hasNewCommit = true;
                   latestCommitHash = branchHasNewCommit.remoteHash; // Sửa: luôn lấy remoteHash
