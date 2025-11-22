@@ -848,6 +848,19 @@ class JobController {
         this.logger?.send?.(`[JOB][EMAIL] Lỗi gửi email notify: ${e.message}`);
       }
       
+      // Lưu commit hash vào jobs.json sau khi build thành công
+      if (buildResult.status === 'completed' && this.lastCommitHash) {
+        try {
+          this.jobService.updateJobStats(job.id, {
+            success: true,
+            commitHash: this.lastCommitHash
+          });
+          console.log(`[JOB] Đã lưu commit hash ${this.lastCommitHash} vào jobs.json cho job ${job.name}`);
+        } catch (error) {
+          console.error(`[JOB] Lỗi khi lưu commit hash: ${error.message}`);
+        }
+      }
+      
       return {
         success: buildResult.status === 'completed',
         buildId: buildResult.buildId,

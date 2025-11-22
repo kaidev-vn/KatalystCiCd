@@ -497,6 +497,121 @@ class GitService {
   }
 
   /**
+   * Lấy commit hash mới nhất từ remote repository (không kiểm tra local)
+   * Tránh lỗi "bad object" bằng cách không sử dụng local repository
+   */
+  async getLatestRemoteCommit({ repoUrl, branch, token, provider }) {
+    this.logger?.send(`[GIT][REMOTE-ONLY] Lấy commit hash từ remote: ${repoUrl}, branch: ${branch}`);
+    
+    // Chuẩn bị auth config
+    const authConfig = this._getAuthConfig({ token, provider });
+    const authUrl = this._getAuthUrl({ repoUrl, token, provider });
+    
+    try {
+      // Sử dụng ls-remote để lấy commit hash từ remote mà không cần local repo
+      const cmd = `git ls-remote ${authConfig} ${authUrl} ${branch}`;
+      this.logger?.send(`[GIT][REMOTE-ONLY] > ${cmd}`);
+      
+      const result = await run(cmd, this.logger);
+      if (result.error) {
+        this.logger?.send(`[GIT][REMOTE-ONLY][ERROR] Lỗi khi lấy remote commit: ${result.stderr}`);
+        return { ok: false, error: 'ls_remote_failed', stderr: result.stderr };
+      }
+      
+      const remoteLine = (result.stdout || '').trim().split('\n').find(Boolean) || '';
+      const remoteHash = remoteLine.split('\t')[0] || '';
+      
+      if (!remoteHash) {
+        this.logger?.send(`[GIT][REMOTE-ONLY] Không tìm thấy commit hash cho branch ${branch}`);
+        return { ok: false, error: 'no_commit_found' };
+      }
+      
+      this.logger?.send(`[GIT][REMOTE-ONLY] Remote commit hash: ${remoteHash}`);
+      return { ok: true, remoteHash };
+      
+    } catch (error) {
+      this.logger?.send(`[GIT][REMOTE-ONLY][ERROR] Exception khi lấy remote commit: ${error.message}`);
+      return { ok: false, error: 'exception', message: error.message };
+    }
+  }
+
+  /**
+   * Kiểm tra commit mới bằng cách so sánh với commit đã lưu trong jobs.json
+   * Tránh hoàn toàn việc sử dụng local repository để tránh lỗi "bad object"
+   */
+  async checkNewCommitUsingJobStorage({ repoUrl, branch, token, provider, jobId }) {
+    this.logger?.send(`[GIT][JOB-STORAGE] Kiểm tra commit mới cho job ${jobId}, branch: ${branch}`);
+    
+    if (!jobId) {
+      this.logger?.send('[GIT][JOB-STORAGE][ERROR] Thiếu jobId');
+      return { ok: false, error: 'job_id_required' };
+    }
+    
+    try {
+      // Lấy commit hash mới nhất từ remote
+      const remoteResult = await this.getLatestRemoteCommit({ repoUrl, branch, token, provider });
+      if (!remoteResult.ok) {
+        return remoteResult;
+      }
+      
+      const remoteHash = remoteResult.remoteHash;
+      
+      // Đọc jobs.json để lấy commit hash đã build trước đó
+      const fs = require('fs');
+      const jobsData = JSON.parse(fs.readFileSync('jobs.json', 'utf8'));
+      const job = jobsData.find(j => j.id === jobId);
+      
+      if (!job) {
+        this.logger?.send(`[GIT][JOB-STORAGE][ERROR] Không tìm thấy job với id: ${jobId}`);
+        return { ok: false, error: 'job_not_found' };
+      }
+      
+      const lastCommitHash = job.stats?.lastCommitHash || null;
+      
+      this.logger?.send(`[GIT][JOB-STORAGE] Remote: ${remoteHash}, Last built: ${lastCommitHash || '(chưa build)'}`);
+      
+      // So sánh commit hash
+      if (!lastCommitHash) {
+        // Chưa từng build, coi như có commit mới
+        this.logger?.send('[GIT][JOB-STORAGE] Chưa từng build, coi như có commit mới');
+        return { 
+          ok: true, 
+          hasNew: true, 
+          remoteHash, 
+          updated: false,
+          reason: 'first_build'
+        };
+      }
+      
+      if (remoteHash === lastCommitHash) {
+        // Commit trùng nhau, không có commit mới
+        this.logger?.send('[GIT][JOB-STORAGE] Không có commit mới');
+        return { 
+          ok: true, 
+          hasNew: false, 
+          remoteHash, 
+          updated: false,
+          reason: 'no_new_commit'
+        };
+      }
+      
+      // Có commit mới
+      this.logger?.send('[GIT][JOB-STORAGE] Phát hiện commit mới');
+      return { 
+        ok: true, 
+        hasNew: true, 
+        remoteHash, 
+        updated: false,
+        reason: 'new_commit_found'
+      };
+      
+    } catch (error) {
+      this.logger?.send(`[GIT][JOB-STORAGE][ERROR] Exception: ${error.message}`);
+      return { ok: false, error: 'exception', message: error.message };
+    }
+  }
+
+  /**
    * Kiểm tra xem commit có chứa thay đổi phù hợp với monolith condition không
    * @async
    * @param {Object} params - Parameters
