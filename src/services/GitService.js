@@ -519,7 +519,8 @@ class GitService {
       
       if (checkCommitResult.error) {
         this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
-        return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu commit không tồn tại
+        // KHÔNG cho phép build nếu commit không tồn tại - đây là lỗi nghiêm trọng
+        throw new Error(`Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`);
       }
 
       // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
@@ -548,7 +549,7 @@ class GitService {
       return { hasRelevantChanges, changedFiles: changedModules };
     } catch (error) {
       this.logger?.send(`[GIT][MONOLITH-CHECK] Lỗi khi kiểm tra monolith condition: ${error.message}`);
-      return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu có lỗi
+      throw error; // Re-throw lỗi để xử lý ở cấp cao hơn
     }
   }
 
@@ -611,11 +612,27 @@ class GitService {
 
     // Kiểm tra monolith condition
     const { changePath = [] } = monolithConfig;
-    const monolithCheck = await this.checkMonolithCondition({
-      repoPath,
-      commitHash: checkResult.remoteHash,
-      changePaths: changePath
-    });
+    let monolithCheck;
+    try {
+      monolithCheck = await this.checkMonolithCondition({
+        repoPath,
+        commitHash: checkResult.remoteHash,
+        changePaths: changePath
+      });
+    } catch (error) {
+      // Nếu commit không tồn tại, trả về lỗi và không cho build
+      this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${error.message}`);
+      return { 
+        ok: false, 
+        hasNew: false,
+        remoteHash: checkResult.remoteHash, 
+        localHash: checkResult.localHash, 
+        updated: false,
+        commitMessage: checkResult.commitMessage,
+        error: 'commit_not_found',
+        stderr: error.message
+      };
+    }
 
     if (!monolithCheck.hasRelevantChanges) {
       this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không có thay đổi phù hợp với monolith condition, bỏ qua build`);
