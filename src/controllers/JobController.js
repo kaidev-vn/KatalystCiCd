@@ -714,7 +714,9 @@ class JobController {
         const scriptPath = bc.scriptPath || path.join(jobBuilderDir, 'build-script.sh');
 
         this.logger?.send(`[JOB] scriptPath: ${scriptPath}`);
-     
+        console.log(`[DEBUG] scriptPath được xác định: ${scriptPath}`);
+        console.log(`[DEBUG] Đã đến được điểm xác định scriptPath`);
+
         // // Đảm bảo script có quyền thực thi trên Unix-like systems
         // if (process.platform !== 'win32' && fs.existsSync(scriptPath)) {
         //   try {
