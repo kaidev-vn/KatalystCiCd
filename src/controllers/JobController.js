@@ -522,6 +522,10 @@ class JobController {
 
   // Execute job build (internal method)
   async executeJobBuild(job, metadata = {}) {
+
+      this.logger?.send(`[JOB] job: ${JSON.stringify(job)}`);
+
+
     try {
       console.log(`[JOB] Starting build for job: ${job.name} (${job.id})`);
       
@@ -661,11 +665,9 @@ class JobController {
         
         this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
         this.logger?.send(`[JOB] Tiến hành build với commit mới: ${lastCommitHash}`);
-        this.logger?.send(`[JOB] buildResult: ${buildResult}`);
         // Lưu commit hash gần nhất để truyền xuống tầng build nếu cần
         this.lastCommitHash = lastCommitHash;
-      }
-      this.logger?.send(`[JOB] job.buildConfig: ${job.buildConfig}`);
+      } 
       // Determine build method and execute
       let buildResult;
       if (job.buildConfig.method === 'script') {
@@ -745,7 +747,7 @@ class JobController {
           status: r?.ok ? 'completed' : 'failed',
           message: r?.ok ? 'Script build completed' : 'Script build failed'
         };
-
+        this.logger?.send(`[JOB] buildResult: ${JSON.stringify(buildResult)}`);
         // Nếu auto-increment, cập nhật lại tagNumber trong job để lần sau hiển thị đúng
         if (r?.ok && autoInc) {
           const { splitTagIntoParts } = require('../utils/tag');
