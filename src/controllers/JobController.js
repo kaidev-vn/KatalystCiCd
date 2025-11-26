@@ -621,15 +621,16 @@ class JobController {
 
       console.log(`[JOB] branchesToProcess: ${branchesToProcess.length}`);
 
-      // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
-      if (metadata.skipGitCheck) {
-        this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
-        hasNewCommit = true;
-        lastCommitHash = metadata.commitHash;
-        // Đảm bảo actualRepoPath được khởi tạo ngay cả khi skip Git check
-        actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
-        this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
-      } else {
+      // // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
+      // if (metadata.skipGitCheck) {
+      //   this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
+      //   hasNewCommit = true;
+      //   lastCommitHash = metadata.commitHash;
+      //   // Đảm bảo actualRepoPath được khởi tạo ngay cả khi skip Git check
+      //   actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
+      //   this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
+      // } else {
+
         // Thực hiện kiểm tra commit thông thường cho TẤT CẢ các branch
         for (const branchConfig of branchesToProcess) {
           const branch = branchConfig.name;
@@ -672,7 +673,7 @@ class JobController {
               this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
               break; // Chỉ cần một commit mới để trigger build
             }
-          }
+          // }
         }
         
         // ❌ Nếu không có commit mới → SKIP BUILD cho TẤT CẢ phương thức
