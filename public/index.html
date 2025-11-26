@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Katalyst</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/css/dashboard.css" />
     <link rel="icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
     <link rel="shortcut icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
   </head>
@@ -101,6 +102,17 @@
           <div class="sidebar-divider"></div>
         </div>
         <nav class="side-nav">
+          <button class="tab-btn active" data-tab="dashboard-tab">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Tổng quan</span>
+            <div class="tab-indicator"></div>
+          </button>
+
           <button class="tab-btn" data-tab="jobs-tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -138,7 +150,7 @@
             <div class="tab-indicator"></div>
           </button>
           
-          <button class="tab-btn active" data-tab="config-tab">
+          <button class="tab-btn" data-tab="config-tab">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -168,8 +180,135 @@
       </aside>
 
       <main class="container tab-container">
+      
+      <!-- Tab Dashboard -->
+      <div id="dashboard-tab" class="tab-content active">
+        <!-- Top Stats Row -->
+        <div class="stats-grid dashboard-stats">
+          <div class="stat-card glass card-hover">
+            <div class="stat-icon blue">📦</div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashTotalJobs">0</div>
+              <div class="stat-label">Tổng số Jobs</div>
+            </div>
+          </div>
+          <div class="stat-card glass card-hover">
+            <div class="stat-icon green">⚡</div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashSuccessRate">0%</div>
+              <div class="stat-label">Tỷ lệ thành công</div>
+            </div>
+          </div>
+          <div class="stat-card glass card-hover">
+            <div class="stat-icon purple">⏳</div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashQueueSize">0</div>
+              <div class="stat-label">Trong hàng đợi</div>
+            </div>
+          </div>
+          <div class="stat-card glass card-hover">
+            <div class="stat-icon orange">⏱️</div>
+            <div class="stat-content">
+              <div class="stat-number" id="dashAvgDuration">0s</div>
+              <div class="stat-label">Thời gian build TB</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Split View -->
+        <div class="dashboard-split">
+          <!-- Left: Activity & Status -->
+          <div class="dashboard-main">
+            <!-- System Health -->
+            <section class="card glass card-hover">
+              <div class="card-header">
+                <h2>🏥 Trạng thái hệ thống</h2>
+                <span class="badge success pulse" id="systemStatusBadge">Hoạt động</span>
+              </div>
+              <div class="system-metrics">
+                <div class="metric-item">
+                  <div class="metric-label">CPU Usage</div>
+                  <div class="progress-bar small">
+                    <div class="progress-fill" style="width: 0%" id="cpuBar"></div>
+                  </div>
+                  <div class="metric-value" id="cpuValue">0%</div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Memory Usage</div>
+                  <div class="progress-bar small">
+                    <div class="progress-fill" style="width: 0%" id="memBar"></div>
+                  </div>
+                  <div class="metric-value" id="memValue">0%</div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Disk Space</div>
+                  <div class="progress-bar small">
+                    <div class="progress-fill" style="width: 0%" id="diskBar"></div>
+                  </div>
+                  <div class="metric-value" id="diskValue">0%</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Recent Activity Table -->
+            <section class="card glass card-hover">
+              <div class="card-header">
+                <h2>🕒 Hoạt động gần đây</h2>
+                <button class="btn small outline" onclick="document.querySelector('[data-tab=builds-tab]').click()">Xem tất cả</button>
+              </div>
+              <div class="table-responsive">
+                <table class="dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>Job</th>
+                      <th>Trạng thái</th>
+                      <th>Thời gian</th>
+                      <th>Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboardRecentActivity">
+                    <!-- Populated by JS -->
+                    <tr><td colspan="4" class="text-center muted">Đang tải dữ liệu...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <!-- Right: Quick Actions & Running -->
+          <div class="dashboard-sidebar">
+            <!-- Quick Actions -->
+            <section class="card glass card-hover">
+              <h2>⚡ Thao tác nhanh</h2>
+              <div class="quick-actions-grid">
+                <button class="btn outline w-100" onclick="document.querySelector('[data-tab=jobs-tab]').click(); document.getElementById('createJobBtn').click()">
+                  ➕ Tạo Job mới
+                </button>
+                <button class="btn outline w-100" onclick="document.querySelector('[data-tab=queue-tab]').click()">
+                  ⏸️ Quản lý Queue
+                </button>
+                <button class="btn outline w-100" onclick="document.querySelector('[data-tab=config-tab]').click()">
+                  ⚙️ Cấu hình
+                </button>
+              </div>
+            </section>
+
+            <!-- Running Jobs Widget -->
+            <section class="card glass card-hover">
+              <div class="card-header">
+                <h2>🏃 Đang chạy</h2>
+                <span class="badge primary" id="dashRunningCount">0</span>
+              </div>
+              <div class="running-list-widget" id="dashRunningList">
+                <div class="empty-state small">Không có job đang chạy</div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
       <!-- Tab 1: Cấu hình chung -->
-      <div id="config-tab" class="tab-content active">
+      <div id="config-tab" class="tab-content">
         <!-- Git Configuration Section -->
         <section class="card glass card-hover">
           <h2>🔗 Cấu hình Git Repository</h2>

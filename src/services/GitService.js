@@ -106,7 +106,7 @@ class GitService {
       authConfig = `-c http.extraHeader=\"Authorization: Basic ${basic}\"`;
     }
     const cmd = `git ${authConfig} ls-remote ${repoUrl} HEAD`;
-    this.logger?.send(`[GIT][CHECK] > ${cmd}`);
+    // this.logger?.send(`[GIT][CHECK] > ${cmd}`);
     const { error, stdout, stderr } = await require('../utils/exec').run(cmd, this.logger);
     if (error) {
       const msg = stderr || error.message;
@@ -199,31 +199,31 @@ class GitService {
       `git -C "${repoPath}" ${authConfig} ls-remote --heads origin ${branch}`,
       `git -C "${repoPath}" rev-parse HEAD`,
     ];
-    this.logger?.send(`[CHECK] Kiểm tra commit mới cho branch ${branch}`);
+    // this.logger?.send(`[CHECK] Kiểm tra commit mới cho branch ${branch}`);
     const r0 = await run(cmds[0], this.logger);
     if (r0.error) throw new Error('fetch failed');
     const r1 = await run(cmds[1], this.logger);
     if (r1.error) throw new Error('ls-remote failed');
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
-    this.logger?.send(`[CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
+    // this.logger?.send(`[CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
 
     // VALIDATION: Check if commit hash exists locally - AFTER FETCH/PULL
     // Validation này sẽ được thực hiện SAU KHI fetch/pull thành công
     const r2 = await run(cmds[2], this.logger);
     if (r2.error) throw new Error('rev-parse failed');
     const localHash = (r2.stdout || '').trim();
-    this.logger?.send(`[CHECK] Local HEAD hash: ${localHash}`);
+    // this.logger?.send(`[CHECK] Local HEAD hash: ${localHash}`);
     // Nếu remote rỗng hoặc trùng local => không có commit mới
     if (!remoteHash || remoteHash === localHash) {
-      this.logger?.send(`[CHECK] Không có commit mới. Bỏ qua pull & build.`);
+      // this.logger?.send(`[CHECK] Không có commit mới. Bỏ qua pull & build.`);
       return { ok: true, updated: false };
     }
 
     // Nếu remote trùng với commit đã build trước đó => bỏ qua để tránh build lại cùng commit
     const lastBuilt = String(cfg.lastBuiltCommit || '');
     if (remoteHash && lastBuilt && remoteHash === lastBuilt) {
-      this.logger?.send(`[CHECK] Commit ${remoteHash} đã được build trước đó. Bỏ qua.`);
+      // this.logger?.send(`[CHECK] Commit ${remoteHash} đã được build trước đó. Bỏ qua.`);
       return { ok: true, updated: false };
     }
 
@@ -433,7 +433,7 @@ class GitService {
     }
 
     // Fetch and compare remote vs local
-    this.logger?.send(`[GIT][JOB-CHECK] Kiểm tra commit mới cho branch ${branch} tại repoPath: ${repoPath}`);
+    // this.logger?.send(`[GIT][JOB-CHECK] Kiểm tra commit mới cho branch ${branch} tại repoPath: ${repoPath}`);
     const r0 = await run(`git -C "${repoPath}" ${authConfig} fetch ${authUrl}`, this.logger);
     if (r0.error) return { ok: false, hasNew: false, error: 'fetch_failed', stderr: r0.stderr };
 
@@ -441,7 +441,7 @@ class GitService {
     if (r1.error) return { ok: false, hasNew: false, error: 'ls_remote_failed', stderr: r1.stderr };
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
-    this.logger?.send(`[GIT][JOB-CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
+    // this.logger?.send(`[GIT][JOB-CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
 
     // Nếu không tìm thấy branch trên remote, không thể kiểm tra commit mới
     if (!remoteHash) {
@@ -461,10 +461,10 @@ class GitService {
     const r2 = await run(`git -C "${repoPath}" rev-parse HEAD`, this.logger);
     if (r2.error) return { ok: false, hasNew: false, error: 'rev_parse_failed', stderr: r2.stderr };
     const localHash = (r2.stdout || '').trim();
-    this.logger?.send(`[GIT][JOB-CHECK] Local HEAD hash: ${localHash}`);
+    // this.logger?.send(`[GIT][JOB-CHECK] Local HEAD hash: ${localHash}`);
 
     if (!remoteHash || remoteHash === localHash) {
-      this.logger?.send('[GIT][JOB-CHECK] Không có commit mới, bỏ qua pull/build.');
+      // this.logger?.send('[GIT][JOB-CHECK] Không có commit mới, bỏ qua pull/build.');
       return { ok: true, hasNew: false, remoteHash, localHash, updated: false, commitMessage };
     }
 
@@ -585,7 +585,7 @@ class GitService {
    * Tránh hoàn toàn việc sử dụng local repository để tránh lỗi "bad object"
    */
   async checkNewCommitUsingJobStorage({ repoUrl, branch, token, provider, jobId }) {
-    this.logger?.send(`[GIT][JOB-STORAGE] Kiểm tra commit mới cho job ${jobId}, branch: ${branch}`);
+    // this.logger?.send(`[GIT][JOB-STORAGE] Kiểm tra commit mới cho job ${jobId}, branch: ${branch}`);
 
     if (!jobId) {
       this.logger?.send('[GIT][JOB-STORAGE][ERROR] Thiếu jobId');
@@ -613,7 +613,7 @@ class GitService {
 
       const lastCommitHash = job.stats?.lastCommitHash || null;
 
-      this.logger?.send(`[GIT][JOB-STORAGE] Remote: ${remoteHash}, Last built: ${lastCommitHash || '(chưa build)'}`);
+      // this.logger?.send(`[GIT][JOB-STORAGE] Remote: ${remoteHash}, Last built: ${lastCommitHash || '(chưa build)'}`);
 
       // So sánh commit hash
       if (!lastCommitHash) {
@@ -630,7 +630,7 @@ class GitService {
 
       if (remoteHash === lastCommitHash) {
         // Commit trùng nhau, không có commit mới
-        this.logger?.send('[GIT][JOB-STORAGE] Không có commit mới');
+        // this.logger?.send('[GIT][JOB-STORAGE] Không có commit mới');
         return {
           ok: true,
           hasNew: false,
@@ -674,52 +674,7 @@ class GitService {
 
     try {
       // ========================================
-      // ✅ BƯỚC 1: Kiểm tra commit có tồn tại trong local không
-      // ========================================
-      // const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
-      // const checkCommitResult = await run(checkCommitCmd, this.logger);
-
-      // if (checkCommitResult.error) {
-      //   this.logger?.send(`[GIT][MONOLITH-CHECK] Commit ${commitHash} chưa có trong local, thực hiện FETCH từ remote...`);
-        
-      //   // ========================================
-      //   // ✅ BƯỚC 2: FETCH toàn bộ từ remote về (không thể fetch commit hash trực tiếp)
-      //   // ========================================
-      //   if (repoUrl) {
-      //     const authUrl = this._getAuthUrl({ repoUrl, token, provider });
-      //     // ✅ Fetch toàn bộ từ remote (hoặc có thể fetch branch cụ thể nếu biết branch)
-      //     // Git không hỗ trợ fetch commit hash trực tiếp, cần fetch branch/refs
-      //     const fetchCmd = `git -C "${repoPath}" fetch ${authUrl}`;
-      //     this.logger?.send(`[GIT][MONOLITH-CHECK] > git fetch origin (để lấy commit: ${commitHash.substring(0, 8)}...)`);
-          
-      //     const fetchResult = await run(fetchCmd, this.logger);
-          
-      //     if (fetchResult.error) {
-      //       this.logger?.send(`[GIT][MONOLITH-CHECK] ❌ Không thể fetch từ remote: ${fetchResult.stderr || fetchResult.error.message}`);
-      //       // Fallback: cho phép build nếu không fetch được
-      //       return { hasRelevantChanges: true, changedFiles: [], error: 'fetch_failed' };
-      //     }
-          
-      //     this.logger?.send(`[GIT][MONOLITH-CHECK] ✅ Đã fetch từ remote thành công`);
-          
-      //     // Kiểm tra lại xem commit đã có chưa sau khi fetch
-      //     const recheckResult = await run(`git -C "${repoPath}" cat-file -t ${commitHash}`, this.logger);
-      //     if (recheckResult.error) {
-      //       this.logger?.send(`[GIT][MONOLITH-CHECK] ⚠️ Commit ${commitHash} vẫn không tồn tại sau khi fetch. Có thể commit đã bị xóa hoặc force-push.`);
-      //       // Fallback: cho phép build để không chặn workflow
-      //       return { hasRelevantChanges: true, changedFiles: [], error: 'commit_not_found_after_fetch' };
-      //     }
-      //   } else {
-      //     this.logger?.send(`[GIT][MONOLITH-CHECK] ❌ Không có thông tin repoUrl để fetch commit`);
-      //     // Fallback: cho phép build nếu không có repoUrl
-      //     return { hasRelevantChanges: true, changedFiles: [], error: 'no_repo_url' };
-      //   }
-      // } else {
-      //   this.logger?.send(`[GIT][MONOLITH-CHECK] ✅ Commit ${commitHash} đã tồn tại trong local`);
-      // }
-
-      // ========================================
-      // ✅ BƯỚC 3: Lấy danh sách files đã thay đổi
+      // Lấy danh sách files đã thay đổi
       // ========================================
       // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
       // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u

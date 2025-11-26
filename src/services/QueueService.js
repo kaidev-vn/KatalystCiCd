@@ -84,7 +84,7 @@ class QueueService extends EventEmitter {
     this.insertByPriority(queuedJob);
     this.stats.totalQueued++;
     
-    this.logger?.send(`[QUEUE] Job ${queuedJob.id} đã được thêm vào hàng đợi (Priority: ${queuedJob.priority})`);
+    // this.logger?.send(`[QUEUE] Job ${queuedJob.id} đã được thêm vào hàng đợi (Priority: ${queuedJob.priority})`);
     this.emit('jobQueued', queuedJob);
     
     return queuedJob.id;

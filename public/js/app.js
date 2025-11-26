@@ -11,6 +11,7 @@ import { jobLogsManager } from './job-logs.js';
 import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue, loadQueueConfig } from './queue.js';
 import { toggleAdvancedTaggingSection, toggleScriptAdvancedTaggingSection, updateTagPreview, updateScriptTagPreview, updateJobTagPreview, updateJobScriptTagPreview } from './tags.js';
 import { selectAllServices, deselectAllServices } from './services.js';
+import { initDashboard, refreshDashboard } from './dashboard.js';
 
 // Global exports will be set after DOMContentLoaded
 
@@ -25,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabId) {
         switchTab(tabId);
         // Lazy load per tab
+        if (tabId === 'dashboard-tab') { refreshDashboard(); }
         if (tabId === 'builds-tab') { loadBuilds(); loadBuildHistory(); }
         if (tabId === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
         if (tabId === 'jobs-tab') { loadJobs(); }
@@ -35,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Initialize selected tab and build method
-  const savedTab = localStorage.getItem('activeTab') || 'config-tab';
+  const savedTab = localStorage.getItem('activeTab') || 'dashboard-tab';
   switchTab(savedTab);
   const savedMethod = localStorage.getItem('buildMethod') || 'dockerfile';
   selectBuildMethod(savedMethod);
@@ -47,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBuildHistory();
   loadJobs();
   loadQueueConfig(); // Load queue config on page load
+  initDashboard(); // Initialize Dashboard
   if (savedTab === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
   if (savedTab === 'database-tab' && window.initDatabaseTab) { window.initDatabaseTab(); }
 
