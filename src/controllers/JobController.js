@@ -571,7 +571,7 @@ class JobController {
           enabled: true
         });
       }
-            
+      this.logger?.send(`[JOB] branchesToProcess: ${JSON.stringify(branchesToProcess)}`); 
       // ========================================
       // ✅ BƯỚC 1: CHUẨN BỊ CONTEXT & REPO (Chung cho tất cả phương thức)
       // ========================================
@@ -620,7 +620,7 @@ class JobController {
       const provider = gc.provider || 'gitlab';
 
       console.log(`[JOB] branchesToProcess: ${branchesToProcess.length}`);
-      
+
       // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
       if (metadata.skipGitCheck) {
         this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
