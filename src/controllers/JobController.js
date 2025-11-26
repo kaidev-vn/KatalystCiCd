@@ -525,10 +525,8 @@ class JobController {
 
       this.logger?.send(`[JOB] job: ${JSON.stringify(job)}`);
 
-
     try {
       console.log(`[JOB] Starting build for job: ${job.name} (${job.id})`);
-      
       // ✅ Decrypt job secrets trước khi sử dụng
       const decryptedJob = this.jobService.getDecryptedJob(job.id);
       if (!decryptedJob) {
@@ -571,11 +569,9 @@ class JobController {
           enabled: true
         });
       }
-      this.logger?.send(`[JOB] branchesToProcess: ${JSON.stringify(branchesToProcess)}`); 
       // ========================================
       // ✅ BƯỚC 1: CHUẨN BỊ CONTEXT & REPO (Chung cho tất cả phương thức)
       // ========================================
-      
       let repoPath = '';
       let builderRoot = '';
       let jobBuilderDir = '';
@@ -762,7 +758,6 @@ class JobController {
           }
         }
       } // ✅ Đóng else block của skipGitCheck
-      
       // ========================================
       // ❌ CHECK: Nếu không có commit mới → SKIP BUILD cho TẤT CẢ phương thức
       // (Phải nằm NGOÀI else block để check cho cả skipGitCheck case!)

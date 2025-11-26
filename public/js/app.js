@@ -5,7 +5,7 @@ import { loadBuildHistory, filterBuilds, refreshBuildHistory, clearBuildHistory,
 import { loadConfig, loadDeployChoices, saveConfig } from './config.js';
 import { loadRawConfigEditor, formatConfigJson, validateConfigJson, saveRawConfigJson, loadConfigVersions } from './raw-config.js';
 import { loadSchedulerStatus, toggleScheduler, restartScheduler } from './scheduler.js';
-import { openLogStream, appendLog, initLogControls } from './logs.js';
+import { openLogStream, appendLog, initLogControls, fitTerminal } from './logs.js';
 import { loadJobs, showJobModal, hideJobModal, saveJob, searchJobs, toggleBuildMethodConfig, toggleScheduleConfig, useCommonConfig, toggleMonolithConfig } from './jobs.js';
 import { jobLogsManager } from './job-logs.js';
 import { loadQueueStatus, toggleQueueProcessing, saveQueueConfig, clearQueue, loadQueueConfig } from './queue.js';
@@ -27,7 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
         switchTab(tabId);
         // Lazy load per tab
         if (tabId === 'dashboard-tab') { refreshDashboard(); }
-        if (tabId === 'builds-tab') { loadBuilds(); loadBuildHistory(); }
+        if (tabId === 'builds-tab') { 
+          loadBuilds(); 
+          loadBuildHistory(); 
+          // Fit terminal when tab becomes visible
+          setTimeout(fitTerminal, 100);
+        }
         if (tabId === 'raw-config-tab') { loadRawConfigEditor(); loadConfigVersions(); }
         if (tabId === 'jobs-tab') { loadJobs(); }
         if (tabId === 'queue-tab') { loadQueueStatus(); loadQueueConfig(); }

@@ -1,5 +1,5 @@
 import { $ } from './utils.js';
-import { openLogStream, filterLogsByJob } from './logs.js';
+import { openLogStream } from './logs.js';
 
 /**
  * Quản lý job logs selector và realtime streams
@@ -79,7 +79,7 @@ export class JobLogsManager {
     }
     
     // Áp dụng filter log theo job
-    filterLogsByJob(jobId);
+    // filterLogsByJob(jobId); // Xterm handled by backend stream
     
     // Mở log stream mới
     openLogStream(jobId);

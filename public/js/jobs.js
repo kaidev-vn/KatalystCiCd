@@ -89,17 +89,37 @@ export function renderJobsTable() {
     const tr = document.createElement('tr');
     const lastBuildStatus = job?.stats?.lastStatus || 'N/A';
     const method = job?.method || job?.buildConfig?.method || 'dockerfile';
-    const methodLabel = method === 'dockerfile' ? 'Dockerfile' : (method === 'script' ? 'Script' : (method === 'jsonfile' ? 'JSON Pipeline' : String(method)));
+    const methodLabel = method === 'dockerfile' ? 'Dockerfile' : (method === 'script' ? 'Script' : (method === 'jsonfile' ? 'JSON' : String(method)));
+    
     tr.innerHTML = `
-      <td>${job.name}</td>
-      <td><span class="status ${getStatusClass(lastBuildStatus)}">${getStatusText(lastBuildStatus)}</span></td>
-      <td>${methodLabel}</td>
-      <td>${(job.services || []).length}</td>
-      <td>${job.stats?.lastBuildTime ? new Date(job.stats.lastBuildTime).toLocaleString() : '-'}</td>
       <td>
-        <button class="btn small primary" onclick="runJob('${job.id}')">▶️ Chạy</button>
-        <button class="btn small outline" onclick="editJob('${job.id}')">✏️ Sửa</button>
-        <button class="btn small danger" onclick="deleteJob('${job.id}')">🗑️ Xóa</button>
+        <div class="job-name-cell">
+          <span class="job-name-text">${job.name}</span>
+          ${job.description ? `<span class="job-desc-text text-muted">${job.description}</span>` : ''}
+        </div>
+      </td>
+      <td class="text-center">
+        <span class="status-badge ${getStatusClass(lastBuildStatus)}">${getStatusText(lastBuildStatus)}</span>
+      </td>
+      <td class="text-center">
+        <span class="method-tag ${method}">${methodLabel}</span>
+      </td>
+      <td class="text-center">${(job.services || []).length}</td>
+      <td class="text-center text-muted small">
+        ${job.stats?.lastBuildTime ? new Date(job.stats.lastBuildTime).toLocaleString('vi-VN') : '-'}
+      </td>
+      <td class="text-right">
+        <div class="action-group">
+          <button class="btn-icon primary" onclick="runJob('${job.id}')" title="Chạy Job">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </button>
+          <button class="btn-icon secondary" onclick="editJob('${job.id}')" title="Sửa Job">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="btn-icon danger" onclick="deleteJob('${job.id}')" title="Xóa Job">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
       </td>`;
     tbody.appendChild(tr);
   });

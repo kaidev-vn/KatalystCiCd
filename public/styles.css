@@ -4109,3 +4109,158 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
     height: 400px;
   }
 }
+/* Jobs Table Styles - Enhanced */
+.jobs-table-container {
+  background: var(--card-bg);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.jobs-table th {
+  background: var(--bg-secondary);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.jobs-table td {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+  font-size: 14px;
+}
+
+.jobs-table tr:last-child td {
+  border-bottom: none;
+}
+
+.jobs-table tr:hover td {
+  background: color-mix(in oklab, var(--primary) 2%, transparent);
+}
+
+.job-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.job-name-text {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.job-desc-text {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Method Tag */
+.method-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--bg-secondary);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.method-tag.dockerfile {
+  color: #0ea5e9; /* sky-500 */
+  border-color: color-mix(in oklab, #0ea5e9 20%, transparent);
+  background: color-mix(in oklab, #0ea5e9 5%, transparent);
+}
+
+.method-tag.script {
+  color: #eab308; /* yellow-500 */
+  border-color: color-mix(in oklab, #eab308 20%, transparent);
+  background: color-mix(in oklab, #eab308 5%, transparent);
+}
+
+.method-tag.jsonfile {
+  color: #8b5cf6; /* violet-500 */
+  border-color: color-mix(in oklab, #8b5cf6 20%, transparent);
+  background: color-mix(in oklab, #8b5cf6 5%, transparent);
+}
+
+/* Action Group */
+.action-group {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.btn-icon.primary:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.btn-icon.secondary:hover {
+  background: var(--text);
+  border-color: var(--text);
+  color: white;
+}
+
+.btn-icon.danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+  .jobs-table th, 
+  .jobs-table td {
+    padding: 12px 16px;
+  }
+  
+  .job-desc-text {
+    display: none;
+  }
+  
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+}

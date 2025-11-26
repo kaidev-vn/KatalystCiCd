@@ -1,161 +1,214 @@
-import { $ } from './utils.js';
+import { $, fetchJSON } from './utils.js';
 import { state } from './state.js';
 
-// Biến toàn cục để quản lý trạng thái scroll
-let autoScrollEnabled = true;
-let scrollPausedPosition = 0;
+let term;
+let fitAddon;
+let resizeObserver;
 
-// Filter log theo job ID
-let currentJobFilter = null;
+/**
+ * Initialize log controls and xterm instance
+ */
+export function initLogControls() {
+  const jobSelector = $('jobSelector');
+  const toggleScrollBtn = $('toggleScrollBtn');
+  const toggleFilterBtn = $('toggleFilterBtn');
 
-export function appendLog(text, jobId = null) {
-  const logs = $('logs');
-  if (!logs) return;
-  
-  // Kiểm tra filter job
-  if (currentJobFilter && jobId !== currentJobFilter) {
-    return; // Bỏ qua log không thuộc job được filter
-  }
-  
-  const div = document.createElement('div');
-  div.textContent = text;
-  div.className = 'new';
-  
-  // Thêm job ID vào data attribute nếu có
-  if (jobId) {
-    div.setAttribute('data-job-id', jobId);
-  }
-  
-  logs.appendChild(div);
-  
-  // Chỉ scroll tự động nếu enabled
-  if (autoScrollEnabled) {
-    logs.scrollTop = logs.scrollHeight;
-  }
-}
-
-// Toggle auto scroll
-export function toggleAutoScroll() {
-  const logs = $('logs');
-  if (!logs) return;
-  
-  autoScrollEnabled = !autoScrollEnabled;
-  
-  if (autoScrollEnabled) {
-    logs.scrollTop = logs.scrollHeight; // Scroll xuống dưới cùng
-  } else {
-    scrollPausedPosition = logs.scrollTop; // Lưu vị trí hiện tại
-  }
-  
-  // Cập nhật UI
-  updateScrollButtonState();
-  
-  return autoScrollEnabled;
-}
-
-// Cập nhật trạng thái nút scroll
-export function updateScrollButtonState() {
-  const scrollBtn = $('toggleScrollBtn');
-  if (scrollBtn) {
-    scrollBtn.textContent = autoScrollEnabled ? '⏸️ Tạm dừng Scroll' : '▶️ Tiếp tục Scroll';
-    scrollBtn.classList.toggle('paused', !autoScrollEnabled);
-  }
-}
-
-// Filter log theo job ID
-export function filterLogsByJob(jobId) {
-  currentJobFilter = jobId;
-  const logs = $('logs');
-  if (!logs) return;
-  
-  // Ẩn/hiện log dựa trên filter
-  const logItems = logs.querySelectorAll('div[data-job-id]');
-  logItems.forEach(item => {
-    const itemJobId = item.getAttribute('data-job-id');
-    item.style.display = jobId ? (itemJobId === jobId ? '' : 'none') : '';
+  if (jobSelector) jobSelector.addEventListener('change', () => {
+    // Filter logic could be implemented here if needed
+    // For xterm, filtering is harder, usually backend should filter stream
   });
-  
-  // Cập nhật UI
-  updateFilterButtonState(jobId);
+
+  if (toggleScrollBtn) toggleScrollBtn.onclick = () => {
+    // xterm handles scrolling naturally. 
+    // To "pause" scroll, we just stop calling scrollToBottom if user scrolled up.
+    // But xterm doesn't have a simple "autoScroll" boolean property exposed easily.
+    // Usually xterm auto-scrolls if you are at the bottom.
+    toggleScrollBtn.classList.toggle('active');
+    const isActive = toggleScrollBtn.classList.contains('active');
+    toggleScrollBtn.textContent = isActive ? '⏸️ Tạm dừng Scroll' : '▶️ Tiếp tục Scroll';
+    
+    if (isActive && term) {
+      term.scrollToBottom();
+    }
+  };
+
+  // Initialize xterm.js
+  initTerminal();
 }
 
-// Cập nhật trạng thái nút filter
-export function updateFilterButtonState(jobId) {
-  const filterBtn = $('toggleFilterBtn');
-  if (filterBtn) {
-    filterBtn.textContent = jobId ? `🔍 Đang filter Job: ${jobId}` : '🔍 Filter theo Job';
-    filterBtn.classList.toggle('active', !!jobId);
+/**
+ * Initialize xterm terminal
+ */
+function initTerminal() {
+  const container = document.getElementById('logs');
+  if (!container) return;
+
+  // Check if xterm is loaded globally via script tag
+  if (!window.Terminal) {
+    console.error('xterm.js not loaded');
+    container.textContent = 'Error: xterm.js library not loaded.';
+    return;
   }
+
+  // Clean container
+  container.innerHTML = '';
+
+  // Create Terminal instance
+  term = new window.Terminal({
+    cursorBlink: true,
+    convertEol: true, // Treat \n as new line
+    disableStdin: true, // Read-only
+    theme: {
+      background: '#1e1e1e',
+      foreground: '#f0f0f0',
+      cursor: '#ffffff',
+      selectionBackground: 'rgba(255, 255, 255, 0.3)'
+    },
+    fontSize: 13,
+    fontFamily: 'Consolas, monospace',
+    scrollback: 10000 // Virtual scrolling buffer size
+  });
+
+  // Load FitAddon
+  if (window.FitAddon) {
+    fitAddon = new window.FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+  }
+
+  // Mount terminal
+  term.open(container);
+  
+  if (fitAddon) {
+    fitAddon.fit();
+    // Auto resize
+    resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+    });
+    const terminalContainer = document.getElementById('terminal-container');
+    if (terminalContainer) {
+      resizeObserver.observe(terminalContainer);
+    }
+  }
+
+  term.writeln('\x1b[1;32mWelcome to Katalyst CI/CD Realtime Logs\x1b[0m');
+  term.writeln('Waiting for logs...');
 }
 
-export function openLogStream(channelId) {
-  if (state.es) { try { state.es.close(); } catch (_) {} state.es = null; }
-  const url = channelId ? `/api/logs/stream/${encodeURIComponent(channelId)}` : '/api/logs/stream';
-  const connect = () => {
-    state.es = new EventSource(url);
-    state.es.onmessage = (ev) => {
-      // Parse message để extract jobId nếu có
-      const message = ev.data;
-      let jobId = null;
-      
-      // Kiểm tra nếu message có chứa job ID pattern
-      const jobIdMatch = message.match(/\[job:(.+?)\]/);
-      if (jobIdMatch) {
-        jobId = jobIdMatch[1];
+/**
+ * Open EventSource log stream
+ */
+export function openLogStream(buildId = null) {
+  if (state.es) {
+    state.es.close();
+    state.es = null;
+  }
+
+  const url = buildId ? `/api/logs/stream?buildId=${buildId}` : '/api/logs/stream';
+  state.es = new EventSource(url);
+
+  state.es.onopen = () => {
+    // console.log('Log stream connected');
+    // appendLog('[SYSTEM] Log stream connected');
+  };
+
+  state.es.onmessage = (event) => {
+    if (!term) return;
+    try {
+      // Direct write to xterm (handles ANSI codes automatically)
+      // Replace HTML line breaks if any coming from legacy backend logic, though backend should send raw text
+      let text = event.data;
+      // If the data is JSON (some backends do this), parse it
+      if (text.startsWith('{') && text.endsWith('}')) {
+         try {
+           const json = JSON.parse(text);
+           text = json.message || json.log || text;
+         } catch(e) {}
       }
       
-      appendLog(message, jobId);
-    };
-    state.es.onerror = () => {
-      appendLog('[SSE] Lỗi kết nối, sẽ thử lại...');
-      try { state.es.close(); } catch (_) {}
-      setTimeout(connect, 2000);
-    };
+      term.writeln(text);
+      
+      // Auto scroll if "active"
+      const toggleScrollBtn = $('toggleScrollBtn');
+      if (toggleScrollBtn && toggleScrollBtn.classList.contains('active')) {
+        // Only scroll if close to bottom?? xterm usually handles this if we simply don't scroll up.
+        // Forcing it ensures it sticks.
+        term.scrollToBottom();
+      }
+    } catch (error) {
+      console.error('Error parsing log:', error);
+    }
   };
-  connect();
+
+  state.es.onerror = (err) => {
+    if (state.es.readyState === EventSource.CLOSED) {
+      // appendLog('[SYSTEM] Log stream closed');
+    } else {
+      // appendLog('[SYSTEM] Log stream error, reconnecting...');
+    }
+  };
 }
 
-// Khởi tạo event listeners cho các nút điều khiển
-export function initLogControls() {
-  console.log('Initializing log controls...');
-  
-  const scrollBtn = $('toggleScrollBtn');
-  const filterBtn = $('toggleFilterBtn');
-  const jobSelector = $('jobSelector');
-  
-  console.log('Found elements:', { scrollBtn, filterBtn, jobSelector });
-  
-  if (scrollBtn) {
-    console.log('Adding scroll button listener');
-    scrollBtn.addEventListener('click', () => {
-      console.log('Scroll button clicked');
-      toggleAutoScroll();
-    });
+/**
+ * Write a chunk of text to the terminal efficiently
+ * @param {string} text 
+ */
+export function writeLogChunk(text) {
+  if (!term) return;
+  // xterm write is already optimized for chunks
+  term.write(text);
+}
+
+/**
+ * Append log line (Legacy function signature kept for compatibility)
+ * @param {string} text 
+ */
+export function appendLog(text) {
+  if (term) {
+    term.writeln(text);
   } else {
-    console.error('Scroll button not found!');
+    // Fallback if term not ready (rare)
+    console.log('[LOG]', text);
   }
-  
-  if (filterBtn) {
-    console.log('Adding filter button listener');
-    filterBtn.addEventListener('click', () => {
-      console.log('Filter button clicked');
-      const selectedJobId = jobSelector ? jobSelector.value : null;
-      filterLogsByJob(selectedJobId);
-    });
-  } else {
-    console.error('Filter button not found!');
+}
+
+/**
+ * Clear logs
+ */
+export function clearLogs() {
+  if (term) {
+    term.clear();
   }
+}
+
+/**
+ * Get all logs (for copy/download)
+ * Note: xterm keeps data in buffer. Getting *all* lines correctly formats them.
+ */
+export function getLogContent() {
+  if (!term) return '';
   
-  if (jobSelector) {
-    console.log('Adding job selector listener');
-    jobSelector.addEventListener('change', () => {
-      console.log('Job selector changed');
-      const selectedJobId = jobSelector.value;
-      filterLogsByJob(selectedJobId);
-    });
-  } else {
-    console.error('Job selector not found!');
+  // Select all and get selection is a workaround, but accessing buffer is better
+  // Simple approach:
+  let content = '';
+  const buffer = term.buffer.active;
+  for (let i = 0; i < buffer.length; i++) {
+    const line = buffer.getLine(i);
+    if (line) {
+      content += line.translateToString(true) + '\n';
+    }
   }
-  
-  console.log('Log controls initialized');
+  return content;
+}
+
+/**
+ * Force resize terminal to fit container
+ */
+export function fitTerminal() {
+  if (fitAddon) {
+    try {
+      fitAddon.fit();
+    } catch (e) {
+      console.warn('Failed to fit terminal:', e);
+    }
+  }
 }

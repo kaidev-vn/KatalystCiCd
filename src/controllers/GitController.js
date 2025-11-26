@@ -19,6 +19,7 @@ function registerGitController(app, { gitService }) {
       res.status(400).json({ ok: false, error: e.message });
     }
   });
+  
   app.post('/api/git/check-and-build', async (req, res) => {
     try {
       const branch = String(req.body?.branch || 'main');

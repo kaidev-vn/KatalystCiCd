@@ -6,6 +6,8 @@
     <title>Katalyst</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/css/dashboard.css" />
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
     <link rel="icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
     <link rel="shortcut icon" type="image/png" href="/asset/Gemini_Generated_Image_xdmpsyxdmpsyxdmp.png" />
   </head>
@@ -702,6 +704,13 @@
               </tbody>
             </table>
           </div>
+          
+          <!-- Pagination Controls -->
+          <div class="pagination-controls" id="buildsPagination" style="display: flex; justify-content: center; align-items: center; margin-top: 20px; gap: 15px;">
+            <button id="prevBuildsPage" class="btn small outline" disabled>← Trước</button>
+            <span id="buildsPageInfo" class="muted" style="font-size: 14px;">Trang 1</span>
+            <button id="nextBuildsPage" class="btn small outline" disabled>Sau →</button>
+          </div>
         </section>
 
         <!-- Real-time Logs Section -->
@@ -722,7 +731,9 @@
               <button id="clearLogs" class="btn small secondary">🗑️ Clear</button>
             </div>
           </div>
-          <div id="logs" aria-live="polite" aria-atomic="false" class="logs"></div>
+          <div id="terminal-container" class="logs-terminal-container">
+            <div id="logs"></div>
+          </div>
         </section>
       </div>
 
@@ -1615,6 +1626,9 @@
     <script type="module" src="/js/app.js"></script>
     <script type="module" src="/js/repository.js"></script>
     <script src="/js/toast.js"></script>
+    <!-- xterm.js Libs -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
     <script src="/main.js"></script>
   </body>
   </html>

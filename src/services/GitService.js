@@ -733,7 +733,7 @@ class GitService {
     monolith = false,
     monolithConfig = { module: '', changePath: [] },
     doPull = true
-  }) {
+  }){
     // Đầu tiên kiểm tra commit mới như bình thường
     const checkResult = await this.checkNewCommitAndPull({
       repoPath,
@@ -741,11 +741,9 @@ class GitService {
       repoUrl,
       token,
       provider,
-      doPull: false // Không pull ngay, chỉ kiểm tra
+      doPull: false
     });
 
-    console.log(`[GIT][MONOLITH] checkResult: ${JSON.stringify(checkResult)}`);
-    console.log(`[GIT][MONOLITH] monolith: ${monolith}`);
     if (!checkResult.ok || !checkResult.hasNew) {
       return checkResult;
     }
@@ -776,7 +774,7 @@ class GitService {
       commitHash: checkResult.remoteHash,
       changePaths: changePath
     });
-    console.log(`[GIT][MONOLITH] monolithCheck: ${JSON.stringify(monolithCheck)}`);
+    
     // Xử lý trường hợp commit không tồn tại
     if (monolithCheck.error === 'commit_not_found') {
       this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${monolithCheck.errorMessage}`);

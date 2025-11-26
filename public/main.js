@@ -346,7 +346,7 @@ function initTheme() {
   };
 }
 
-async function loadConfig() {
+async function loadConfig_Legacy() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
   CURRENT_CFG = cfg;
@@ -982,7 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedMethod = localStorage.getItem('buildMethod') || 'dockerfile';
   selectBuildMethod(savedMethod);
   
-  loadDeployChoices().then(() => loadConfig()).catch(() => loadConfig());
+  loadDeployChoices().then(() => loadConfig_Legacy()).catch(() => loadConfig_Legacy());
   loadBuilds();
   loadVersions();
   loadBuildHistory();
@@ -1165,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(loadSchedulerStatus, 10000);
   
   // Initialize general log stream for realtime logs
-  openLogStream();
+  // openLogStream();
   
   // Add event listeners for tag input fields
   const imageTagNumberEl = $('imageTagNumber');
@@ -1825,7 +1825,10 @@ function populateJobForm(job) {
   document.getElementById('jobGitToken').value = git.token || '';
   document.getElementById('jobGitBranch').value = git.branch || 'main';
   document.getElementById('jobGitRepoUrl').value = git.repoUrl || '';
-  document.getElementById('jobGitRepoPath').value = git.repoPath || '';
+  const repoPathEl = document.getElementById('jobGitRepoPath');
+  if (repoPathEl) {
+    repoPathEl.value = git.repoPath || '';
+  }
 
   // Build configuration
   const build = job.build || job.buildConfig || {};
