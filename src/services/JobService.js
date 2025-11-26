@@ -3,10 +3,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { QueueService } = require('./QueueService');
 const { getSecretManager } = require('../utils/secrets');
-<<<<<<< HEAD
 const { DataStorageService } = require('./DataStorageService');
-=======
->>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
 
 /**
  * JobService - Service quản lý jobs (CRUD operations)
@@ -18,24 +15,16 @@ class JobService {
    * Tạo JobService instance
    * @constructor
    * @param {Object} logger - Logger instance
-<<<<<<< HEAD
    * @param {Object} [jobController] - JobController instance (optional)
    * @param {Object} [configService] - ConfigService instance (optional)
    */
   constructor(logger, jobController, configService) {
-=======
-   */
-  constructor(logger) {
->>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
     this.logger = logger;
     this.jobController = jobController;
     this.configService = configService;
     this.jobsFile = path.join(__dirname, '../../jobs.json');
     this.secretManager = getSecretManager();
-<<<<<<< HEAD
     this.storageService = new DataStorageService({ logger, dataDir: path.dirname(this.jobsFile) });
-=======
->>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
     this.ensureJobsFile();
     
     // Track running jobs to prevent polling spam
