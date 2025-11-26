@@ -634,12 +634,10 @@ class JobController {
           
           // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
           actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
-
+          console.log(`[JOB] actualRepoPath: ${actualRepoPath}`);
           this.logger?.send(`[JOB] Kiểm tra commit mới cho branch ${branch} tại ${actualRepoPath}`);
-
           if (this.gitService && actualRepoPath) {
             let check;
-            
             // Kiểm tra nếu job có cấu hình monolith thì sử dụng hàm monolith checking
             if (job.monolith && job.monolithConfig) {
               check = await this.gitService.checkNewCommitAndPullWithMonolith({
@@ -660,16 +658,6 @@ class JobController {
                   continue; // Tiếp tục kiểm tra branch khác
                 }
               }
-            } else {
-              // Kiểm tra commit thông thường
-              check = await this.gitService.checkNewCommitAndPull({
-                repoPath: actualRepoPath,
-                branch,
-                repoUrl,
-                token,
-                provider,
-                doPull: true
-              });
             }
             
             if (!check.ok) {
