@@ -618,6 +618,8 @@ class JobController {
       const repoUrl = gc.repoUrl;
       const token = gc.token;
       const provider = gc.provider || 'gitlab';
+
+      console.log(`[JOB] branchesToProcess: ${branchesToProcess.length}`);
       
       // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
       if (metadata.skipGitCheck) {
@@ -631,7 +633,7 @@ class JobController {
         // Thực hiện kiểm tra commit thông thường cho TẤT CẢ các branch
         for (const branchConfig of branchesToProcess) {
           const branch = branchConfig.name;
-          
+        
           // Đảm bảo repo đã được clone/init trước khi kiểm tra commit
           actualRepoPath = await this._ensureRepoReady({ repoPath, branch, repoUrl, token, provider });
           console.log(`[JOB] actualRepoPath: ${actualRepoPath}`);
