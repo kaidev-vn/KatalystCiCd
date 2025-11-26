@@ -722,9 +722,7 @@ class GitService {
       // ========================================
       // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
       // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u
-      const cmd = `git -C "${repoPath}" diff --name-only ${commitHash}^ ${commitHash} | cut -d '/' -f1 | sort -u`;
-
-      console.log(`git -C "${repoPath}" diff --name-only ${commitHash}^ ${commitHash} | cut -d '/' -f1 | sort -u`);
+      const cmd = `git -C "${repoPath}" diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u`;
 
       const { error, stdout } = await run(cmd, this.logger);
 
