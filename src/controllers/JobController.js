@@ -625,11 +625,37 @@ class JobController {
       // (Sử dụng cho polling trigger - commit hash đã được check bởi JobScheduler)
       if (metadata.skipGitCheck) {
         this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
-        hasNewCommit = true;
-        lastCommitHash = metadata.commitHash;
-        // Đảm bảo actualRepoPath được khởi tạo ngay cả khi skip Git check
+        
+        // Đảm bảo actualRepoPath được khởi tạo
         actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
         this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
+        
+        // ✅ QUAN TRỌNG: Vẫn phải check monolith condition cho commit này!
+        if (job.monolith && job.monolithConfig && metadata.commitHash) {
+          this.logger?.send(`[JOB] Polling trigger - Kiểm tra monolith condition cho commit: ${metadata.commitHash}`);
+          
+          // Sử dụng checkMonolithCondition để kiểm tra file changes của commit
+          const monolithCheck = await this.gitService.checkMonolithCondition({
+            repoPath: actualRepoPath,
+            commitHash: metadata.commitHash,
+            changePaths: job.monolithConfig.changePath
+          });
+          
+          if (!monolithCheck.hasRelevantChanges) {
+            this.logger?.send(`[JOB] Commit ${metadata.commitHash} không có thay đổi phù hợp với monolith module ${job.monolithConfig.module}. Bỏ qua build.`);
+            // ❌ KHÔNG set hasNewCommit → Sẽ skip build
+            hasNewCommit = false;
+            lastCommitHash = null;
+          } else {
+            this.logger?.send(`[JOB] Commit ${metadata.commitHash} có thay đổi phù hợp với monolith module ${job.monolithConfig.module}. Tiếp tục build.`);
+            hasNewCommit = true;
+            lastCommitHash = metadata.commitHash;
+          }
+        } else {
+          // Non-monolith job hoặc không có commitHash
+          hasNewCommit = true;
+          lastCommitHash = metadata.commitHash;
+        }
       } else {
         // Thực hiện kiểm tra commit thông thường cho TẤT CẢ các branch
         for (const branchConfig of branchesToProcess) {
