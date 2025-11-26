@@ -118,10 +118,6 @@ export async function loadBuildLogs(buildId, limit = 1000, offset = 0) {
   try {
     // Only clear logs if starting fresh
     if (offset === 0) {
-      const logsEl = $('logs');
-      // Ensure terminal is cleared if using xterm
-      // Or clear text content if using DOM fallback
-      if (logsEl) logsEl.textContent = '';
       // Clear xterm if available
       const { clearLogs } = await import('./logs.js');
       clearLogs();
@@ -168,10 +164,21 @@ export async function loadBuildLogs(buildId, limit = 1000, offset = 0) {
   }
 }
 
-export function viewBuildLogs(buildId) {
+export async function viewBuildLogs(buildId) {
   selectBuildForLogs(buildId);
+  
+  // Scroll to logs section
+  const logsSection = document.getElementById('logsSection');
+  if (logsSection) {
+    logsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   loadBuildLogs(buildId);
   openLogStream(buildId);
+  
+  // Ensure terminal fits
+  const { fitTerminal } = await import('./logs.js');
+  setTimeout(fitTerminal, 300); // Wait for scroll/render
 }
 
 export function clearBuildLogs() {
