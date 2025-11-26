@@ -635,10 +635,14 @@ class JobController {
           this.logger?.send(`[JOB] Polling trigger - Kiểm tra monolith condition cho commit: ${metadata.commitHash}`);
           
           // Sử dụng checkMonolithCondition để kiểm tra file changes của commit
+          // Pass repoUrl, token, provider để có thể FETCH commit từ remote nếu cần
           const monolithCheck = await this.gitService.checkMonolithCondition({
             repoPath: actualRepoPath,
             commitHash: metadata.commitHash,
-            changePaths: job.monolithConfig.changePath
+            changePaths: job.monolithConfig.changePath,
+            repoUrl,
+            token,
+            provider
           });
           
           if (!monolithCheck.hasRelevantChanges) {

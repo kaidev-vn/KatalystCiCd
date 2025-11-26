@@ -666,27 +666,50 @@ class GitService {
    * @returns {boolean} return.hasRelevantChanges - True nếu có thay đổi phù hợp
    * @returns {Array<string>} return.changedFiles - Danh sách files đã thay đổi
    */
-  async checkMonolithCondition({ repoPath, commitHash, changePaths }) {
+  async checkMonolithCondition({ repoPath, commitHash, changePaths, repoUrl = '', token = '', provider = 'gitlab' }) {
     if (!repoPath || !commitHash || !Array.isArray(changePaths) || changePaths.length === 0) {
       return { hasRelevantChanges: true, changedFiles: [] };
     }
 
     try {
-      // Đầu tiên kiểm tra xem commit có tồn tại không
-      // const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
-      // const checkCommitResult = await run(checkCommitCmd, this.logger);
+      // ========================================
+      // ✅ BƯỚC 1: Kiểm tra commit có tồn tại trong local không
+      // ========================================
+      const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
+      const checkCommitResult = await run(checkCommitCmd, this.logger);
 
-      // if (checkCommitResult.error) {
-      //   this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
-      //   // Trả về lỗi thay vì throw để xử lý ở cấp cao hơn
-      //   return {
-      //     hasRelevantChanges: false,
-      //     changedFiles: [],
-      //     error: 'commit_not_found',
-      //     errorMessage: `Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`
-      //   };
-      // }
+      if (checkCommitResult.error) {
+        this.logger?.send(`[GIT][MONOLITH-CHECK] Commit ${commitHash} chưa có trong local, thực hiện FETCH từ remote...`);
+        
+        // ========================================
+        // ✅ BƯỚC 2: FETCH commit từ remote về
+        // ========================================
+        if (repoUrl) {
+          const authUrl = this._getAuthUrl({ repoUrl, token, provider });
+          const fetchCmd = `git -C "${repoPath}" fetch ${authUrl} ${commitHash}`;
+          this.logger?.send(`[GIT][MONOLITH-CHECK] > git fetch (commit: ${commitHash.substring(0, 8)}...)`);
+          
+          const fetchResult = await run(fetchCmd, this.logger);
+          
+          if (fetchResult.error) {
+            this.logger?.send(`[GIT][MONOLITH-CHECK] ❌ Không thể fetch commit ${commitHash}: ${fetchResult.stderr || fetchResult.error.message}`);
+            // Fallback: cho phép build nếu không fetch được
+            return { hasRelevantChanges: true, changedFiles: [], error: 'fetch_failed' };
+          }
+          
+          this.logger?.send(`[GIT][MONOLITH-CHECK] ✅ Đã fetch commit ${commitHash} từ remote`);
+        } else {
+          this.logger?.send(`[GIT][MONOLITH-CHECK] ❌ Không có thông tin repoUrl để fetch commit`);
+          // Fallback: cho phép build nếu không có repoUrl
+          return { hasRelevantChanges: true, changedFiles: [], error: 'no_repo_url' };
+        }
+      } else {
+        this.logger?.send(`[GIT][MONOLITH-CHECK] ✅ Commit ${commitHash} đã tồn tại trong local`);
+      }
 
+      // ========================================
+      // ✅ BƯỚC 3: Lấy danh sách files đã thay đổi
+      // ========================================
       // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
       // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u
       const cmd = `git -C "${repoPath}" diff --name-only ${commitHash}^ ${commitHash} | cut -d '/' -f1 | sort -u`;
