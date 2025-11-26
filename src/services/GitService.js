@@ -1,5 +1,5 @@
 const { run } = require('../utils/exec');
-const { nextTag, nextTagWithConfig,nextSplitTag, splitTagIntoParts } = require('../utils/tag');
+const { nextTag, nextTagWithConfig, nextSplitTag, splitTagIntoParts } = require('../utils/tag');
 const { pathExists, normalizePathForOS } = require('../utils/file');
 
 /**
@@ -35,29 +35,29 @@ class GitService {
     // Kiểm tra thư mục repository tồn tại
     const fs = require('fs');
     const path = require('path');
-    
+
     if (!fs.existsSync(repoPath)) {
       throw new Error(`Repository directory does not exist: ${repoPath}`);
     }
-    
+
     // Kiểm tra có phải là Git repository
     const gitDir = path.join(repoPath, '.git');
     if (!fs.existsSync(gitDir)) {
       throw new Error(`Not a Git repository: ${repoPath}`);
     }
-    
+
     // Kiểm tra Git repository integrity
     const integrityCheck = await run(`git -C "${repoPath}" fsck --full --strict`, this.logger);
     if (integrityCheck.error) {
       throw new Error(`Git repository corrupt: ${integrityCheck.stderr || integrityCheck.error.message}`);
     }
-    
+
     // Kiểm tra object database
     const objectCheck = await run(`git -C "${repoPath}" cat-file -t HEAD`, this.logger);
     if (objectCheck.error) {
       throw new Error(`Git object database corrupt: ${objectCheck.stderr || objectCheck.error.message}`);
     }
-    
+
     this.logger?.send(`[GIT][VALIDATION] Repository validation passed: ${repoPath}`);
   }
 
@@ -72,7 +72,7 @@ class GitService {
       const fs = require('fs');
       const path = require('path');
       const buildHistoryPath = path.join(__dirname, '../../build-history.json');
-      
+
       if (fs.existsSync(buildHistoryPath)) {
         const content = fs.readFileSync(buildHistoryPath, 'utf8');
         return JSON.parse(content || '[]');
@@ -130,7 +130,7 @@ class GitService {
    */
   async checkAndBuild({ repoPath, branch }) {
     if (!repoPath) throw new Error('Chưa cấu hình repoPath');
-    
+
     // Nếu đang có build chạy, bỏ qua build request này
     if (this._buildPromise) {
       this.logger?.send(`[BUILD] Build đang chạy cho branch ${this._currentBranch || 'unknown'}, bỏ qua request mới cho branch ${branch}.`);
@@ -140,10 +140,10 @@ class GitService {
     // Lưu thông tin build hiện tại
     this._currentBranch = branch;
     this.logger?.send(`[BUILD] Bắt đầu build cho branch ${branch}, repo: ${repoPath}`);
-    
+
     // Tạo promise mới cho build hiện tại
     this._buildPromise = this._executeBuild({ repoPath, branch });
-    
+
     try {
       const result = await this._buildPromise;
       this.logger?.send(`[BUILD] Hoàn thành build cho branch ${branch}. Kết quả: ${result.updated ? 'thành công' : 'không có thay đổi'}`);
@@ -207,7 +207,7 @@ class GitService {
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
     this.logger?.send(`[CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
-    
+
     // VALIDATION: Check if commit hash exists locally - AFTER FETCH/PULL
     // Validation này sẽ được thực hiện SAU KHI fetch/pull thành công
     const r2 = await run(cmds[2], this.logger);
@@ -306,14 +306,14 @@ class GitService {
           // Sử dụng hệ thống tag chia 2 phần mới
           const { numberPart, textPart } = splitTagIntoParts(scriptImageTag);
           this.logger?.send(`[DEPLOY] 🏷️  Tách tag thành: số="${numberPart}", chữ="${textPart}"`);
-          
+
           scriptImageTag = nextSplitTag(numberPart, textPart, true);
           this.logger?.send(`[DEPLOY] 🔄 Auto increment script tag từ "${cfg.scriptImageTag || 'latest'}" thành "${scriptImageTag}"`);
-          
+
           // Cập nhật tag mới vào config
           this.configService.updateConfig({ scriptImageTag });
         }
-        
+
         const env = {
           CONTINUE_BUILD: 'y',
           PUSH_IMAGE: dockerCfg.registryUrl ? 'y' : 'n',
@@ -332,10 +332,10 @@ class GitService {
         this.logger?.send(`[DEPLOY] 🐳 Dockerfile path: ${effectiveDockerfile}`);
         this.logger?.send(`[DEPLOY] 🏗️  Image tag: ${scriptImageTag || 'N/A'}`);
         this.logger?.send(`[DEPLOY] 🌐 Registry URL: ${dockerCfg.registryUrl || 'N/A'}`);
-        
+
         this.logger?.send(`[DEPLOY] 🔧 Thực thi lệnh: bash "${posixPath}"`);
         const r = await run(`bash "${posixPath}"`, this.logger, { cwd: projectRoot, env });
-        
+
         if (r.error) {
           this.logger?.send(`[DEPLOY][ERROR] ❌ Deploy script thất bại!`);
           this.logger?.send(`[DEPLOY][ERROR] 📝 Error message: ${r.error.message}`);
@@ -343,12 +343,12 @@ class GitService {
             this.logger?.send(`[DEPLOY][ERROR] 📝 Stderr: ${r.stderr}`);
           }
           if (r.stderr) this.logger?.send(`[DEPLOY][STDERR] ${String(r.stderr).trim()}`);
-          try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: true }); } catch (_) {}
+          try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: true }); } catch (_) { }
           result.hadError = true;
         } else {
           if (r.stdout) this.logger?.send(`[DEPLOY][STDOUT] ${String(r.stdout).trim()}`);
           this.logger?.send('[DEPLOY] Hoàn tất deploy.sh (check-and-build)');
-          try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: false }); } catch (_) {}
+          try { this.configService.appendBuildRun({ method: 'deploy.sh', env, hadError: false }); } catch (_) { }
           // Không đặt hadError=true khi thành công lần này
         }
       }
@@ -390,18 +390,18 @@ class GitService {
       this.logger?.send(`[GIT][JOB-CHECK][WARN] Chưa cấu hình repoPath cho branch ${branch}`);
       return { ok: false, hasNew: false, error: 'repo_not_configured', message: `Chưa cấu hình repoPath cho branch ${branch}` };
     }
-    
+
     // Kiểm tra xem thư mục repo có tồn tại không
     // Chuẩn hóa đường dẫn cho hệ điều hành hiện tại
     const normalizedRepoPath = normalizePathForOS(repoPath);
-    
+
     // Kiểm tra xem đường dẫn có tồn tại không
     const exists = await pathExists(normalizedRepoPath);
     if (!exists) {
       this.logger?.send(`[GIT][JOB-CHECK][WARN] Thư mục repo không tồn tại: ${normalizedRepoPath} (original: ${repoPath})`);
       return { ok: false, hasNew: false, error: 'repo_not_exists', message: `Thư mục repo không tồn tại: ${normalizedRepoPath}` };
     }
-    
+
     // Sử dụng đường dẫn đã chuẩn hóa cho các thao tác tiếp theo
     repoPath = normalizedRepoPath;
     const cfg = this.configService.getConfig();
@@ -412,7 +412,7 @@ class GitService {
     const useHttpsAuth = !!effectiveToken && /^https?:\/\//.test(String(effectiveRepoUrl));
     let authConfig = '';
     let authUrl = effectiveRepoUrl;
-    
+
     if (useHttpsAuth) {
       try {
         // Sử dụng URL với token embedded thay vì header Authorization
@@ -441,7 +441,7 @@ class GitService {
     const remoteLine = (r1.stdout || '').trim().split('\n').find(Boolean) || '';
     const remoteHash = remoteLine.split('\t')[0] || '';
     this.logger?.send(`[GIT][JOB-CHECK] Remote ${branch} hash: ${remoteHash || '(không tìm thấy)'}`);
-    
+
     // Nếu không tìm thấy branch trên remote, không thể kiểm tra commit mới
     if (!remoteHash) {
       this.logger?.send(`[GIT][JOB-CHECK][WARN] Không tìm thấy branch ${branch} trên remote. Không thể kiểm tra commit mới.`);
@@ -506,7 +506,7 @@ class GitService {
    */
   _getAuthConfig({ token, provider }) {
     if (!token) return '';
-    
+
     const effectiveProvider = String(provider || 'gitlab').toLowerCase();
     const user = effectiveProvider === 'github' ? 'x-access-token' : 'oauth2';
     const basic = Buffer.from(`${user}:${token}`).toString('base64');
@@ -527,7 +527,7 @@ class GitService {
     if (!token || !/^https?:\/\//.test(String(repoUrl))) {
       return repoUrl;
     }
-    
+
     try {
       const urlObj = new URL(repoUrl);
       const effectiveProvider = String(provider || 'gitlab').toLowerCase();
@@ -546,33 +546,33 @@ class GitService {
    */
   async getLatestRemoteCommit({ repoUrl, branch, token, provider }) {
     this.logger?.send(`[GIT][REMOTE-ONLY] Lấy commit hash từ remote: ${repoUrl}, branch: ${branch}`);
-    
+
     // Chuẩn bị auth config
     const authConfig = this._getAuthConfig({ token, provider });
     const authUrl = this._getAuthUrl({ repoUrl, token, provider });
-    
+
     try {
       // Sử dụng ls-remote để lấy commit hash từ remote mà không cần local repo
       const cmd = `git ls-remote ${authConfig} ${authUrl} ${branch}`;
       this.logger?.send(`[GIT][REMOTE-ONLY] > ${cmd}`);
-      
+
       const result = await run(cmd, this.logger);
       if (result.error) {
         this.logger?.send(`[GIT][REMOTE-ONLY][ERROR] Lỗi khi lấy remote commit: ${result.stderr}`);
         return { ok: false, error: 'ls_remote_failed', stderr: result.stderr };
       }
-      
+
       const remoteLine = (result.stdout || '').trim().split('\n').find(Boolean) || '';
       const remoteHash = remoteLine.split('\t')[0] || '';
-      
+
       if (!remoteHash) {
         this.logger?.send(`[GIT][REMOTE-ONLY] Không tìm thấy commit hash cho branch ${branch}`);
         return { ok: false, error: 'no_commit_found' };
       }
-      
+
       this.logger?.send(`[GIT][REMOTE-ONLY] Remote commit hash: ${remoteHash}`);
       return { ok: true, remoteHash };
-      
+
     } catch (error) {
       this.logger?.send(`[GIT][REMOTE-ONLY][ERROR] Exception khi lấy remote commit: ${error.message}`);
       return { ok: false, error: 'exception', message: error.message };
@@ -585,70 +585,70 @@ class GitService {
    */
   async checkNewCommitUsingJobStorage({ repoUrl, branch, token, provider, jobId }) {
     this.logger?.send(`[GIT][JOB-STORAGE] Kiểm tra commit mới cho job ${jobId}, branch: ${branch}`);
-    
+
     if (!jobId) {
       this.logger?.send('[GIT][JOB-STORAGE][ERROR] Thiếu jobId');
       return { ok: false, error: 'job_id_required' };
     }
-    
+
     try {
       // Lấy commit hash mới nhất từ remote
       const remoteResult = await this.getLatestRemoteCommit({ repoUrl, branch, token, provider });
       if (!remoteResult.ok) {
         return remoteResult;
       }
-      
+
       const remoteHash = remoteResult.remoteHash;
-      
+
       // Đọc jobs.json để lấy commit hash đã build trước đó
       const fs = require('fs');
       const jobsData = JSON.parse(fs.readFileSync('jobs.json', 'utf8'));
       const job = jobsData.find(j => j.id === jobId);
-      
+
       if (!job) {
         this.logger?.send(`[GIT][JOB-STORAGE][ERROR] Không tìm thấy job với id: ${jobId}`);
         return { ok: false, error: 'job_not_found' };
       }
-      
+
       const lastCommitHash = job.stats?.lastCommitHash || null;
-      
+
       this.logger?.send(`[GIT][JOB-STORAGE] Remote: ${remoteHash}, Last built: ${lastCommitHash || '(chưa build)'}`);
-      
+
       // So sánh commit hash
       if (!lastCommitHash) {
         // Chưa từng build, coi như có commit mới
         this.logger?.send('[GIT][JOB-STORAGE] Chưa từng build, coi như có commit mới');
-        return { 
-          ok: true, 
-          hasNew: true, 
-          remoteHash, 
+        return {
+          ok: true,
+          hasNew: true,
+          remoteHash,
           updated: false,
           reason: 'first_build'
         };
       }
-      
+
       if (remoteHash === lastCommitHash) {
         // Commit trùng nhau, không có commit mới
         this.logger?.send('[GIT][JOB-STORAGE] Không có commit mới');
-        return { 
-          ok: true, 
-          hasNew: false, 
-          remoteHash, 
+        return {
+          ok: true,
+          hasNew: false,
+          remoteHash,
           updated: false,
           reason: 'no_new_commit'
         };
       }
-      
+
       // Có commit mới
       this.logger?.send('[GIT][JOB-STORAGE] Phát hiện commit mới');
-      return { 
-        ok: true, 
-        hasNew: true, 
-        remoteHash, 
+      return {
+        ok: true,
+        hasNew: true,
+        remoteHash,
         updated: false,
         reason: 'new_commit_found'
       };
-      
+
     } catch (error) {
       this.logger?.send(`[GIT][JOB-STORAGE][ERROR] Exception: ${error.message}`);
       return { ok: false, error: 'exception', message: error.message };
@@ -675,13 +675,13 @@ class GitService {
       // Đầu tiên kiểm tra xem commit có tồn tại không
       const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
       const checkCommitResult = await run(checkCommitCmd, this.logger);
-      
+
       if (checkCommitResult.error) {
         this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
         // Trả về lỗi thay vì throw để xử lý ở cấp cao hơn
-        return { 
-          hasRelevantChanges: false, 
-          changedFiles: [], 
+        return {
+          hasRelevantChanges: false,
+          changedFiles: [],
           error: 'commit_not_found',
           errorMessage: `Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`
         };
@@ -691,7 +691,7 @@ class GitService {
       // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u
       const cmd = `git -C "${repoPath}" diff --name-only ${commitHash}^ ${commitHash} | cut -d '/' -f1 | sort -u`;
       const { error, stdout } = await run(cmd, this.logger);
-      
+      this.logger?.send(`[GIT][MONOLITH-CHECK] > ${stdout} : ${error}`);
       if (error) {
         this.logger?.send(`[GIT][MONOLITH-CHECK] Lỗi khi lấy danh sách modules: ${error.message}`);
         return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu có lỗi
@@ -733,23 +733,23 @@ class GitService {
    * @param {boolean} params.doPull - Có thực hiện pull không
    * @returns {Promise<Object>} Kết quả kiểm tra
    */
-  async checkNewCommitAndPullWithMonolith({ 
-    repoPath, 
-    branch, 
-    repoUrl, 
-    token, 
-    provider, 
-    monolith = false, 
-    monolithConfig = { module: '', changePath: [] }, 
-    doPull = true 
+  async checkNewCommitAndPullWithMonolith({
+    repoPath,
+    branch,
+    repoUrl,
+    token,
+    provider,
+    monolith = false,
+    monolithConfig = { module: '', changePath: [] },
+    doPull = true
   }) {
     // Đầu tiên kiểm tra commit mới như bình thường
-    const checkResult = await this.checkNewCommitAndPull({ 
-      repoPath, 
-      branch, 
-      repoUrl, 
-      token, 
-      provider, 
+    const checkResult = await this.checkNewCommitAndPull({
+      repoPath,
+      branch,
+      repoUrl,
+      token,
+      provider,
       doPull: false // Không pull ngay, chỉ kiểm tra
     });
 
@@ -761,12 +761,12 @@ class GitService {
     if (!monolith) {
       if (doPull) {
         // Thực hiện pull nếu được yêu cầu
-        const pullResult = await this.checkNewCommitAndPull({ 
-          repoPath, 
-          branch, 
-          repoUrl, 
-          token, 
-          provider, 
+        const pullResult = await this.checkNewCommitAndPull({
+          repoPath,
+          branch,
+          repoUrl,
+          token,
+          provider,
           doPull: true
         });
         return pullResult;
@@ -777,21 +777,21 @@ class GitService {
     // Kiểm tra monolith condition
     const { changePath = [] } = monolithConfig;
     let monolithCheck;
-    
+
     monolithCheck = await this.checkMonolithCondition({
       repoPath,
       commitHash: checkResult.remoteHash,
       changePaths: changePath
     });
-    
+
     // Xử lý trường hợp commit không tồn tại
     if (monolithCheck.error === 'commit_not_found') {
       this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${monolithCheck.errorMessage}`);
-      return { 
-        ok: false, 
+      return {
+        ok: false,
         hasNew: false,
-        remoteHash: checkResult.remoteHash, 
-        localHash: checkResult.localHash, 
+        remoteHash: checkResult.remoteHash,
+        localHash: checkResult.localHash,
         updated: false,
         commitMessage: checkResult.commitMessage,
         error: 'commit_not_found',
@@ -801,12 +801,12 @@ class GitService {
 
     if (!monolithCheck.hasRelevantChanges) {
       this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không có thay đổi phù hợp với monolith condition, bỏ qua build`);
-      return { 
-        ok: true, 
+      return {
+        ok: true,
         hasNew: false, // Đánh dấu là không có commit mới phù hợp
         hasRelevantChanges: false, // Thêm thuộc tính này để JobController có thể kiểm tra
-        remoteHash: checkResult.remoteHash, 
-        localHash: checkResult.localHash, 
+        remoteHash: checkResult.remoteHash,
+        localHash: checkResult.localHash,
         updated: false,
         commitMessage: checkResult.commitMessage,
         monolithSkipped: true,
@@ -818,12 +818,12 @@ class GitService {
 
     if (doPull) {
       // Thực hiện pull nếu được yêu cầu
-      const pullResult = await this.checkNewCommitAndPull({ 
-        repoPath, 
-        branch, 
-        repoUrl, 
-        token, 
-        provider, 
+      const pullResult = await this.checkNewCommitAndPull({
+        repoPath,
+        branch,
+        repoUrl,
+        token,
+        provider,
         doPull: true
       });
       return { ...pullResult, monolithChecked: true, hasRelevantChanges: true };
