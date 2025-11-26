@@ -673,19 +673,19 @@ class GitService {
 
     try {
       // Đầu tiên kiểm tra xem commit có tồn tại không
-      const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
-      const checkCommitResult = await run(checkCommitCmd, this.logger);
+      // const checkCommitCmd = `git -C "${repoPath}" cat-file -t ${commitHash}`;
+      // const checkCommitResult = await run(checkCommitCmd, this.logger);
 
-      if (checkCommitResult.error) {
-        this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
-        // Trả về lỗi thay vì throw để xử lý ở cấp cao hơn
-        return {
-          hasRelevantChanges: false,
-          changedFiles: [],
-          error: 'commit_not_found',
-          errorMessage: `Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`
-        };
-      }
+      // if (checkCommitResult.error) {
+      //   this.logger?.send(`[GIT][MONOLITH-CHECK] Commit không tồn tại: ${commitHash} - ${checkCommitResult.stderr || checkCommitResult.error.message}`);
+      //   // Trả về lỗi thay vì throw để xử lý ở cấp cao hơn
+      //   return {
+      //     hasRelevantChanges: false,
+      //     changedFiles: [],
+      //     error: 'commit_not_found',
+      //     errorMessage: `Commit ${commitHash} không tồn tại trong repository: ${checkCommitResult.stderr || checkCommitResult.error.message}`
+      //   };
+      // }
 
       // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
       // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u
