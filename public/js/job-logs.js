@@ -78,6 +78,9 @@ export class JobLogsManager {
       }
     }
     
+    // Áp dụng filter log theo job
+    // filterLogsByJob(jobId); // Xterm handled by backend stream
+    
     // Mở log stream mới
     openLogStream(jobId);
   }

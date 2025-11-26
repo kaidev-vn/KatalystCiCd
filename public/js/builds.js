@@ -39,14 +39,32 @@ export async function loadBuildHistory() {
 export function renderBuildHistory() {
   const tbody = $('buildsTableBody');
   if (!tbody) return;
+  
+  // Pagination logic
+  const history = state.buildHistory || [];
+  const totalItems = history.length;
+  const { currentPage, itemsPerPage } = state.buildsPagination;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  
+  // Ensure currentPage is valid
+  if (state.buildsPagination.currentPage > totalPages) state.buildsPagination.currentPage = totalPages;
+  if (state.buildsPagination.currentPage < 1) state.buildsPagination.currentPage = 1;
+  
+  const startIndex = (state.buildsPagination.currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedItems = history.slice(startIndex, endIndex);
+  
   tbody.innerHTML = '';
-  if (!state.buildHistory.length) {
+  
+  if (!totalItems) {
     const tr = document.createElement('tr');
     const td = document.createElement('td'); td.colSpan = 8; td.textContent = 'Không có lịch sử';
     tr.appendChild(td); tbody.appendChild(tr);
+    updatePaginationControls(0, 0);
     return;
   }
-  for (const build of state.buildHistory) {
+  
+  for (const build of paginatedItems) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${build.id}</td>
@@ -61,6 +79,33 @@ export function renderBuildHistory() {
       </td>`;
     tbody.appendChild(tr);
   }
+  
+  updatePaginationControls(totalPages, state.buildsPagination.currentPage);
+}
+
+function updatePaginationControls(totalPages, currentPage) {
+  const prevBtn = $('prevBuildsPage');
+  const nextBtn = $('nextBuildsPage');
+  const pageInfo = $('buildsPageInfo');
+  
+  if (prevBtn) {
+    prevBtn.disabled = currentPage <= 1;
+    prevBtn.onclick = () => changeBuildsPage(-1);
+  }
+  
+  if (nextBtn) {
+    nextBtn.disabled = currentPage >= totalPages;
+    nextBtn.onclick = () => changeBuildsPage(1);
+  }
+  
+  if (pageInfo) {
+    pageInfo.textContent = `Trang ${currentPage} / ${totalPages || 1}`;
+  }
+}
+
+export function changeBuildsPage(delta) {
+  state.buildsPagination.currentPage += delta;
+  renderBuildHistory();
 }
 
 export function selectBuildForLogs(buildId) {
@@ -69,14 +114,58 @@ export function selectBuildForLogs(buildId) {
   if (titleEl) titleEl.textContent = `📋 Logs cho Build #${buildId}`;
 }
 
-export async function loadBuildLogs(buildId) {
+export async function loadBuildLogs(buildId, limit = 1000, offset = 0) {
   try {
-    const res = await fetch(`/api/build-history/${encodeURIComponent(buildId)}/logs`);
-    const text = await res.text();
-    const logsEl = $('logs');
-    if (logsEl) logsEl.textContent = '';
-    text.split('\n').forEach(line => appendLog(line));
-  } catch (e) { appendLog(`[UI][ERROR] ${e.message || e}`); }
+    // Only clear logs if starting fresh
+    if (offset === 0) {
+      const logsEl = $('logs');
+      // Ensure terminal is cleared if using xterm
+      // Or clear text content if using DOM fallback
+      if (logsEl) logsEl.textContent = '';
+      // Clear xterm if available
+      const { clearLogs } = await import('./logs.js');
+      clearLogs();
+    }
+
+    // Use fetch with streaming reader for better UX
+    const url = `/api/build-history/${encodeURIComponent(buildId)}/logs?limit=${limit}&offset=${offset}`;
+    
+    // If using streaming, we might want a different API endpoint or just chunk the response
+    // Here we simulate streaming by reading the response body stream
+    const response = await fetch(url);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    // Dynamically import appendLog to avoid circular dependency issues if any
+    const { writeLogChunk } = await import('./logs.js');
+
+    let buffer = '';
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      writeLogChunk(chunk);
+      buffer += chunk;
+    }
+    
+    // Check if we need to load more (simple pagination check based on buffer size)
+    // Real implementation should rely on a "hasMore" flag from backend or content-length
+    if (buffer.length > 0 && buffer.length >= limit * 50) { // Approximate check
+       // This part is tricky with simple text stream. 
+       // Ideally backend returns JSON with { logs: "...", nextOffset: 123 }
+       // For now, let's assume loadBuildLogs is called once for the file or simple chunking.
+       // To implement true "lazy loading" on scroll, we need xterm scroll event + backend range support.
+       
+       // For this iteration: Just load/stream the file content.
+       // If file is huge, we rely on xterm performance.
+    }
+
+  } catch (e) { 
+    const { appendLog } = await import('./logs.js');
+    appendLog(`[UI][ERROR] ${e.message || e}`);
+  }
 }
 
 export function viewBuildLogs(buildId) {

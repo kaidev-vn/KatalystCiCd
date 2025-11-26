@@ -35,7 +35,7 @@ class QueueService extends EventEmitter {
     // Ưu tiên sử dụng giá trị từ config.json nếu có configService
     if (this.configService) {
       const config = this.configService.getConfig();
-      this.maxConcurrentJobs = config.maxConcurrentJobs || maxConcurrentJobs;
+      this.maxConcurrentJobs = config.maxConcurrentBuilds || maxConcurrentJobs;
       this.resourceThreshold = config.resourceThreshold || resourceThreshold; // Sử dụng resourceThreshold từ config
     } else {
       this.maxConcurrentJobs = maxConcurrentJobs;
@@ -84,7 +84,7 @@ class QueueService extends EventEmitter {
     this.insertByPriority(queuedJob);
     this.stats.totalQueued++;
     
-    this.logger?.send(`[QUEUE] Job ${queuedJob.id} đã được thêm vào hàng đợi (Priority: ${queuedJob.priority})`);
+    // this.logger?.send(`[QUEUE] Job ${queuedJob.id} đã được thêm vào hàng đợi (Priority: ${queuedJob.priority})`);
     this.emit('jobQueued', queuedJob);
     
     return queuedJob.id;

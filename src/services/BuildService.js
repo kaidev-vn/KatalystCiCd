@@ -146,7 +146,7 @@ class BuildService {
    * @returns {string} return.buildId - Build instance ID
    * @throws {Error} Nếu build không tìm thấy hoặc thực thi failed
    */
-  async run(id) {
+  async run(id, jobInfo = null, commitHash = null) {
     const list = this.list();
     const it = list.find(b => b.id === id);
     if (!it) throw new Error('Không tìm thấy build');
@@ -160,7 +160,9 @@ class BuildService {
       name: it.name,
       method: 'custom',
       status: 'running',
-      startTime: startTime
+      startTime: startTime,
+      commitHash: commitHash || null,
+      jobId: jobInfo?.id || null // Thêm jobId để tracking
     });
 
     this.logger?.send(`[BUILD] Chạy build: ${it.name} (ID: ${buildId})`);
@@ -190,7 +192,9 @@ class BuildService {
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime: endTime,
-        duration: duration
+        duration: duration,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[BUILD] Hoàn tất: ${it.name} (hadError=${hadError})`);
@@ -205,7 +209,9 @@ class BuildService {
         status: 'failed',
         endTime: endTime,
         duration: duration,
-        error: error.message
+        error: error.message,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[BUILD] Lỗi: ${error.message}`);
@@ -226,7 +232,10 @@ class BuildService {
    * @returns {string} return.buildId - Build instance ID
    * @throws {Error} Nếu script failed
    */
-  async runScript(scriptPath, workingDir = null, envOverrides = {}) {
+  async runScript(scriptPath, workingDir = null, envOverrides = {}, jobInfo = null, commitHash = null) {
+    
+    this.logger?.send(`[SCRIPT] Chạy script: ${scriptPath}`);
+
     const config = this.configService.getConfig();
     const buildId = `script-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const startTime = new Date().toISOString();
@@ -238,7 +247,9 @@ class BuildService {
       method: 'script',
       status: 'running',
       startTime: startTime,
-      scriptPath: scriptPath
+      scriptPath: scriptPath,
+      commitHash: commitHash || null,
+      jobId: jobInfo?.id || null // Thêm jobId để tracking
     });
 
     this.logger?.send(`[SCRIPT BUILD] Chạy script: ${scriptPath} (ID: ${buildId})`);
@@ -310,7 +321,9 @@ class BuildService {
       this.updateBuildHistory(buildId, {
         status: hadError ? 'failed' : 'success',
         endTime: endTime,
-        duration: duration
+        duration: duration,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[SCRIPT BUILD] Hoàn tất: ${scriptPath} (hadError=${hadError})`);
@@ -325,7 +338,9 @@ class BuildService {
         status: 'failed',
         endTime: endTime,
         duration: duration,
-        error: error.message
+        error: error.message,
+        commitHash: commitHash || null,
+        jobId: jobInfo?.id || null // Thêm jobId để tracking
       });
 
       buildLogger.send(`[SCRIPT BUILD] Lỗi: ${error.message}`);
@@ -630,14 +645,47 @@ class BuildService {
   }
 
   // Build Logs Management
-  getBuildLogs(buildId) {
+  getBuildLogs(buildId, options = {}) {
+    const { limit = 1000, offset = 0 } = options;
     const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
 
-    if (fs.existsSync(logFile)) {
+    if (!fs.existsSync(logFile)) {
+      throw new Error(`Build logs not found for ID: ${buildId}`);
+    }
+
+    // Đọc toàn bộ file nếu không có phân trang
+    if (!limit && !offset) {
       return fs.readFileSync(logFile, 'utf8');
     }
 
-    throw new Error(`Build logs not found for ID: ${buildId}`);
+    // Phân trang: chỉ đọc phần cần thiết
+    const content = fs.readFileSync(logFile, 'utf8');
+    const lines = content.split('\n');
+    
+    // Tính toán chỉ số bắt đầu và kết thúc
+    const start = Math.max(0, offset);
+    const end = limit ? Math.min(lines.length, start + limit) : lines.length;
+    
+    return lines.slice(start, end).join('\n');
+  }
+
+  // Lấy thông tin về log file (kích thước, số dòng)
+  getBuildLogsInfo(buildId) {
+    const logFile = path.join(this.buildLogsDir, `${buildId}.log`);
+    
+    if (!fs.existsSync(logFile)) {
+      throw new Error(`Build logs not found for ID: ${buildId}`);
+    }
+
+    const stats = fs.statSync(logFile);
+    const content = fs.readFileSync(logFile, 'utf8');
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    return {
+      size: stats.size,
+      lineCount: lines.length,
+      exists: true
+    };
   }
 
   calculateDuration(startTime, endTime) {

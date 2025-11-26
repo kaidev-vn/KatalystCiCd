@@ -271,6 +271,13 @@ class JobService {
         lastBuildAt: null,
         lastBuildStatus: null,
         triggeredBy: null // 'polling', 'webhook', 'manual'
+      },
+      
+      // Monolith configuration
+      monolith: jobData.monolith || false,
+      monolithConfig: jobData.monolithConfig || {
+        module: '',
+        changePath: []
       }
     };
 
@@ -851,6 +858,26 @@ class JobService {
     if (jobData.buildConfig?.method === 'dockerfile') {
       if (!jobData.services || jobData.services.length === 0) {
         errors.push('At least one service must be selected for dockerfile build method');
+      }
+    }
+
+    // Validate monolith configuration
+    if (jobData.monolith) {
+      const monolithConfig = jobData.monolithConfig || {};
+      
+      if (!monolithConfig.module || monolithConfig.module.trim() === '') {
+        errors.push('Module name is required for monolith jobs');
+      }
+      
+      if (!Array.isArray(monolithConfig.changePath) || monolithConfig.changePath.length === 0) {
+        errors.push('Change path array is required for monolith jobs');
+      } else {
+        // Validate each change path
+        monolithConfig.changePath.forEach((path, index) => {
+          if (typeof path !== 'string' || path.trim() === '') {
+            errors.push(`Change path at index ${index} must be a non-empty string`);
+          }
+        });
       }
     }
 

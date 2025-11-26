@@ -111,7 +111,7 @@ class JobScheduler {
 
         // Kiểm tra nếu job đang chạy thì không thêm vào queue để tránh spam
         if (this.jobService.isJobRunning(jobId)) {
-          this.logger?.send(`[JOB-SCHEDULER] Job ${latestJob.name} (${jobId}) đang chạy, bỏ qua polling cycle này`);
+          // this.logger?.send(`[JOB-SCHEDULER] Job ${latestJob.name} (${jobId}) đang chạy, bỏ qua polling cycle này`);
           return;
         }
 
@@ -144,13 +144,14 @@ class JobScheduler {
             // Kiểm tra từng branch
             for (const branch of branchesToProcess) {
               try {
-                // Luôn sử dụng repoPath chính từ cấp root cho tất cả các branch
-                const branchHasNewCommit = await this.gitService.checkNewCommitAndPull({
-                  repoPath: gc.repoPath,
-                  branch: branch,
+                // Sử dụng phương thức mới kiểm tra commit bằng jobs.json thay vì local repository
+                // Tránh lỗi "bad object" bằng cách không sử dụng local repo
+                const branchHasNewCommit = await this.gitService.checkNewCommitUsingJobStorage({
                   repoUrl: gc.repoUrl,
+                  branch: branch,
                   token: gc.token,
-                  provider: gc.provider
+                  provider: gc.provider,
+                  jobId: jobId
                 });
                 
                 // Xử lý trường hợp thư mục repo không tồn tại
@@ -159,9 +160,16 @@ class JobScheduler {
                   continue; // Bỏ qua branch này nhưng tiếp tục kiểm tra các branch khác
                 }
                 
+                // Xử lý trường hợp commit không tồn tại - dừng kiểm tra và không chạy job
+                if (branchHasNewCommit && branchHasNewCommit.ok === false && branchHasNewCommit.error === 'commit_not_found') {
+                  this.logger?.send(`[JOB-SCHEDULER][ERROR] Commit không tồn tại trên branch ${branch} cho job ${latestJob.name}, dừng polling`);
+                  shouldRun = false;
+                  break; // Dừng kiểm tra các branch khác
+                }
+                
                 if (branchHasNewCommit && branchHasNewCommit.hasNew) {
                   hasNewCommit = true;
-                  latestCommitHash = branchHasNewCommit.commitHash || branchHasNewCommit.remoteHash;
+                  latestCommitHash = branchHasNewCommit.remoteHash; // Sửa: luôn lấy remoteHash
                   latestBranchWithCommit = branch;
                   this.logger?.send(`[JOB-SCHEDULER] Có commit mới trên branch ${branch} cho job ${latestJob.name}: ${latestCommitHash}`);
                   break; // Chỉ cần một branch có commit mới là đủ
@@ -172,7 +180,7 @@ class JobScheduler {
             }
             
             if (!hasNewCommit) {
-              this.logger?.send(`[JOB-SCHEDULER] Không có commit mới trên bất kỳ branch nào cho job ${latestJob.name}, bỏ qua polling cycle này`);
+              // this.logger?.send(`[JOB-SCHEDULER] Không có commit mới trên bất kỳ branch nào cho job ${latestJob.name}, bỏ qua polling cycle này`);
               shouldRun = false;
             }
           } catch (error) {
@@ -219,7 +227,7 @@ class JobScheduler {
                   shouldBuildAnyBranch = true;
                   this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${latestBranchWithCommit} cần được build`);
                 } else {
-                  this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${latestBranchWithCommit} đã được build trước đó (status: ${shouldBuildResult.reason})`);
+                  // this.logger?.send(`[JOB-SCHEDULER] Commit ${shouldBuildResult.commitHash} trên branch ${latestBranchWithCommit} đã được build trước đó (status: ${shouldBuildResult.reason})`);
                 }
               } catch (branchError) {
                 this.logger?.send(`[JOB-SCHEDULER][WARN] Lỗi kiểm tra lịch sử build trên branch ${latestBranchWithCommit}: ${branchError.message}`);
@@ -230,7 +238,7 @@ class JobScheduler {
             }
             
             if (!shouldBuildAnyBranch) {
-              this.logger?.send(`[JOB-SCHEDULER] Tất cả commits trên các branches đã được build trước đó, bỏ qua polling cycle này`);
+              // this.logger?.send(`[JOB-SCHEDULER] Tất cả commits trên các branches đã được build trước đó, bỏ qua polling cycle này`);
               shouldRun = false;
             }
           } catch (error) {
@@ -271,7 +279,7 @@ class JobScheduler {
     }, pollingSec * 1000);
 
     this._timers.set(jobId, intervalId);
-    this.logger?.send(`[JOB-SCHEDULER] ⏱️ Job ${job.name} (${triggerMethod}) sẽ poll mỗi ${pollingSec}s`);
+    // this.logger?.send(`[JOB-SCHEDULER] ⏱️ Job ${job.name} (${triggerMethod}) sẽ poll mỗi ${pollingSec}s`);
   }
 
   /**

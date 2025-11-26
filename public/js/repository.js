@@ -160,7 +160,7 @@ class RepositoryBrowser {
         // Some browsers expose a name only; we can't get full absolute path from the picker in web context
         // Use name as a hint and ask user to confirm/correct
         if (this.elems.input) this.elems.input.value = dirHandle.name || '';
-        alert('Vui lòng nhập chính xác đường dẫn tuyệt đối vào ô input (Directory Picker không trả về absolute path trong trình duyệt).');
+        showWarningToast('Vui lòng nhập chính xác đường dẫn tuyệt đối vào ô input (Directory Picker không trả về absolute path trong trình duyệt).');
       } catch (_) {
         // ignore cancel
       }
@@ -185,7 +185,7 @@ class RepositoryBrowser {
                    suggestions.map((path, i) => `${i + 1}. ${path}`).join('\n') + 
                    `\n\n📋 Vui lòng sao chép và dán đường dẫn vào ô input.`;
     
-    alert(message);
+    showInfoToast(message);
   }
 
   async handleLoadPath() {

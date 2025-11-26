@@ -15,7 +15,7 @@ function splitTagLocal(tag) {
 export function useCommonConfig() {
   const cfg = state.CURRENT_CFG;
   if (!cfg) {
-    alert('Không có cấu hình chung để sử dụng. Vui lòng vào tab Cấu hình chung để lưu cấu hình trước.');
+    showErrorToast('Không có cấu hình chung để sử dụng. Vui lòng vào tab Cấu hình chung để lưu cấu hình trước.');
     return;
   }
 
@@ -62,7 +62,7 @@ export function useCommonConfig() {
   updateJobTagPreview();
   updateJobScriptTagPreview();
 
-  alert('Đã áp dụng cấu hình chung vào form Job.');
+  showSuccessToast('Đã áp dụng cấu hình chung vào form Job.');
 }
 
 export async function loadJobs() {
@@ -89,17 +89,37 @@ export function renderJobsTable() {
     const tr = document.createElement('tr');
     const lastBuildStatus = job?.stats?.lastStatus || 'N/A';
     const method = job?.method || job?.buildConfig?.method || 'dockerfile';
-    const methodLabel = method === 'dockerfile' ? 'Dockerfile' : (method === 'script' ? 'Script' : (method === 'jsonfile' ? 'JSON Pipeline' : String(method)));
+    const methodLabel = method === 'dockerfile' ? 'Dockerfile' : (method === 'script' ? 'Script' : (method === 'jsonfile' ? 'JSON' : String(method)));
+    
     tr.innerHTML = `
-      <td>${job.name}</td>
-      <td><span class="status ${getStatusClass(lastBuildStatus)}">${getStatusText(lastBuildStatus)}</span></td>
-      <td>${methodLabel}</td>
-      <td>${(job.services || []).length}</td>
-      <td>${job.stats?.lastBuildTime ? new Date(job.stats.lastBuildTime).toLocaleString() : '-'}</td>
       <td>
-        <button class="btn small primary" onclick="runJob('${job.id}')">▶️ Chạy</button>
-        <button class="btn small outline" onclick="editJob('${job.id}')">✏️ Sửa</button>
-        <button class="btn small danger" onclick="deleteJob('${job.id}')">🗑️ Xóa</button>
+        <div class="job-name-cell">
+          <span class="job-name-text">${job.name}</span>
+          ${job.description ? `<span class="job-desc-text text-muted">${job.description}</span>` : ''}
+        </div>
+      </td>
+      <td class="text-center">
+        <span class="status-badge ${getStatusClass(lastBuildStatus)}">${getStatusText(lastBuildStatus)}</span>
+      </td>
+      <td class="text-center">
+        <span class="method-tag ${method}">${methodLabel}</span>
+      </td>
+      <td class="text-center">${(job.services || []).length}</td>
+      <td class="text-center text-muted small">
+        ${job.stats?.lastBuildTime ? new Date(job.stats.lastBuildTime).toLocaleString('vi-VN') : '-'}
+      </td>
+      <td class="text-right">
+        <div class="action-group">
+          <button class="btn-icon primary" onclick="runJob('${job.id}')" title="Chạy Job">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </button>
+          <button class="btn-icon secondary" onclick="editJob('${job.id}')" title="Sửa Job">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="btn-icon danger" onclick="deleteJob('${job.id}')" title="Xóa Job">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
       </td>`;
     tbody.appendChild(tr);
   });
@@ -279,10 +299,29 @@ export function populateJobForm(job) {
       cb.checked = (job.services || []).includes(cb.getAttribute('data-service'));
     });
   }, 150);
+
+  // Monolith configuration
+  const monolithEl = $('jobMonolith');
+  if (monolithEl) {
+    monolithEl.checked = !!job.monolith;
+    toggleMonolithConfig(!!job.monolith);
+  }
+  
+  const monolithModuleEl = $('jobMonolithModule');
+  if (monolithModuleEl) {
+    monolithModuleEl.value = job.monolithConfig?.module || '';
+  }
+  
+  const monolithChangePathEl = $('jobMonolithChangePath');
+  if (monolithChangePathEl) {
+    monolithChangePathEl.value = Array.isArray(job.monolithConfig?.changePath) 
+      ? JSON.stringify(job.monolithConfig.changePath, null, 2)
+      : '';
+  }
 }
 
 export function resetJobForm() {
-  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobJsonPipelinePath','jobPolling','jobCron'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  ['jobName','jobDescription','jobGitAccount','jobGitToken','jobGitBranch','jobGitRepoUrl','jobDockerfilePath','jobContextPath','jobImageName','jobImageTagNumber','jobImageTagText','jobRegistryUrl','jobRegistryUsername','jobRegistryPassword','jobScriptImageName','jobScriptImageTagNumber','jobScriptImageTagText','jobScriptRegistryUrl','jobScriptRegistryUsername','jobScriptRegistryPassword','jobJsonPipelinePath','jobPolling','jobCron','jobMonolithModule','jobMonolithChangePath'].forEach(id => { const el = $(id); if (el) el.value = ''; });
   const enabledEl = $('jobEnabled'); if (enabledEl) enabledEl.checked = true;
   const dockerRadio = document.getElementById('jobMethodDocker'); if (dockerRadio) dockerRadio.checked = true;
   toggleBuildMethodConfig('dockerfile');
@@ -291,6 +330,10 @@ export function resetJobForm() {
   const pollingRadio = document.getElementById('jobTriggerPolling');
   if (pollingRadio) pollingRadio.checked = true;
   toggleTriggerMethodConfig('polling');
+  
+  // Reset monolith config
+  const monolithEl = $('jobMonolith'); if (monolithEl) monolithEl.checked = false;
+  toggleMonolithConfig(false);
   
   document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]').forEach(cb => { cb.checked = false; });
 }
@@ -316,6 +359,13 @@ export function toggleBuildMethodConfig(method) {
 export function toggleScheduleConfig(show) {
   const sec = $('scheduleConfig');
   if (sec) sec.style.display = show ? 'block' : 'none';
+}
+
+export function toggleMonolithConfig(show) {
+  const monolithConfig = $('monolithConfig');
+  if (monolithConfig) {
+    monolithConfig.style.display = show ? 'block' : 'none';
+  }
 }
 
 export function toggleTriggerMethodConfig(method) {
@@ -403,7 +453,7 @@ export function copyWebhookUrl() {
   if (webhookUrlDisplay) {
     webhookUrlDisplay.select();
     document.execCommand('copy');
-    alert('✅ Webhook URL đã được copy vào clipboard!');
+    showSuccessToast('✅ Webhook URL đã được copy vào clipboard!');
   }
 }
 
@@ -420,17 +470,17 @@ export async function showWebhookSecret() {
           if (confirm('⚠️ Secret token đang hiển thị!\n\nẤn OK để copy vào clipboard, Cancel để ẩn lại.')) {
             webhookSecretDisplay.select();
             document.execCommand('copy');
-            alert('✅ Secret token đã được copy!');
+            showSuccessToast('✅ Secret token đã được copy!');
           }
           webhookSecretDisplay.type = 'password';
           webhookSecretDisplay.value = '••••••••••••••••';
         }, 100);
       } else {
-        alert('❌ Không thể lấy webhook secret. Vui lòng kiểm tra file .env hoặc app.js');
+        showErrorToast('❌ Không thể lấy webhook secret. Vui lòng kiểm tra file .env hoặc app.js');
       }
     } catch (error) {
       console.error('Error fetching webhook config:', error);
-      alert('❌ Lỗi khi lấy webhook config: ' + error.message);
+      showErrorToast('❌ Lỗi khi lấy webhook config: ' + error.message);
     }
   }
 }
@@ -521,7 +571,7 @@ export async function saveJob() {
   
   if (validationErrors.length > 0) {
     const errorMessage = '❌ Lỗi validation:\n\n' + validationErrors.join('\n');
-    alert(errorMessage);
+    showErrorToast(errorMessage);
     return;
   }
   
@@ -600,7 +650,23 @@ export async function saveJob() {
     
     services: Array.from(
       document.querySelectorAll('#servicesCheckboxes input[type="checkbox"]:checked')
-    ).map(cb => cb.getAttribute('data-service'))
+    ).map(cb => cb.getAttribute('data-service')),
+    
+    // Monolith configuration
+    monolith: !!$('jobMonolith')?.checked,
+    monolithConfig: {
+      module: ($('jobMonolithModule')?.value || '').trim(),
+      changePath: (() => {
+        try {
+          const changePathValue = ($('jobMonolithChangePath')?.value || '').trim();
+          if (!changePathValue) return [];
+          return JSON.parse(changePathValue);
+        } catch (e) {
+          console.error('Invalid monolith changePath JSON:', e);
+          return [];
+        }
+      })()
+    }
   };
   const url = id ? `/api/jobs/${id}` : '/api/jobs';
   const method = id ? 'PUT' : 'POST';
@@ -611,7 +677,7 @@ export async function saveJob() {
   } else {
     // Show validation errors from server to help user adjust inputs
     const msg = res?.data?.error || 'Không thể lưu Job. Vui lòng kiểm tra lại các trường bắt buộc.';
-    alert(msg + (res?.data?.details ? `\n- ${res.data.details.join('\n- ')}` : ''));
+    showErrorToast(msg + (res?.data?.details ? `\n- ${res.data.details.join('\n- ')}` : ''));
   }
 }
 

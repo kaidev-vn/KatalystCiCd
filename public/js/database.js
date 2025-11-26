@@ -436,13 +436,13 @@
       const data = await response.json();
 
       if (data.success) {
-        alert('✅ Migration thành công!');
+        showSuccessToast('✅ Migration thành công!');
         window.location.reload();
       } else {
-        alert('❌ Migration thất bại: ' + data.message);
+        showErrorToast('❌ Migration thất bại: ' + data.message);
       }
     } catch (error) {
-      alert('❌ Lỗi: ' + error.message);
+      showErrorToast('❌ Lỗi: ' + error.message);
     }
   }
 
@@ -461,13 +461,13 @@
       const data = await response.json();
 
       if (data.success) {
-        alert('✅ Database đã được reset!');
+        showSuccessToast('✅ Database đã được reset!');
         window.location.reload();
       } else {
-        alert('❌ Reset thất bại: ' + data.message);
+        showErrorToast('❌ Reset thất bại: ' + data.message);
       }
     } catch (error) {
-      alert('❌ Lỗi: ' + error.message);
+      showErrorToast('❌ Lỗi: ' + error.message);
     }
   }
 
