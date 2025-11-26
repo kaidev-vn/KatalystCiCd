@@ -731,18 +731,21 @@ class JobController {
             }
           }
         }
-        
-        // ❌ Nếu không có commit mới → SKIP BUILD cho TẤT CẢ phương thức
-        if (!hasNewCommit) {
-          this.logger?.send(`[JOB] Không có commit mới cho job ${job.name} trên các branches: ${branchesToProcess.map(b => b.name).join(', ')}. Bỏ qua build.`);
-          return {
-            success: true,
-            buildId: `skip-${Date.now()}`,
-            status: 'skipped',
-            message: 'No new commit on any branch, build skipped'
-          };
-        }
       } // ✅ Đóng else block của skipGitCheck
+      
+      // ========================================
+      // ❌ CHECK: Nếu không có commit mới → SKIP BUILD cho TẤT CẢ phương thức
+      // (Phải nằm NGOÀI else block để check cho cả skipGitCheck case!)
+      // ========================================
+      if (!hasNewCommit) {
+        this.logger?.send(`[JOB] Không có commit mới hoặc không có relevant changes cho job ${job.name}. Bỏ qua build.`);
+        return {
+          success: true,
+          buildId: `skip-${Date.now()}`,
+          status: 'skipped',
+          message: 'No new commit or no relevant changes, build skipped'
+        };
+      }
       
       this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
       this.logger?.send(`[JOB] Tiến hành build với commit mới: ${lastCommitHash}`);
