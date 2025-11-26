@@ -659,12 +659,24 @@ class JobController {
                 }
               });
               
-              if (check.ok && check.hasNew) {
+              // ✅ FIX: Kiểm tra monolith TRƯỚC common logic
+              if (!check.ok) {
+                console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
+                continue;
+              }
+              
+              if (check.hasNew) {
                 // Kiểm tra xem có thay đổi phù hợp với monolith không
                 if (!check.hasRelevantChanges) {
                   this.logger?.send(`[JOB] Commit mới trên branch ${branch} nhưng không có thay đổi phù hợp với monolith module ${job.monolithConfig.module}. Bỏ qua build.`);
-                  continue; // Tiếp tục kiểm tra branch khác
+                  continue; // ← Skip branch này (không set hasNewCommit)
                 }
+                
+                // ✅ Có relevant changes → Set hasNewCommit
+                hasNewCommit = true;
+                lastCommitHash = check.remoteHash;
+                this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch} với relevant changes: ${check.remoteHash}`);
+                break; // Chỉ cần một commit mới để trigger build
               }
             } else {
               // ✅ Kiểm tra commit thông thường (non-monolith)
@@ -678,17 +690,18 @@ class JobController {
                 provider,
                 doPull: true
               });
-            }
-            
-            if (!check.ok) {
-              console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
-              continue;
-            }
-            if (check.hasNew) {
-              hasNewCommit = true;
-              lastCommitHash = check.remoteHash;
-              this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
-              break; // Chỉ cần một commit mới để trigger build
+              
+              // Common logic cho non-monolith
+              if (!check.ok) {
+                console.log(`[JOB] Failed to check/pull commit for branch ${branch}: ${check.error}`);
+                continue;
+              }
+              if (check.hasNew) {
+                hasNewCommit = true;
+                lastCommitHash = check.remoteHash;
+                this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
+                break; // Chỉ cần một commit mới để trigger build
+              }
             }
           }
         }
