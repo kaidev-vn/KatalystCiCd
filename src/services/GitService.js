@@ -385,6 +385,7 @@ class GitService {
    * Returns: { ok, hasNew, remoteHash, localHash, updated }
    */
   async checkNewCommitAndPull({ repoPath, branch, repoUrl, token, provider, doPull = true }) {
+    
     this.logger?.send(`[GIT][JOB-CHECK][WARN] input  repoPath : ${repoPath}`);
     if (!repoPath) {
       this.logger?.send(`[GIT][JOB-CHECK][WARN] Chưa cấu hình repoPath cho branch ${branch}`);

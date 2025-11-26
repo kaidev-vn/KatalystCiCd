@@ -630,12 +630,38 @@ class JobController {
         actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
         this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
         
-        // ✅ QUAN TRỌNG: Vẫn phải check monolith condition cho commit này!
+        // ========================================
+        // ✅ BƯỚC 1: PULL code về TRƯỚC (để có commit trong working directory)
+        // ========================================
+        this.logger?.send(`[JOB] PULL code về cho commit ${metadata.commitHash}...`);
+        const pullResult = await this.gitService.checkNewCommitAndPull({
+          repoPath: actualRepoPath,
+          branch: metadata.branch || gc.branch,
+          repoUrl,
+          token,
+          provider,
+          doPull: true
+        });
+        
+        if (!pullResult.ok) {
+          this.logger?.send(`[JOB] ❌ Pull code thất bại: ${pullResult.error || 'unknown'}`);
+          return {
+            success: false,
+            buildId: `pull-failed-${Date.now()}`,
+            status: 'failed',
+            message: 'Failed to pull code from remote'
+          };
+        }
+        
+        this.logger?.send(`[JOB] ✅ Đã pull code thành công`);
+        
+        // ========================================
+        // ✅ BƯỚC 2: SAU KHI PULL, mới check monolith condition
+        // ========================================
         if (job.monolith && job.monolithConfig && metadata.commitHash) {
           this.logger?.send(`[JOB] Polling trigger - Kiểm tra monolith condition cho commit: ${metadata.commitHash}`);
           
-          // Sử dụng checkMonolithCondition để kiểm tra file changes của commit
-          // Pass repoUrl, token, provider để có thể FETCH commit từ remote nếu cần
+          // Bây giờ commit đã có trong working directory, có thể check monolith
           const monolithCheck = await this.gitService.checkMonolithCondition({
             repoPath: actualRepoPath,
             commitHash: metadata.commitHash,
@@ -656,7 +682,7 @@ class JobController {
             lastCommitHash = metadata.commitHash;
           }
         } else {
-          // Non-monolith job hoặc không có commitHash
+          // Non-monolith job → Luôn build sau khi pull
           hasNewCommit = true;
           lastCommitHash = metadata.commitHash;
         }
