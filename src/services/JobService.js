@@ -894,7 +894,6 @@ class JobService {
     const job = this.getJobById(jobId);
     if (!job) return null;
     
-<<<<<<< HEAD
     try {
       return {
         ...job,
@@ -931,24 +930,6 @@ class JobService {
         }
       };
     }
-=======
-    return {
-      ...job,
-      gitConfig: {
-        ...job.gitConfig,
-        token: this.secretManager.decrypt(job.gitConfig?.token || '') // ✅ Decrypt
-      },
-      buildConfig: {
-        ...job.buildConfig,
-        dockerConfig: {
-          ...job.buildConfig?.dockerConfig,
-          registryPassword: this.secretManager.decrypt(job.buildConfig?.dockerConfig?.registryPassword || '') // ✅ Decrypt
-        },
-        // Script config
-        registryPassword: this.secretManager.decrypt(job.buildConfig?.registryPassword || '') // ✅ Decrypt
-      }
-    };
->>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
   }
   
   /**

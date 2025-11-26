@@ -17,10 +17,6 @@ function createAuthMiddleware(authService) {
    */
   return async function authMiddleware(req, res, next) {
     try {
-<<<<<<< HEAD
-=======
-      // Check for token in Authorization header
->>>>>>> a189f18cc311807f434b036cdb8e0cc846930226
       const authHeader = req.headers.authorization;
       
       if (!authHeader) {
