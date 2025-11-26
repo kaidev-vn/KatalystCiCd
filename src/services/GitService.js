@@ -756,7 +756,7 @@ class GitService {
     });
 
     console.log(`[GIT][MONOLITH] checkResult: ${JSON.stringify(checkResult)}`);
-    
+    console.log(`[GIT][MONOLITH] monolith: ${monolith}`);
     if (!checkResult.ok || !checkResult.hasNew) {
       return checkResult;
     }
@@ -787,7 +787,7 @@ class GitService {
       commitHash: checkResult.remoteHash,
       changePaths: changePath
     });
-
+    console.log(`[GIT][MONOLITH] monolithCheck: ${JSON.stringify(monolithCheck)}`);
     // Xử lý trường hợp commit không tồn tại
     if (monolithCheck.error === 'commit_not_found') {
       this.logger?.send(`[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${monolithCheck.errorMessage}`);

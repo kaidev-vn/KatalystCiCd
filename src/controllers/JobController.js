@@ -618,19 +618,19 @@ class JobController {
       const repoUrl = gc.repoUrl;
       const token = gc.token;
       const provider = gc.provider || 'gitlab';
-
+ 
       console.log(`[JOB] branchesToProcess: ${branchesToProcess.length}`);
-
-      // // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
-      // if (metadata.skipGitCheck) {
-      //   this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
-      //   hasNewCommit = true;
-      //   lastCommitHash = metadata.commitHash;
-      //   // Đảm bảo actualRepoPath được khởi tạo ngay cả khi skip Git check
-      //   actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
-      //   this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
-      // } else {
-
+ 
+      // Kiểm tra nếu có metadata skipGitCheck thì bỏ qua kiểm tra commit
+      // (Sử dụng cho polling trigger - commit hash đã được check bởi JobScheduler)
+      if (metadata.skipGitCheck) {
+        this.logger?.send(`[JOB] Skip Git check (polling trigger), using commit hash from metadata: ${metadata.commitHash}`);
+        hasNewCommit = true;
+        lastCommitHash = metadata.commitHash;
+        // Đảm bảo actualRepoPath được khởi tạo ngay cả khi skip Git check
+        actualRepoPath = await this._ensureRepoReady({ repoPath, branch: metadata.branch || gc.branch, repoUrl, token, provider });
+        this.logger?.send(`[JOB] Build triggered by polling for branch ${metadata.branch} with commit: ${metadata.commitHash}`);
+      } else {
         // Thực hiện kiểm tra commit thông thường cho TẤT CẢ các branch
         for (const branchConfig of branchesToProcess) {
           const branch = branchConfig.name;
@@ -643,6 +643,8 @@ class JobController {
             let check;
             // Kiểm tra nếu job có cấu hình monolith thì sử dụng hàm monolith checking
             if (job.monolith && job.monolithConfig) {
+              this.logger?.send(`[JOB] Sử dụng monolith check cho module: ${job.monolithConfig.module}`);
+              
               check = await this.gitService.checkNewCommitAndPullWithMonolith({
                 repoPath: actualRepoPath,
                 branch,
@@ -650,8 +652,11 @@ class JobController {
                 token,
                 provider,
                 doPull: true,
-                module: job.monolithConfig.module,
-                changePath: job.monolithConfig.changePath
+                monolith: true,  // ✅ Đánh dấu là monolith job
+                monolithConfig: {  // ✅ Truyền object config
+                  module: job.monolithConfig.module,
+                  changePath: job.monolithConfig.changePath
+                }
               });
               
               if (check.ok && check.hasNew) {
@@ -661,6 +666,18 @@ class JobController {
                   continue; // Tiếp tục kiểm tra branch khác
                 }
               }
+            } else {
+              // ✅ Kiểm tra commit thông thường (non-monolith)
+              this.logger?.send(`[JOB] Sử dụng regular commit check (non-monolith)`);
+              
+              check = await this.gitService.checkNewCommitAndPull({
+                repoPath: actualRepoPath,
+                branch,
+                repoUrl,
+                token,
+                provider,
+                doPull: true
+              });
             }
             
             if (!check.ok) {
@@ -673,7 +690,7 @@ class JobController {
               this.logger?.send(`[JOB] Phát hiện commit mới trên branch ${branch}: ${check.remoteHash}`);
               break; // Chỉ cần một commit mới để trigger build
             }
-          // }
+          }
         }
         
         // ❌ Nếu không có commit mới → SKIP BUILD cho TẤT CẢ phương thức
@@ -686,7 +703,7 @@ class JobController {
             message: 'No new commit on any branch, build skipped'
           };
         }
-      }
+      } // ✅ Đóng else block của skipGitCheck
       
       this.logger?.send(`[JOB] Build method: ${job.buildConfig.method}`);
       this.logger?.send(`[JOB] Tiến hành build với commit mới: ${lastCommitHash}`);
