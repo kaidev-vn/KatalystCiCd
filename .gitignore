@@ -17,3 +17,4 @@ docs/
 sumaries/
 *.db
 data/
+dist/

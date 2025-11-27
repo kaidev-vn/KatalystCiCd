@@ -5,14 +5,13 @@
     "description": "",
     "enabled": true,
     "createdAt": "2025-11-12T09:27:07.455Z",
-    "updatedAt": "2025-11-26T15:22:35.438Z",
+    "updatedAt": "2025-11-27T16:09:14.190Z",
     "gitConfig": {
       "provider": "github",
       "account": "kaidev-vn",
-      "repoUrl": "https://github.com/kaidev-vn/your-repo-name.git",
       "token": "",
       "branch": "main",
-      "repoPath": "D:\\SOURCE-CODE\\Katalyst\\repo\\your-repo-name"
+      "repoUrl": "https://github.com/kaidev-vn/your-repo-name.git"
     },
     "buildConfig": {
       "method": "jsonfile",
@@ -33,6 +32,11 @@
       "lastBuildAt": "2025-11-26T15:22:35.438Z",
       "lastBuildStatus": "failed",
       "lastCommitHash": null
+    },
+    "monolith": false,
+    "monolithConfig": {
+      "module": "",
+      "changePath": []
     }
   }
 ]

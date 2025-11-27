@@ -11,6 +11,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { WebhookModule } from "./modules/webhook/webhook.module";
 import { DeployModule } from "./modules/deploy/deploy.module";
+import { EmailModule } from "./modules/email/email.module";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { DeployModule } from "./modules/deploy/deploy.module";
     AuthModule,
     WebhookModule,
     DeployModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [],
