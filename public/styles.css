@@ -4218,3 +4218,101 @@ input[type="checkbox"].switch:disabled { opacity: 0.6; cursor: not-allowed; }
     height: 32px;
   }
 }
+
+/* User Menu Dropdown Styles */
+.user-menu-wrapper {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.user-info.trigger {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-info.trigger:hover {
+  background-color: var(--bg-secondary);
+}
+
+.chevron-down {
+  margin-left: 4px;
+  color: var(--muted);
+}
+
+.user-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 200px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-hover);
+  display: none; /* Hidden by default */
+  flex-direction: column;
+  padding: 4px;
+  z-index: 1000;
+  margin-top: 8px;
+}
+
+/* Show dropdown on hover over wrapper */
+.user-menu-wrapper:hover .user-dropdown-menu {
+  display: flex;
+}
+
+/* Bridge to keep hover active when moving cursor to dropdown */
+.user-menu-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  width: 100%;
+  transition: background-color 0.1s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--bg-secondary);
+}
+
+.dropdown-item.danger {
+  color: var(--danger);
+}
+
+.dropdown-item.danger:hover {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 4px 0;
+}
+
+/* Remove old button styles within dropdown if needed */
+.dropdown-item svg {
+  flex-shrink: 0;
+}
+

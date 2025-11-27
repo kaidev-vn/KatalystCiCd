@@ -161,17 +161,15 @@
   height: 8px;
   border-radius: 50%;
   background: var(--warning);
-  animation: pulse 1.5s infinite;
 }
 
 /* Utility */
 .text-center { text-align: center; }
-.pulse { animation: pulse 2s infinite; }
+.pulse { animation: none; }
 
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% { opacity: 1; }
+  100% { opacity: 1; }
 }
 
 /* Card Header Enhancements */
