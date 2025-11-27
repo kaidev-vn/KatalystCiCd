@@ -180,6 +180,17 @@
             <span>Database</span>
             <div class="tab-indicator"></div>
           </button>
+
+          <button class="tab-btn admin-only" data-tab="users-tab">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Quản lý Tài khoản</span>
+            <div class="tab-indicator"></div>
+          </button>
         </nav>
         
         <div class="sidebar-footer">
@@ -1130,6 +1141,38 @@
         </section>
       </div>
 
+      <!-- Users Management Tab -->
+      <div id="users-tab" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h2>Quản lý Tài khoản</h2>
+            <button id="addUserBtn" class="btn primary small">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Thêm người dùng
+            </button>
+          </div>
+          
+          <div class="table-container">
+            <table class="table users-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Created At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <!-- Users will be populated here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       </main>
     </div>
     
@@ -1631,9 +1674,62 @@
       </div>
     </div> -->
 
+    <!-- User Management Modal -->
+    <div id="userModal" class="modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="userModalTitle">Thêm người dùng</h3>
+          <button id="userModalClose" class="btn small secondary">Đóng</button>
+        </div>
+        <div class="modal-body">
+          <form id="userForm">
+            <input type="hidden" id="userId" />
+            
+            <div class="form-group">
+              <label for="userUsername">Username *</label>
+              <input type="text" id="userUsername" required autocomplete="off" />
+            </div>
+            
+            <div class="form-group">
+              <label for="userEmail">Email</label>
+              <input type="email" id="userEmail" autocomplete="off" />
+            </div>
+            
+            <div class="form-group">
+              <label for="userPassword">Password <span id="passwordRequired">*</span></label>
+              <input type="password" id="userPassword" autocomplete="new-password" />
+              <small class="muted" id="passwordHint" style="display:none">Leave blank to keep current password</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="modalUserRole">Role *</label>
+              <select id="modalUserRole" required>
+                <option value="user">User (Manage Jobs & Builds)</option>
+                <option value="viewer">Viewer (Read Only)</option>
+                <option value="admin">Admin (Full Access)</option>
+              </select>
+            </div>
+
+            <!-- Permissions Info -->
+            <div class="form-group">
+              <label>Permissions</label>
+              <div id="rolePermissionsInfo" class="info-box">
+                <small class="muted">Select a role to see permissions.</small>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="saveUserBtn" class="btn primary">Lưu</button>
+          <button type="button" id="cancelUserBtn" class="btn outline">Hủy</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Refactored modular frontend -->
     <script src="/js/database.js"></script>
     <script type="module" src="/js/app.js"></script>
+    <script type="module" src="/js/users.js"></script>
     <script type="module" src="/js/repository.js"></script>
     <script src="/js/toast.js"></script>
     <!-- xterm.js Libs -->

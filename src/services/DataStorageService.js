@@ -118,7 +118,10 @@ class DataStorageService {
       throw new Error(`Loại dữ liệu không hợp lệ: ${type}`);
     }
     
-    writeJson(filePath, data);
+    const success = writeJson(filePath, data);
+    if (!success) {
+      throw new Error(`Failed to write data to ${filePath}`);
+    }
     return true;
   }
 

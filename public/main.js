@@ -51,6 +51,18 @@ function switchTab(tabId) {
       console.error('Failed to initialize Repository Browser on tab switch:', e);
     }
   }
+
+  // Users Tab
+  if (tabId === 'users-tab') {
+    console.log('[UI] Switch to users-tab');
+    if (window.userManager) {
+      console.log('[UI] Calling userManager.loadUsers()');
+      window.userManager.init();
+      window.userManager.loadUsers();
+    } else {
+      console.error('[UI] window.userManager is not defined');
+    }
+  }
 }
 
 // Fallback: dynamically ensure repository.js is loaded and initialized
