@@ -85,6 +85,7 @@ export class BuildService implements HistoryManager {
       let actualRepoPath = "";
       let hasNewCommit = false;
       let lastCommitHash: string | null = null;
+      let selectedBranchConfig: any = null; // Track which branch triggered the build
 
       if (metadata.skipGitCheck) {
         hasNewCommit = true;
@@ -93,6 +94,9 @@ export class BuildService implements HistoryManager {
           repoPath,
           this._extractRepoNameFromUrl(repoUrl),
         );
+
+        // Find branch config for the triggered branch
+        selectedBranchConfig = branchesToProcess.find(b => b.name === (metadata.branch || gc.branch));
 
         const pullResult = await this.gitService.checkNewCommitAndPull({
           repoPath: actualRepoPath,
@@ -129,6 +133,8 @@ export class BuildService implements HistoryManager {
           if (check.ok && check.hasNew) {
             hasNewCommit = true;
             lastCommitHash = check.remoteHash;
+            selectedBranchConfig = branchConfig; // Save the branch config
+            this.logger.send(`[BUILD] New commit on branch ${branch} (tagPrefix: ${branchConfig.tagPrefix || 'none'})`);
             break;
           }
         }
@@ -145,6 +151,7 @@ export class BuildService implements HistoryManager {
         jobBuilderDir,
         buildLogsDir: this.buildLogsDir,
         env: {},
+        branchConfig: selectedBranchConfig, // Pass branch config to strategies
       };
 
       let buildResult;

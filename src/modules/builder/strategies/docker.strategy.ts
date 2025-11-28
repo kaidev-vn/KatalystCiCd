@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { IBuildStrategy, BuildContext, HistoryManager } from "./build-strategy.interface";
 import { DockerService } from "../docker.service";
 import { LoggerService } from "../../../shared/logger/logger.service";
+import { nextSplitTag, splitTagIntoParts } from "../../../common/utils/tag.util";
 
 @Injectable()
 export class DockerBuildStrategy implements IBuildStrategy {
@@ -11,14 +12,34 @@ export class DockerBuildStrategy implements IBuildStrategy {
   ) {}
 
   async execute(context: BuildContext, historyManager: HistoryManager): Promise<any> {
-    const { job, repoPath, commitHash } = context;
+    const { job, repoPath, commitHash, branchConfig } = context;
     
     const dc = job.buildConfig.dockerConfig || {};
+    const bc = job.buildConfig || {};
+    
+    // Handle tag with auto-increment and branch prefix
+    let imageTag = dc.imageTag || 'latest';
+    let shouldUpdateTag = false;
+    
+    // Nếu có imageTagNumber thì dùng split tag logic
+    if (bc.imageTagNumber) {
+      const tagNumber = bc.imageTagNumber;
+      const tagText = bc.imageTagText || '';
+      const autoInc = !!(bc.autoTagIncrement || dc.autoTagIncrement);
+      const tagPrefix = branchConfig?.tagPrefix || '';
+      
+      // Generate tag với prefix và auto increment
+      imageTag = nextSplitTag(tagNumber, tagText, autoInc, tagPrefix);
+      shouldUpdateTag = autoInc; // Chỉ update nếu auto increment
+      
+      this.logger.send(`[DOCKER] Generated tag: ${imageTag} (autoInc: ${autoInc}, prefix: ${tagPrefix})`);
+    }
+    
     const params = {
       dockerfilePath: dc.dockerfilePath,
       contextPath: dc.contextPath || repoPath,
-      imageName: dc.imageName,
-      imageTag: dc.imageTag,
+      imageName: dc.imageName || bc.imageName,
+      imageTag: imageTag,
       registryUrl: dc.registryUrl,
       registryUsername: dc.registryUsername,
       registryPassword: dc.registryPassword,
@@ -26,39 +47,60 @@ export class DockerBuildStrategy implements IBuildStrategy {
       commitHash: commitHash,
     };
 
-    // Docker build in original code didn't explicitly create a build history entry in executeJobBuild
-    // EXCEPT that DockerService might log things. 
-    // Original executeJobBuild just called dockerService.buildAndPush and returned result.
-    // It didn't seem to add to build-history.json for Docker builds in the same way script/json did.
-    // However, uniformity is good. Let's check if we should add history.
-    // The original code returned { buildId: `docker-${Date.now()}` ... }
-    // But didn't call addBuildHistory.
-    // Only runScript and runPipelineFile called addBuildHistory.
-    // We should probably add it for Docker too for consistency, but strictly following migration:
-    // The user asked to refactor into strategies. 
-    // I will NOT add history if it wasn't there, or maybe I should?
-    // Let's stick to original behavior but maybe improve it later.
-    // Wait, if I don't add history, it won't show up in build history UI.
-    // Does Docker build not show up in history?
-    // Checking original BuildService...
-    // It returns a buildResult object.
-    // JobsService calls updateJobStats.
-    // It seems Docker builds were NOT recorded in build-history.json in the legacy code provided in snippets?
-    // Let's look at BuildService again.
-    // Lines 152-172 in attached file:
-    // const r = await this.dockerService.buildAndPush(params);
-    // buildResult = { buildId: ..., status: ... }
-    // No addBuildHistory call.
+    const buildId = `docker-${Date.now()}`;
+    const startTime = new Date().toISOString();
     
-    // I will implement execute to just call dockerService.
+    // Add to build history
+    historyManager.addHistory({
+      id: buildId,
+      name: `Docker: ${params.imageName}:${params.imageTag}`,
+      method: "docker",
+      status: "running",
+      startTime,
+      commitHash,
+      jobId: job.id,
+      jobName: job.name,
+    });
     
-    const r = await this.dockerService.buildAndPush(params);
-    
-    return {
-      buildId: `docker-${Date.now()}`,
-      status: r.hadError ? "failed" : "completed",
-      message: r.hadError ? "Docker build failed" : "Docker build completed",
-    };
+    try {
+      const r = await this.dockerService.buildAndPush(params);
+      
+      const endTime = new Date().toISOString();
+      historyManager.updateHistory(buildId, {
+        status: r.hadError ? "failed" : "success",
+        endTime,
+      });
+      
+      // Nếu build thành công và auto-increment, update tag trong job
+      if (!r.hadError && shouldUpdateTag) {
+        const parts = splitTagIntoParts(imageTag);
+        this.logger.send(`[DOCKER] Auto-increment tag: ${parts.numberPart} (will be saved to job config)`);
+        // Return updated tag để JobService có thể update
+        return {
+          buildId,
+          status: "completed",
+          message: "Docker build completed",
+          updatedTag: {
+            numberPart: parts.numberPart,
+            textPart: parts.textPart
+          }
+        };
+      }
+      
+      return {
+        buildId,
+        status: r.hadError ? "failed" : "completed",
+        message: r.hadError ? "Docker build failed" : "Docker build completed",
+      };
+    } catch (error) {
+      const endTime = new Date().toISOString();
+      historyManager.updateHistory(buildId, {
+        status: "failed",
+        endTime,
+        error: error.message
+      });
+      throw error;
+    }
   }
 }
 

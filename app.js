@@ -32,41 +32,41 @@ const path = require('path');
 const app = express();
 
 // New architecture (services & utils)
-const { Logger } = require('./src/utils/logger');
-const { ConfigService } = require('./src/services/ConfigService');
-const { DataStorageService } = require('./src/services/DataStorageService');
+const { Logger } = require('./src_legacy/utils/logger');
+const { ConfigService } = require('./src_legacy/services/ConfigService');
+const { DataStorageService } = require('./src_legacy/services/DataStorageService');
 
-const { DockerService } = require('./src/services/DockerService');
-const { GitService } = require('./src/services/GitService');
-const { Scheduler } = require('./src/services/Scheduler');
-const { BuildService } = require('./src/services/BuildService');
-const { registerConfigController } = require('./src/controllers/ConfigController');
-const { registerBuildsController } = require('./src/controllers/BuildsController');
-const { registerGitController } = require('./src/controllers/GitController');
-const { registerDockerController } = require('./src/controllers/DockerController');
-const { registerPullController } = require('./src/controllers/PullController');
-const { registerWebhookController } = require('./src/controllers/WebhookController');
-const { registerDeployController } = require('./src/controllers/DeployController');
-const { SchedulerController } = require('./src/controllers/SchedulerController');
-const JobController = require('./src/controllers/JobController');
-const { JobScheduler } = require('./src/services/JobScheduler');
-const QueueController = require('./src/controllers/QueueController');
-const { RepositoryController } = require('./src/controllers/RepositoryController');
-const { EmailService } = require('./src/services/EmailService');
-const { registerEmailController } = require('./src/controllers/EmailController');
-const { WebhookService } = require('./src/services/WebhookService');
+const { DockerService } = require('./src_legacy/services/DockerService');
+const { GitService } = require('./src_legacy/services/GitService');
+const { Scheduler } = require('./src_legacy/services/Scheduler');
+const { BuildService } = require('./src_legacy/services/BuildService');
+const { registerConfigController } = require('./src_legacy/controllers/ConfigController');
+const { registerBuildsController } = require('./src_legacy/controllers/BuildsController');
+const { registerGitController } = require('./src_legacy/controllers/GitController');
+const { registerDockerController } = require('./src_legacy/controllers/DockerController');
+const { registerPullController } = require('./src_legacy/controllers/PullController');
+const { registerWebhookController } = require('./src_legacy/controllers/WebhookController');
+const { registerDeployController } = require('./src_legacy/controllers/DeployController');
+const { SchedulerController } = require('./src_legacy/controllers/SchedulerController');
+const JobController = require('./src_legacy/controllers/JobController');
+const { JobScheduler } = require('./src_legacy/services/JobScheduler');
+const QueueController = require('./src_legacy/controllers/QueueController');
+const { RepositoryController } = require('./src_legacy/controllers/RepositoryController');
+const { EmailService } = require('./src_legacy/services/EmailService');
+const { registerEmailController } = require('./src_legacy/controllers/EmailController');
+const { WebhookService } = require('./src_legacy/services/WebhookService');
 
 // Database Manager
-const dbManager = require('./src/config/database');
-const { registerDatabaseController } = require('./src/controllers/DatabaseController');
+const dbManager = require('./src_legacy/config/database');
+const { registerDatabaseController } = require('./src_legacy/controllers/DatabaseController');
 
 // Auth & User Management
-const { UserService } = require('./src/services/UserService');
-const { AuthService } = require('./src/services/AuthService');
-const { createAuthMiddleware } = require('./src/middleware/auth');
-const { requireAdmin } = require('./src/middleware/rbac');
-const { registerAuthController } = require('./src/controllers/AuthController');
-const { registerUserController } = require('./src/controllers/UserController');
+const { UserService } = require('./src_legacy/services/UserService');
+const { AuthService } = require('./src_legacy/services/AuthService');
+const { createAuthMiddleware } = require('./src_legacy/middleware/auth');
+const { requireAdmin } = require('./src_legacy/middleware/rbac');
+const { registerAuthController } = require('./src_legacy/controllers/AuthController');
+const { registerUserController } = require('./src_legacy/controllers/UserController');
 
 app.use(bodyParser.json());
 

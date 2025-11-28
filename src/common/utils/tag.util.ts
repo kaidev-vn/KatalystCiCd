@@ -1,157 +1,116 @@
 /**
- * Tag Utility Functions
+ * Tag utility functions
+ * Port from src_legacy/utils/tag.js
  */
 
-export function splitTagIntoParts(tag: string) {
-  if (!tag || tag === "latest") {
-    return { numberPart: "1.0.75", textPart: "" };
-  }
-
-  const lastDashIndex = tag.lastIndexOf("-");
-  if (lastDashIndex === -1) {
-    return { numberPart: tag, textPart: "" };
-  }
-
-  const numberPart = tag.substring(0, lastDashIndex);
-  const textPart = tag.substring(lastDashIndex + 1);
-
-  return { numberPart, textPart };
+export interface TagParts {
+  numberPart: string;
+  textPart: string;
 }
 
+/**
+ * Tách tag thành phần number và text
+ * @example
+ * splitTagIntoParts("1.0.75-BETA") => { numberPart: "1.0.75", textPart: "BETA" }
+ */
+export function splitTagIntoParts(tag: string): TagParts {
+  if (!tag) return { numberPart: '', textPart: '' };
+  
+  const str = String(tag);
+  const dashIndex = str.indexOf('-');
+  
+  if (dashIndex === -1) {
+    // Không có dấu gạch ngang
+    if (/^\d/.test(str)) {
+      return { numberPart: str, textPart: '' };
+    } else {
+      return { numberPart: '', textPart: str };
+    }
+  }
+  
+  return {
+    numberPart: str.substring(0, dashIndex),
+    textPart: str.substring(dashIndex + 1)
+  };
+}
+
+/**
+ * Tự động tăng phần number của tag
+ * @example
+ * incrementVersion("1.0.75") => "1.0.76"
+ * incrementVersion("1.2") => "1.3"
+ */
+export function incrementVersion(versionStr: string): string {
+  if (!versionStr) return '1.0.0';
+  
+  const parts = versionStr.split('.');
+  if (parts.length === 0) return '1.0.0';
+  
+  // Tăng phần cuối cùng
+  const lastIndex = parts.length - 1;
+  const lastPart = parseInt(parts[lastIndex], 10);
+  
+  if (isNaN(lastPart)) {
+    // Nếu không parse được, append .1
+    return `${versionStr}.1`;
+  }
+  
+  parts[lastIndex] = String(lastPart + 1);
+  return parts.join('.');
+}
+
+/**
+ * Tạo tag tiếp theo với auto increment (nếu enabled)
+ * @param numberPart - Phần số hiện tại (vd: "1.0.75")
+ * @param textPart - Phần chữ (vd: "BETA")
+ * @param autoIncrement - Có tự động tăng không
+ * @param tagPrefix - Prefix cho tag (optional, vd: "RELEASE")
+ * @returns Tag mới
+ */
 export function nextSplitTag(
   numberPart: string,
   textPart: string,
-  autoIncrement = false,
+  autoIncrement: boolean = false,
+  tagPrefix: string = ''
 ): string {
-  let newNumberPart = numberPart || "1.0.75";
-
+  let num = numberPart || '1.0.0';
+  let text = textPart || '';
+  
   if (autoIncrement) {
-    const match = newNumberPart.match(/(\d+)(?!.*\d)/);
-    if (match) {
-      const numStr = match[1];
-      const width = numStr.length;
-      const num = parseInt(numStr, 10) + 1;
-      const nextNumStr = String(num).padStart(width, "0");
-      const prefix = newNumberPart.slice(0, match.index);
-      const suffix = newNumberPart.slice(match.index + numStr.length);
-      newNumberPart = `${prefix}${nextNumStr}${suffix}`;
+    num = incrementVersion(num);
+  }
+  
+  // Xử lý prefix
+  if (tagPrefix) {
+    // Nếu có prefix, thêm vào trước textPart
+    if (text) {
+      text = `${tagPrefix}-${text}`;
+    } else {
+      text = tagPrefix;
     }
   }
-
-  if (!textPart) return newNumberPart;
-  return `${newNumberPart}-${textPart}`;
+  
+  if (text) {
+    return `${num}-${text}`;
+  }
+  
+  return num;
 }
 
-export function parseTag(
-  tag: string,
-  expectedPrefix = "",
-  expectedSuffix = "",
-) {
-  if (!tag) return { prefix: "", version: null, suffix: "", versionWidth: 0 };
-
-  let workingTag = tag;
-  let actualPrefix = "";
-  let actualSuffix = "";
-
-  if (expectedPrefix && workingTag.startsWith(expectedPrefix)) {
-    actualPrefix = expectedPrefix;
-    workingTag = workingTag.slice(expectedPrefix.length);
-  }
-
-  if (expectedSuffix && workingTag.endsWith(expectedSuffix)) {
-    actualSuffix = expectedSuffix;
-    workingTag = workingTag.slice(0, -expectedSuffix.length);
-  }
-
-  const versionMatch = workingTag.match(/^(\d+)$/);
-  if (versionMatch) {
-    return {
-      prefix: actualPrefix,
-      version: parseInt(versionMatch[1], 10),
-      suffix: actualSuffix,
-      versionWidth: versionMatch[1].length,
-    };
-  }
-
-  const lastNumberMatch = tag.match(/(\d+)(?!.*\d)/);
-  if (lastNumberMatch) {
-    const numberStr = lastNumberMatch[1];
-    const numberIndex = lastNumberMatch.index || 0;
-    return {
-      prefix: tag.slice(0, numberIndex),
-      version: parseInt(numberStr, 10),
-      suffix: tag.slice(numberIndex + numberStr.length),
-      versionWidth: numberStr.length,
-    };
-  }
-
-  return { prefix: tag, version: null, suffix: "", versionWidth: 0 };
-}
-
-export function nextTag(current: string): string {
-  const s = String(current || "latest");
-  const match = s.match(/(\d+)(?!.*\d)/);
-  if (match) {
-    const numStr = match[1];
-    const width = numStr.length;
-    const num = parseInt(numStr, 10) + 1;
-    const nextNumStr = String(num).padStart(width, "0");
-    const prefix = s.slice(0, match.index);
-    const suffix = s.slice(match.index + numStr.length);
-    return `${prefix}${nextNumStr}${suffix}`;
-  }
-  const ts = new Date()
-    .toISOString()
-    .replace(/[-:TZ]/g, "")
-    .slice(0, 12);
-  return `${s}-${ts}`;
-}
-
-export function nextTagWithConfig(current: string, options: any = {}): string {
-  const {
-    prefix = "",
-    suffix = "",
-    startVersion = 1,
-    versionWidth = 0,
-  } = options;
-
-  if (!current || current === "latest") {
-    const versionStr =
-      versionWidth > 0
-        ? String(startVersion).padStart(versionWidth, "0")
-        : String(startVersion);
-    return `${prefix}${versionStr}${suffix}`;
-  }
-
-  const parsed = parseTag(current, prefix, suffix);
-
-  if (parsed.version !== null) {
-    const newVersion = (parsed.version || 0) + 1;
-    const versionStr =
-      versionWidth > 0
-        ? String(newVersion).padStart(versionWidth, "0")
-        : String(newVersion);
-    return `${prefix}${versionStr}${suffix}`;
-  }
-
-  return nextTag(current);
-}
-
-export function createTagConfigFromCurrent(currentTag: string) {
-  if (!currentTag || currentTag === "latest") {
-    return {
-      prefix: "1.0.",
-      suffix: "-BETA",
-      startVersion: 1,
-      versionWidth: 2,
-    };
-  }
-
-  const parsed = parseTag(currentTag);
-  return {
-    prefix: parsed.prefix || "",
-    suffix: parsed.suffix || "",
-    startVersion: parsed.version || 1,
-    versionWidth: parsed.versionWidth || 0,
-  };
+/**
+ * Tạo tag từ branch config
+ * @param baseNumber - Base version number
+ * @param baseText - Base text part
+ * @param autoInc - Auto increment
+ * @param branchConfig - Branch configuration with tagPrefix
+ * @returns Generated tag
+ */
+export function generateTagForBranch(
+  baseNumber: string,
+  baseText: string,
+  autoInc: boolean,
+  branchConfig: { tagPrefix?: string; name?: string }
+): string {
+  const prefix = branchConfig?.tagPrefix || '';
+  return nextSplitTag(baseNumber, baseText, autoInc, prefix);
 }

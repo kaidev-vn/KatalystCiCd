@@ -3,17 +3,20 @@ import { JobsService } from "../jobs/jobs.service";
 import { ConfigService } from "../../config/config.service";
 import { QueueService } from "../queue/queue.service";
 import { LoggerService } from "../../shared/logger/logger.service";
+import { GitService } from "../builder/git.service";
 
 @Injectable()
 export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private isRunning = false;
+  private lastCheckedCommits: Map<string, string> = new Map(); // jobId -> commitHash
 
   constructor(
     private readonly jobsService: JobsService,
     private readonly configService: ConfigService,
     private readonly queueService: QueueService,
     private readonly logger: LoggerService,
+    private readonly gitService: GitService,
   ) {}
 
   onModuleInit() {
@@ -90,7 +93,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
   private async checkJob(job: any) {
     try {
-      // Retrieve latest job state to check if enabled/running
+      // 1. Retrieve latest job state
       const currentJob = await this.jobsService.getJobById(job.id);
       if (
         !currentJob ||
@@ -101,59 +104,118 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // If job is running, skip check
-      // JobsService should have isJobRunning check?
-      // I didn't expose isJobRunning in JobsService publicly or runningJobs set.
-      // Let's add public method isJobRunning to JobsService.
-      // For now, assume we proceed.
-
-      // Add to queue with skipGitCheck=true metadata so that build service handles git check logic properly (pull first then check)
-      // Actually, the logic in JobController/BuildService "skipGitCheck" was for when polling ALREADY confirmed a commit.
-      // But here Scheduler is doing the polling.
-      // If Scheduler adds to queue blindly, the Queue processor will run BuildService.
-      // BuildService has logic: if skipGitCheck=true, it uses provided commitHash.
-      // If NOT skipGitCheck, it checks for new commit.
-
-      // So Scheduler should just add to queue?
-      // If we add to queue every 30 seconds, queue fills up.
-      // We need to check if "something changed" BEFORE adding to queue?
-      // Or let BuildService check.
-      // If BuildService checks, it takes time and resource.
-      // Ideally Scheduler checks git lightweightly.
-
-      // Legacy JobScheduler checked git using GitService.
-      // "const result = await this.gitService.checkNewCommitAndPull(...)"
-      // If new, add to queue.
-
-      // I need to use GitService here.
-      // But GitService is in BuilderModule.
-      // I should inject GitService.
-
-      // Let's defer this refinement. For now, I will implement a basic scheduler that does NOT trigger blindly.
-      // It should ideally check git.
-      // But importing GitService here creates more coupling.
-
-      // Let's just log for now that "Polling logic not fully migrated in SchedulerService to avoid spamming queue".
-      // Or simply trust that JobsService/BuildService handles "no new commit" quickly.
-      // If I call queueService.addJob, it goes to queue.
-      // Queue processes it. BuildService runs. Checks git. If no new commit, skips.
-      // This is fine, but spammy for queue.
-
-      // Ideally, SchedulerService uses GitService to check remote HEAD vs local HEAD.
-      // If different, add to queue.
-
-      // I will leave it as a TODO or simple log for now to avoid complexity in this turn.
-      this.logger.send(`[SCHEDULER] Polling job ${job.name}...`);
+      const gc = currentJob.gitConfig || {};
+      const repoUrl = gc.repoUrl;
+      const token = gc.token;
+      const provider = gc.provider || 'gitlab';
       
-      // In real implementation:
-      // 1. Check if job is already running (to avoid overlap)
-      // 2. Check for new commits using GitService
-      // 3. If new commit, add to queue
+      if (!repoUrl) {
+        this.logger.send(`[SCHEDULER][WARN] Job ${job.name} không có repoUrl, skip`);
+        return;
+      }
+
+      // 2. Get branches to check (support multi-branch)
+      const branchesToCheck: any[] = [];
+      if (gc.branch) branchesToCheck.push({ name: gc.branch, enabled: true });
+      if (Array.isArray(gc.branches)) {
+        gc.branches.forEach((b: any) => {
+          if (b.enabled && b.name && !branchesToCheck.find(x => x.name === b.name)) {
+            branchesToCheck.push(b);
+          }
+        });
+      }
+      if (branchesToCheck.length === 0) {
+        branchesToCheck.push({ name: 'main', enabled: true });
+      }
+
+      // 3. Check each branch for new commits
+      for (const branchConfig of branchesToCheck) {
+        const branch = branchConfig.name;
+        
+        try {
+          // Get repo path (build context path)
+          const cfg = await this.configService.getConfig();
+          let baseContext = cfg.contextInitPath || cfg.deployContextCustomPath || '';
+          if (!baseContext) {
+            baseContext = gc.repoPath ? require('path').dirname(gc.repoPath) : process.cwd();
+          }
+          
+          const path = require('path');
+          const katalystRoot = path.join(baseContext, 'Katalyst');
+          const repoPath = path.join(katalystRoot, 'repo');
+          const repoName = this.extractRepoNameFromUrl(repoUrl);
+          const actualRepoPath = path.join(repoPath, repoName);
+
+          this.logger.send(`[SCHEDULER] Checking job ${job.name} on branch ${branch}...`);
+
+          // Check for new commit (lightweight check)
+          const checkResult = await this.gitService.checkNewCommitAndPull({
+            repoPath: actualRepoPath,
+            branch,
+            repoUrl,
+            token,
+            provider,
+            doPull: false, // Don't pull yet, just check remote
+          });
+
+          if (checkResult.ok && checkResult.hasNew) {
+            const remoteHash = checkResult.remoteHash;
+            const lastCheckedKey = `${job.id}-${branch}`;
+            const lastChecked = this.lastCheckedCommits.get(lastCheckedKey);
+
+            // Only trigger if commit hash is different from last checked
+            if (remoteHash && remoteHash !== lastChecked) {
+              this.logger.send(
+                `[SCHEDULER] ✅ New commit detected for job ${job.name} on branch ${branch}: ${remoteHash}`
+              );
+
+              // Add to queue with metadata
+              this.queueService.addJob({
+                jobId: job.id,
+                name: `Auto Build - ${job.name} (${branch})`,
+                priority: 'medium',
+                metadata: {
+                  skipGitCheck: true, // We already checked
+                  commitHash: remoteHash,
+                  branch: branch,
+                  triggeredBy: 'scheduler'
+                }
+              });
+
+              // Update last checked commit
+              this.lastCheckedCommits.set(lastCheckedKey, remoteHash);
+              
+              // Break after first new commit found (don't check other branches)
+              break;
+            } else {
+              this.logger.send(
+                `[SCHEDULER] Job ${job.name} on branch ${branch}: commit ${remoteHash} already checked`
+              );
+            }
+          } else if (checkResult.hasNew === false) {
+            this.logger.send(
+              `[SCHEDULER] Job ${job.name} on branch ${branch}: no new commits`
+            );
+          }
+        } catch (branchError) {
+          this.logger.send(
+            `[SCHEDULER][ERROR] Failed to check branch ${branch} for job ${job.name}: ${branchError.message}`
+          );
+        }
+      }
     } catch (error) {
       this.logger.send(
-        `[SCHEDULER] Error checking job ${job.name}: ${error.message}`,
+        `[SCHEDULER][ERROR] Error checking job ${job.name}: ${error.message}`,
       );
     }
+  }
+
+  private extractRepoNameFromUrl(repoUrl: string): string {
+    if (!repoUrl) return 'unknown-repo';
+    let name = repoUrl.replace(/\.git$/, '');
+    const parts = name.split('/');
+    name = parts[parts.length - 1];
+    return name.replace(/[^a-zA-Z0-9_-]/g, '-');
   }
 
   private stopJob(jobId: string) {
