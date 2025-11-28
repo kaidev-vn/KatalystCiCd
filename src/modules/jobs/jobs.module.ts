@@ -6,7 +6,11 @@ import { BuilderModule } from "../builder/builder.module";
 import { EmailModule } from "../email/email.module";
 
 @Module({
-  imports: [forwardRef(() => QueueModule), BuilderModule, EmailModule],
+  imports: [
+    forwardRef(() => QueueModule),
+    BuilderModule,
+    EmailModule
+  ],
   controllers: [JobsController],
   providers: [JobsService],
   exports: [JobsService],

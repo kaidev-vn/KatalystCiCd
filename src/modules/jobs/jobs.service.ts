@@ -15,6 +15,7 @@ export class JobsService {
   private jobsFile: string;
   private secretManager = getSecretManager();
   private runningJobs = new Set<string>();
+  private schedulerService: any = null; // Inject via setter to avoid circular dependency
 
   constructor(
     private readonly logger: LoggerService,
@@ -29,6 +30,27 @@ export class JobsService {
 
     this.queueService.setJobExecutor(this._jobExecutor.bind(this));
     this.queueService.setJobService(this);
+  }
+
+  /**
+   * Setter method để inject SchedulerService (tránh circular dependency)
+   */
+  setSchedulerService(schedulerService: any) {
+    this.schedulerService = schedulerService;
+  }
+
+  /**
+   * Restart scheduler khi có thay đổi jobs
+   */
+  async restartScheduler() {
+    if (this.schedulerService) {
+      try {
+        await this.schedulerService.restart();
+        this.logger.send('[JOBS] ✅ Scheduler đã được restart sau thay đổi jobs');
+      } catch (e) {
+        this.logger.send(`[JOBS][WARN] Không thể restart scheduler: ${e.message}`);
+      }
+    }
   }
 
   private async _jobExecutor(queueJob: QueueJob) {

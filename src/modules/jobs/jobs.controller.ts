@@ -50,6 +50,13 @@ export class JobsController {
       console.warn(`[JOB][WARN] Không thể tạo file script sau khi tạo job: ${e.message}`);
     }
     
+    // ✅ Restart scheduler để nhận job mới (via JobsService)
+    try {
+      await this.jobsService.restartScheduler();
+    } catch (e) {
+      console.warn(`[JOB][WARN] Không thể restart scheduler: ${e.message}`);
+    }
+    
     return newJob;
   }
 
@@ -64,17 +71,42 @@ export class JobsController {
       console.warn(`[JOB][WARN] Không thể cập nhật file script sau khi update job: ${e.message}`);
     }
     
+    // ✅ Restart scheduler để áp dụng thay đổi (via JobsService)
+    try {
+      await this.jobsService.restartScheduler();
+    } catch (e) {
+      console.warn(`[JOB][WARN] Không thể restart scheduler: ${e.message}`);
+    }
+    
     return updatedJob;
   }
 
   @Delete(":id")
   async deleteJob(@Param("id") id: string) {
-    return await this.jobsService.deleteJob(id);
+    const result = await this.jobsService.deleteJob(id);
+    
+    // ✅ Restart scheduler để remove job đã xóa (via JobsService)
+    try {
+      await this.jobsService.restartScheduler();
+    } catch (e) {
+      console.warn(`[JOB][WARN] Không thể restart scheduler: ${e.message}`);
+    }
+    
+    return result;
   }
 
   @Post(":id/toggle")
   async toggleJob(@Param("id") id: string) {
-    return await this.jobsService.toggleJob(id);
+    const updatedJob = await this.jobsService.toggleJob(id);
+    
+    // ✅ Restart scheduler để áp dụng trạng thái mới (via JobsService)
+    try {
+      await this.jobsService.restartScheduler();
+    } catch (e) {
+      console.warn(`[JOB][WARN] Không thể restart scheduler: ${e.message}`);
+    }
+    
+    return updatedJob;
   }
 
   @Post(":id/run")

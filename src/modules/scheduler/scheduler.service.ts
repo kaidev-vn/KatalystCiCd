@@ -20,6 +20,9 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    // Set scheduler service vào JobsService để tránh circular dependency
+    this.jobsService.setSchedulerService(this);
+    
     this.restart();
   }
 
