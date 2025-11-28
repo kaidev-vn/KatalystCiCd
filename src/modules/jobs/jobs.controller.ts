@@ -41,12 +41,30 @@ export class JobsController {
 
   @Post()
   async createJob(@Body() jobData: any) {
-    return await this.jobsService.createJob(jobData);
+    const newJob = await this.jobsService.createJob(jobData);
+    
+    // Tạo file build-script.sh hoặc JSON pipeline nếu cần
+    try {
+      await this.jobsService.ensureJobScript(newJob);
+    } catch (e) {
+      console.warn(`[JOB][WARN] Không thể tạo file script sau khi tạo job: ${e.message}`);
+    }
+    
+    return newJob;
   }
 
   @Put(":id")
   async updateJob(@Param("id") id: string, @Body() updateData: any) {
-    return await this.jobsService.updateJob(id, updateData);
+    const updatedJob = await this.jobsService.updateJob(id, updateData);
+    
+    // Cập nhật file build-script.sh hoặc JSON pipeline nếu cần
+    try {
+      await this.jobsService.ensureJobScript(updatedJob);
+    } catch (e) {
+      console.warn(`[JOB][WARN] Không thể cập nhật file script sau khi update job: ${e.message}`);
+    }
+    
+    return updatedJob;
   }
 
   @Delete(":id")

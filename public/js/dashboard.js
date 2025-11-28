@@ -67,14 +67,17 @@ function updateStats() {
     // We can check queue from state if available, or fetch
     fetchJSON('/api/queue/status').then(({ ok, data }) => {
         if (ok) {
+            // Backend trả về: { success, status: { queue, running, completed, failed }, stats }
+            const queueData = data.status || data || {};
+            
             const queueEl = $('dashQueueSize');
-            if (queueEl) queueEl.textContent = (data.waiting || []).length;
+            if (queueEl) queueEl.textContent = (queueData.queue || []).length;
             
             // Also update running count for sidebar widget
             const runningEl = $('dashRunningCount');
-            if (runningEl) runningEl.textContent = (data.active || []).length;
+            if (runningEl) runningEl.textContent = (queueData.running || []).length;
             
-            updateRunningWidget((data.active || []));
+            updateRunningWidget((queueData.running || []));
         }
     });
 

@@ -44,7 +44,57 @@ class JobController {
   async getAllJobs(req, res) {
     try {
       const jobs = this.jobService.getAllJobs();
-      res.json(jobs);
+      
+      // Enrich jobs with stats from build history
+      const enrichedJobs = jobs.map(job => {
+        try {
+          // Get build history for this job
+          const buildHistory = this.jobService.getBuildHistoryForJob(job.id);
+          
+          // Get last build info
+          let lastBuildTime = null;
+          let lastBuildStatus = null;
+          let totalBuilds = buildHistory.length;
+          let successfulBuilds = 0;
+          
+          if (buildHistory && buildHistory.length > 0) {
+            const lastBuild = buildHistory[0]; // Assuming sorted by time desc
+            lastBuildTime = lastBuild.startTime || lastBuild.time || lastBuild.timestamp;
+            lastBuildStatus = lastBuild.status;
+            
+            // Count successful builds
+            successfulBuilds = buildHistory.filter(b => 
+              (b.status || '').toLowerCase() === 'success' || 
+              (b.status || '').toLowerCase() === 'completed'
+            ).length;
+          }
+          
+          return {
+            ...job,
+            stats: {
+              lastBuildTime,
+              lastBuildStatus,
+              totalBuilds,
+              successfulBuilds,
+              successRate: totalBuilds > 0 ? Math.round((successfulBuilds / totalBuilds) * 100) : 0
+            }
+          };
+        } catch (err) {
+          console.warn(`Failed to get stats for job ${job.id}:`, err.message);
+          return {
+            ...job,
+            stats: {
+              lastBuildTime: null,
+              lastBuildStatus: null,
+              totalBuilds: 0,
+              successfulBuilds: 0,
+              successRate: 0
+            }
+          };
+        }
+      });
+      
+      res.json(enrichedJobs);
     } catch (error) {
       console.error('Error getting jobs:', error);
       res.status(500).json({ error: 'Failed to get jobs' });

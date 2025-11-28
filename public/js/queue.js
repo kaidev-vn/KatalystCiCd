@@ -4,7 +4,8 @@ import { state } from './state.js';
 export async function loadQueueStatus() {
   const { ok, data } = await fetchJSON('/api/queue/status');
   if (!ok) return;
-  state.queueStatus = data || { queue: [], running: [], completed: [], failed: [] };
+  // Backend trả về: { success, status: { queue, running, completed, failed }, stats }
+  state.queueStatus = data.status || data || { queue: [], running: [], completed: [], failed: [] };
   renderQueueStatus();
   renderQueueList();
   renderRunningJobs();

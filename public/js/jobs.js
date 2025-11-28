@@ -87,7 +87,8 @@ export function renderJobsTable() {
   }
   state.jobs.forEach(job => {
     const tr = document.createElement('tr');
-    const lastBuildStatus = job?.stats?.lastStatus || 'N/A';
+    // Fix: Dùng đúng field từ backend API (lastBuildStatus)
+    const lastBuildStatus = job?.stats?.lastBuildStatus || 'N/A';
     const method = job?.method || job?.buildConfig?.method || 'dockerfile';
     const methodLabel = method === 'dockerfile' ? 'Dockerfile' : (method === 'script' ? 'Script' : (method === 'jsonfile' ? 'JSON' : String(method)));
     
@@ -145,17 +146,21 @@ export function updateJobStats() {
 
 export function getStatusClass(status) {
   const s = String(status || '').toLowerCase();
-  if (s === 'success') return 'success';
-  if (s === 'failed') return 'failed';
-  if (s === 'running') return 'running';
+  if (s === 'success' || s === 'completed') return 'success';
+  if (s === 'failed' || s === 'error') return 'failed';
+  if (s === 'running' || s === 'active') return 'running';
+  if (s === 'queued' || s === 'pending') return 'pending';
+  if (s === 'n/a' || s === 'unknown' || !status) return 'unknown';
   return 'unknown';
 }
 
 export function getStatusText(status) {
   const s = String(status || '').toLowerCase();
-  if (s === 'success') return 'Thành công';
-  if (s === 'failed') return 'Thất bại';
-  if (s === 'running') return 'Đang chạy';
+  if (s === 'success' || s === 'completed') return 'Thành công';
+  if (s === 'failed' || s === 'error') return 'Thất bại';
+  if (s === 'running' || s === 'active') return 'Đang chạy';
+  if (s === 'queued' || s === 'pending') return 'Đang chờ';
+  if (s === 'n/a') return 'Chưa build';
   return 'Không rõ';
 }
 
