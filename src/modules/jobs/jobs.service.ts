@@ -77,18 +77,59 @@ export class JobsService {
   }
 
   private async sendBuildNotification(job: any, result: any) {
-      const status = result.success ? "Success" : "Failed";
-      const subject = `[CI/CD] Build ${status}: ${job.name}`;
-      const text = `Job: ${job.name}\nStatus: ${status}\nBuild ID: ${result.buildId}\nMessage: ${result.message}`;
+      const cfg = await this.configService.getConfig();
+      const emailCfg = cfg.email || {};
       
-      // Check if job has specific email notification settings
-      // Assuming configService or job config has notifyEmails
-      // But EmailService handles reading from global config.
-      // If we want job-specific emails, we'd pass toList here.
+      if (!emailCfg.enableEmailNotify) return;
+      
+      const recipients = Array.isArray(emailCfg.notifyEmails) ? emailCfg.notifyEmails : [];
+      if (!recipients.length) return;
+
+      // Build status label
+      const statusLabel = result.status === 'completed' ? 'THÀNH CÔNG' : 
+                         (result.status === 'failed' ? 'THẤT BẠI' : 
+                         result.status?.toUpperCase());
+      
+      const subject = `[CI/CD] Job "${job.name}" ${statusLabel}`;
+
+      // Collect detailed information
+      const gc = job.gitConfig || {};
+      const bc = job.buildConfig || {};
+      const method = bc.method || 'dockerfile';
+      
+      // Format time in Vietnam timezone
+      const timeStr = new Date().toLocaleString('vi-VN', { 
+        timeZone: 'Asia/Ho_Chi_Minh' 
+      });
+
+      // Build email content with all details (same as legacy)
+      const lines = [
+        `Job: ${job.name}`,
+        `Trạng thái: ${statusLabel}`,
+        `Phương thức build: ${method}`,
+        result.commitHash ? `Commit: ${result.commitHash}` : undefined,
+        result.message ? `Message: ${result.message}` : undefined,
+        result.buildId ? `Build ID: ${result.buildId}` : undefined,
+        gc.branch ? `Branch: ${gc.branch}` : undefined,
+        gc.repoUrl ? `Repo: ${gc.repoUrl}` : undefined,
+        `Thời gian: ${timeStr}`,
+        result.failureReason ? `Lý do thất bại: ${result.failureReason}` : undefined,
+      ].filter(Boolean);
+
+      const text = lines.join('\n');
+      
+      // HTML template with styling (same as legacy)
+      const html = `<div style="font-family:Arial,sans-serif;line-height:1.6">
+        ${lines.map(l => `<div>${l}</div>`).join('')}
+        <hr/>
+        <div>CI/CD System</div>
+      </div>`;
       
       await this.emailService.sendNotificationEmail({
+          toList: recipients,
           subject,
-          text
+          text,
+          html
       });
   }
 
