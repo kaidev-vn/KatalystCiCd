@@ -98,16 +98,46 @@ export class BuildService implements HistoryManager {
         // Find branch config for the triggered branch
         selectedBranchConfig = branchesToProcess.find(b => b.name === (metadata.branch || gc.branch));
 
-        const pullResult = await this.gitService.checkNewCommitAndPull({
-          repoPath: actualRepoPath,
-          branch: metadata.branch || gc.branch,
-          repoUrl,
-          token,
-          provider,
-          doPull: true,
-        });
+        // Check monolith condition nếu job là monolith
+        let pullResult;
+        if (job.monolith && job.monolithConfig) {
+          pullResult = await this.gitService.checkNewCommitAndPullWithMonolith({
+            repoPath: actualRepoPath,
+            branch: metadata.branch || gc.branch,
+            repoUrl,
+            token,
+            provider,
+            doPull: true,
+            monolith: true,
+            monolithConfig: {
+              module: job.monolithConfig.module,
+              changePath: job.monolithConfig.changePath,
+            },
+          });
+        } else {
+          pullResult = await this.gitService.checkNewCommitAndPull({
+            repoPath: actualRepoPath,
+            branch: metadata.branch || gc.branch,
+            repoUrl,
+            token,
+            provider,
+            doPull: true,
+          });
+        }
 
         if (!pullResult.ok) throw new Error(`Pull failed: ${pullResult.error}`);
+        
+        // Nếu là monolith và không có relevant changes, skip build
+        if (job.monolith && pullResult.hasRelevantChanges === false) {
+          this.logger.send(
+            `[BUILD][MONOLITH] Commit ${pullResult.remoteHash} không có thay đổi phù hợp với monolith condition, skip build`,
+          );
+          return {
+            success: true,
+            status: "skipped",
+            message: "No relevant changes for monolith",
+          };
+        }
       } else {
         for (const branchConfig of branchesToProcess) {
           const branch = branchConfig.name;
@@ -121,20 +151,48 @@ export class BuildService implements HistoryManager {
             await run(`git clone ${repoUrl} "${actualRepoPath}"`, this.logger);
           }
 
-          const check = await this.gitService.checkNewCommitAndPull({
-            repoPath: actualRepoPath,
-            branch,
-            repoUrl,
-            token,
-            provider,
-            doPull: true,
-          });
+          // Kiểm tra monolith condition nếu job là monolith
+          let check;
+          if (job.monolith && job.monolithConfig) {
+            check = await this.gitService.checkNewCommitAndPullWithMonolith({
+              repoPath: actualRepoPath,
+              branch,
+              repoUrl,
+              token,
+              provider,
+              doPull: true,
+              monolith: true,
+              monolithConfig: {
+                module: job.monolithConfig.module,
+                changePath: job.monolithConfig.changePath,
+              },
+            });
+          } else {
+            check = await this.gitService.checkNewCommitAndPull({
+              repoPath: actualRepoPath,
+              branch,
+              repoUrl,
+              token,
+              provider,
+              doPull: true,
+            });
+          }
 
           if (check.ok && check.hasNew) {
+            // Nếu là monolith và không có relevant changes, skip
+            if (job.monolith && check.hasRelevantChanges === false) {
+              this.logger.send(
+                `[BUILD][MONOLITH] Commit ${check.remoteHash} không có thay đổi phù hợp với monolith condition cho branch ${branch}, bỏ qua`,
+              );
+              continue; // Skip branch này, tiếp tục kiểm tra branch khác
+            }
+
             hasNewCommit = true;
             lastCommitHash = check.remoteHash;
             selectedBranchConfig = branchConfig; // Save the branch config
-            this.logger.send(`[BUILD] New commit on branch ${branch} (tagPrefix: ${branchConfig.tagPrefix || 'none'})`);
+            this.logger.send(
+              `[BUILD] New commit on branch ${branch} (tagPrefix: ${branchConfig.tagPrefix || "none"})`,
+            );
             break;
           }
         }

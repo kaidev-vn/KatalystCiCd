@@ -151,17 +151,48 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
           this.logger.send(`[SCHEDULER] Checking job ${job.name} on branch ${branch}...`);
 
-          // Check for new commit (lightweight check)
-          const checkResult = await this.gitService.checkNewCommitAndPull({
-            repoPath: actualRepoPath,
-            branch,
-            repoUrl,
-            token,
-            provider,
-            doPull: false, // Don't pull yet, just check remote
-          });
+          // Check for new commit (with monolith checking if applicable)
+          let checkResult;
+          if (job.monolith && job.monolithConfig) {
+            checkResult = await this.gitService.checkNewCommitAndPullWithMonolith({
+              repoPath: actualRepoPath,
+              branch,
+              repoUrl,
+              token,
+              provider,
+              doPull: false, // Don't pull yet, just check remote
+              monolith: true,
+              monolithConfig: {
+                module: job.monolithConfig.module,
+                changePath: job.monolithConfig.changePath,
+              },
+            });
+          } else {
+            checkResult = await this.gitService.checkNewCommitAndPull({
+              repoPath: actualRepoPath,
+              branch,
+              repoUrl,
+              token,
+              provider,
+              doPull: false, // Don't pull yet, just check remote
+            });
+          }
 
           if (checkResult.ok && checkResult.hasNew) {
+            // Nếu là monolith job và không có relevant changes, skip
+            if (
+              job.monolith &&
+              checkResult.hasRelevantChanges === false
+            ) {
+              this.logger.send(
+                `[SCHEDULER][MONOLITH] Commit ${checkResult.remoteHash} không có thay đổi phù hợp với monolith condition cho job ${job.name}, branch ${branch}, bỏ qua`,
+              );
+              // Vẫn cập nhật lastChecked để không check lại commit này
+              const lastCheckedKey = `${job.id}-${branch}`;
+              this.lastCheckedCommits.set(lastCheckedKey, checkResult.remoteHash);
+              continue; // Skip branch này, tiếp tục kiểm tra branch khác
+            }
+
             const remoteHash = checkResult.remoteHash;
             const lastCheckedKey = `${job.id}-${branch}`;
             const lastChecked = this.lastCheckedCommits.get(lastCheckedKey);
@@ -169,35 +200,35 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
             // Only trigger if commit hash is different from last checked
             if (remoteHash && remoteHash !== lastChecked) {
               this.logger.send(
-                `[SCHEDULER] ✅ New commit detected for job ${job.name} on branch ${branch}: ${remoteHash}`
+                `[SCHEDULER] ✅ New commit detected for job ${job.name} on branch ${branch}: ${remoteHash}`,
               );
 
               // Add to queue with metadata
               this.queueService.addJob({
                 jobId: job.id,
                 name: `Auto Build - ${job.name} (${branch})`,
-                priority: 'medium',
+                priority: "medium",
                 metadata: {
                   skipGitCheck: true, // We already checked
                   commitHash: remoteHash,
                   branch: branch,
-                  triggeredBy: 'scheduler'
-                }
+                  triggeredBy: "scheduler",
+                },
               });
 
               // Update last checked commit
               this.lastCheckedCommits.set(lastCheckedKey, remoteHash);
-              
+
               // Break after first new commit found (don't check other branches)
               break;
             } else {
               this.logger.send(
-                `[SCHEDULER] Job ${job.name} on branch ${branch}: commit ${remoteHash} already checked`
+                `[SCHEDULER] Job ${job.name} on branch ${branch}: commit ${remoteHash} already checked`,
               );
             }
           } else if (checkResult.hasNew === false) {
             this.logger.send(
-              `[SCHEDULER] Job ${job.name} on branch ${branch}: no new commits`
+              `[SCHEDULER] Job ${job.name} on branch ${branch}: no new commits`,
             );
           }
         } catch (branchError) {

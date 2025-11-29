@@ -199,4 +199,198 @@ export class GitService {
       commitMessage,
     };
   }
+
+  /**
+   * Kiểm tra xem commit có chứa thay đổi phù hợp với monolith condition không
+   * @async
+   * @param {Object} params - Parameters
+   * @param {string} params.repoPath - Đường dẫn repo local
+   * @param {string} params.commitHash - Commit hash để kiểm tra
+   * @param {Array<string>} params.changePaths - Danh sách đường dẫn cần kiểm tra
+   * @returns {Promise<Object>} Kết quả kiểm tra
+   * @returns {boolean} return.hasRelevantChanges - True nếu có thay đổi phù hợp
+   * @returns {Array<string>} return.changedFiles - Danh sách files đã thay đổi
+   */
+  async checkMonolithCondition({
+    repoPath,
+    commitHash,
+    changePaths,
+  }: {
+    repoPath: string;
+    commitHash: string;
+    changePaths: string[];
+  }) {
+    if (
+      !repoPath ||
+      !commitHash ||
+      !Array.isArray(changePaths) ||
+      changePaths.length === 0
+    ) {
+      return { hasRelevantChanges: true, changedFiles: [] };
+    }
+
+    try {
+      // Lấy danh sách files đã thay đổi
+      // Sử dụng lệnh git diff để lấy danh sách modules đã thay đổi
+      // git diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u
+      const cmd = `git -C "${repoPath}" diff --name-only HEAD^ HEAD | cut -d '/' -f1 | sort -u`;
+
+      const { error, stdout } = await run(cmd, this.logger);
+
+      this.logger.send(
+        `[GIT][MONOLITH-CHECK] > ${stdout} : ${error || "ok"}`,
+      );
+      if (error) {
+        this.logger.send(
+          `[GIT][MONOLITH-CHECK] Lỗi khi lấy danh sách modules: ${error.message}`,
+        );
+        return { hasRelevantChanges: true, changedFiles: [] }; // Fallback: cho phép build nếu có lỗi
+      }
+
+      const changedModules = stdout.trim().split("\n").filter(Boolean);
+      this.logger.send(
+        `[GIT][MONOLITH-CHECK] Modules changed in commit ${commitHash}: ${changedModules.join(", ")}`,
+      );
+
+      // Kiểm tra xem có module nào phù hợp với changePaths không
+      const hasRelevantChanges = changedModules.some((module) => {
+        return changePaths.some((path) => {
+          // Kiểm tra nếu module khớp với đường dẫn được chỉ định
+          // Hoặc nếu đường dẫn là prefix của module
+          return module === path || module.startsWith(path);
+        });
+      });
+
+      this.logger.send(
+        `[GIT][MONOLITH-CHECK] Has relevant changes for monolith: ${hasRelevantChanges}`,
+      );
+      return { hasRelevantChanges, changedFiles: changedModules };
+    } catch (error) {
+      this.logger.send(
+        `[GIT][MONOLITH-CHECK] Lỗi khi kiểm tra monolith condition: ${error.message}`,
+      );
+      throw error; // Re-throw lỗi để xử lý ở cấp cao hơn
+    }
+  }
+
+  /**
+   * Kiểm tra commit mới với monolith condition
+   * @async
+   * @param {Object} params - Parameters
+   * @param {string} params.repoPath - Đường dẫn repo local
+   * @param {string} params.branch - Branch name
+   * @param {string} params.repoUrl - Repository URL
+   * @param {string} params.token - Git token
+   * @param {string} params.provider - Git provider
+   * @param {boolean} params.monolith - Có phải monolith job không
+   * @param {Object} params.monolithConfig - Cấu hình monolith
+   * @param {string} params.monolithConfig.module - Tên module
+   * @param {Array<string>} params.monolithConfig.changePath - Danh sách đường dẫn cần kiểm tra
+   * @param {boolean} params.doPull - Có thực hiện pull không
+   * @returns {Promise<Object>} Kết quả kiểm tra
+   */
+  async checkNewCommitAndPullWithMonolith({
+    repoPath,
+    branch,
+    repoUrl,
+    token,
+    provider,
+    monolith = false,
+    monolithConfig = { module: "", changePath: [] },
+    doPull = true,
+  }: any) {
+    // Đầu tiên kiểm tra commit mới như bình thường
+    const checkResult = await this.checkNewCommitAndPull({
+      repoPath,
+      branch,
+      repoUrl,
+      token,
+      provider,
+      doPull: false,
+    });
+
+    if (!checkResult.ok || !checkResult.hasNew) {
+      return checkResult;
+    }
+
+    // Nếu không phải monolith job, trả về kết quả bình thường
+    if (!monolith) {
+      if (doPull) {
+        // Thực hiện pull nếu được yêu cầu
+        const pullResult = await this.checkNewCommitAndPull({
+          repoPath,
+          branch,
+          repoUrl,
+          token,
+          provider,
+          doPull: true,
+        });
+        return pullResult;
+      }
+      return checkResult;
+    }
+
+    // Kiểm tra monolith condition
+    const { changePath = [] } = monolithConfig;
+    let monolithCheck;
+
+    monolithCheck = await this.checkMonolithCondition({
+      repoPath,
+      commitHash: checkResult.remoteHash,
+      changePaths: changePath,
+    });
+
+    // Xử lý trường hợp commit không tồn tại
+    if (monolithCheck.error === "commit_not_found") {
+      this.logger.send(
+        `[GIT][MONOLITH] Commit ${checkResult.remoteHash} không tồn tại, dừng build: ${monolithCheck.errorMessage}`,
+      );
+      return {
+        ok: false,
+        hasNew: false,
+        remoteHash: checkResult.remoteHash,
+        localHash: checkResult.localHash,
+        updated: false,
+        commitMessage: checkResult.commitMessage,
+        error: "commit_not_found",
+        stderr: monolithCheck.errorMessage,
+      };
+    }
+
+    if (!monolithCheck.hasRelevantChanges) {
+      this.logger.send(
+        `[GIT][MONOLITH] Commit ${checkResult.remoteHash} không có thay đổi phù hợp với monolith condition, bỏ qua build`,
+      );
+      return {
+        ok: true,
+        hasNew: false, // Đánh dấu là không có commit mới phù hợp
+        hasRelevantChanges: false, // Thêm thuộc tính này để có thể kiểm tra
+        remoteHash: checkResult.remoteHash,
+        localHash: checkResult.localHash,
+        updated: false,
+        commitMessage: checkResult.commitMessage,
+        monolithSkipped: true,
+        reason: "no_relevant_changes_for_monolith",
+      };
+    }
+
+    this.logger.send(
+      `[GIT][MONOLITH] Commit ${checkResult.remoteHash} có thay đổi phù hợp với monolith condition, tiếp tục build`,
+    );
+
+    if (doPull) {
+      // Thực hiện pull nếu được yêu cầu
+      const pullResult = await this.checkNewCommitAndPull({
+        repoPath,
+        branch,
+        repoUrl,
+        token,
+        provider,
+        doPull: true,
+      });
+      return { ...pullResult, monolithChecked: true, hasRelevantChanges: true };
+    }
+
+    return { ...checkResult, monolithChecked: true, hasRelevantChanges: true };
+  }
 }
